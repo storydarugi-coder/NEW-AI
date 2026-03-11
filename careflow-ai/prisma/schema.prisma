@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Patient {
+  id          String   @id @default(cuid())
+  chartNumber String   @unique
+  name        String
+  gender      String
+  birthYear   Int
+  phone       String
+  memo        String?
+  isVip       Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  visits                Visit[]
+  recallRecommendations RecallRecommendation[]
+  messageDrafts         MessageDraft[]
+}
+
+model Visit {
+  id        String   @id @default(cuid())
+  patientId String
+  visitDate DateTime
+  memo      String?
+  createdAt DateTime @default(now())
+
+  patient    Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  diagnoses  Diagnosis[]
+  procedures Procedure[]
+
+  @@index([patientId])
+  @@index([visitDate])
+}
+
+model Diagnosis {
+  id      String  @id @default(cuid())
+  visitId String
+  code    String
+  name    String
+  tooth   String?
+
+  visit Visit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@index([visitId])
+  @@index([code])
+}
+
+model Procedure {
+  id      String  @id @default(cuid())
+  visitId String
+  code    String
+  name    String
+  tooth   String?
+
+  visit Visit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@index([visitId])
+  @@index([code])
+}
+
+model RecallRecommendation {
+  id             String    @id @default(cuid())
+  patientId      String
+  ruleType       String
+  subType        String
+  priority       Int       @default(3)
+  status         String    @default("pending")
+  reason         String
+  evidenceDate   DateTime?
+  evidenceDetail String?
+  dueDate        DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([ruleType])
+  @@index([status])
+  @@index([priority])
+}
+
+model MessageDraft {
+  id        String   @id @default(cuid())
+  patientId String
+  recallId  String?
+  tone      String   @default("polite")
+  length    String   @default("medium")
+  content   String
+  status    String   @default("draft")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([status])
+}
+
+model RuleConfig {
+  id          String   @id @default(cuid())
+  ruleType    String   @unique
+  displayName String
+  description String
+  enabled     Boolean  @default(true)
+  parameters  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
