@@ -158,11 +158,24 @@ export function DashboardContent({
 }: DashboardContentProps) {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">대시보드</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          오늘의 환자 관리 현황을 한눈에 확인하세요
-        </p>
+      {/* 제품 소개 배너 */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-5 text-white shadow-md">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold">CareFlow AI 환자 리콜 관리</h1>
+            <p className="text-blue-100 text-sm mt-1">
+              치료 중단 의심 환자 발굴 · 리콜 자동 추천 · 개인화 문자 초안 — 오늘 확인이 필요한 환자를 한눈에
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Link href="/patients" className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors">
+              환자 목록
+            </Link>
+            <Link href="/about" className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-colors">
+              제품 소개
+            </Link>
+          </div>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -304,6 +317,11 @@ export function DashboardContent({
           </div>
         </CardContent>
       </Card>
+
+      {/* 의료 면책 고지 */}
+      <p className="text-center text-xs text-gray-400 py-2">
+        ⚕️ CareFlow AI는 병원 운영 보조 도구이며, 의료적 판단을 대신하지 않습니다. 모든 추천은 참고용입니다.
+      </p>
     </div>
   );
 }

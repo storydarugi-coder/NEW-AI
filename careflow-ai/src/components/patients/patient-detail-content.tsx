@@ -366,9 +366,12 @@ export function PatientDetailContent({ data }: Props) {
                     <p className="text-sm text-gray-700 whitespace-pre-wrap">{msg.content}</p>
                   </div>
                 ))}
-                <p className="text-[10px] text-gray-400">
-                  * 이 문자 초안은 운영 보조용이며, 발송 전 반드시 내용을 확인해 주세요. 실제 발송은 V2에서 제공됩니다.
-                </p>
+                <div className="bg-amber-50/50 border border-amber-100 rounded-lg px-3 py-2 flex items-start gap-2">
+                  <Info size={12} className="text-amber-500 mt-0.5 shrink-0" />
+                  <p className="text-[11px] text-amber-700">
+                    운영 참고용 초안입니다. 발송 전 반드시 내용을 검토해 주세요. 실제 문자 발송 기능은 추후 제공됩니다.
+                  </p>
+                </div>
               </CardContent>
             </Card>
           )}

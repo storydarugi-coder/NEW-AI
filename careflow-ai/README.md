@@ -144,19 +144,48 @@ npm run test:watch # 감시 모드
 
 ---
 
+## 대표 데모 시나리오
+
+데모 시 아래 순서로 설명하면 제품 가치를 1분 안에 전달할 수 있습니다:
+
+| 순서 | 환자 | 케이스 | 설명 포인트 |
+|------|------|--------|------------|
+| 1 | 김민수 | 신경치료 중단 | "발수 후 46일 경과, 근관충전 안 함. 바쁜 직장인이 통증 사라지면 안 옴" |
+| 2 | 정태영 (VIP) | VIP 이탈 위험 | "가족 4인 모두 환자. 근관충전 23일 미내원. VIP이므로 높은 우선순위" |
+| 3 | 한지은 | 보철 중단 | "크라운 인상 후 30일 경과, 세팅 안 함. 비용 문제 추정" |
+| 4 | 남궁석 (VIP) | 치주 관리 누락 | "만성치주염 10년차, 3~4개월 주기 필수. 5개월 경과" |
+| 5 | 문정훈 (VIP) | 임플란트 점검 | "보철 완료 2개월 전, 1개월 점검 누락. 당뇨 환자" |
+| 6 | 민경호 (VIP) | 복합 케이스 | "임플란트+신경치료 중단+스케일링 3건 동시 탐지. 최고 점수" |
+| 7 | 석진우 | 정상 종료 | "발수+근관충전 같은 날 완료 → 탐지 안 됨. 엔진의 정확성 입증" |
+| 8 | 탁지민 | 교정 잠재수요 | "상담+검사까지 완료했으나 비용 부담으로 미시작. 전환 기회" |
+
+---
+
 ## 배포 가이드
 
 ### Vercel (권장)
 
-1. GitHub 레포지토리를 Vercel에 연결
-2. Build Settings:
-   - Framework: Next.js
-   - Build Command: `npx prisma generate && next build`
-   - Output Directory: `.next`
-3. Environment Variables 설정:
-   - `DATABASE_URL`: SQLite는 Vercel에서 사용 불가 → Postgres로 전환 필요
-   - (선택) AI 관련 환경변수
-4. **참고**: Vercel 배포 시 SQLite → Postgres 전환이 필요합니다 (아래 마이그레이션 가이드 참조)
+> **중요**: SQLite 파일은 Vercel serverless 환경에서 사용할 수 없습니다.
+> 반드시 PostgreSQL (Neon, Supabase 등 무료 제공)로 전환해야 합니다.
+
+**단계별 설정:**
+
+1. `prisma/schema.prisma`에서 provider를 `postgresql`로 변경
+2. GitHub 레포지토리를 Vercel에 연결
+3. Vercel 프로젝트 Settings:
+   - **Root Directory**: `careflow-ai` (모노레포인 경우)
+   - **Framework**: Next.js (자동 감지)
+4. Environment Variables 설정:
+   - `DATABASE_URL`: PostgreSQL 연결 URL (예: Neon 무료 제공)
+5. 배포 후 `https://your-app.vercel.app/api/seed` 에 POST 요청을 보내 데모 데이터 생성
+   ```bash
+   curl -X POST https://your-app.vercel.app/api/seed
+   ```
+6. 또는 앱 접속 시 나타나는 "데모 데이터 생성" 버튼 클릭
+
+**DB 연결 없이 배포한 경우:**
+- 앱이 크래시되지 않고, 데이터베이스 연결 안내 페이지가 표시됩니다.
+- 설정 완료 후 새로고침하면 정상 작동합니다.
 
 ### Node.js 서버
 
@@ -311,3 +340,16 @@ npm run test:watch # 테스트 감시 모드
 3. **병원 현장 수준**: 데스크 직원이 바로 이해할 수 있는 UI
 4. **확장 가능 구조**: 규칙 엔진, AI 프로바이더 모두 인터페이스 기반 설계
 5. **안전한 AI 메시지**: 광고/과장/불안 조장/의료 판단 금지 프롬프트
+
+---
+
+## 향후 로드맵
+
+| 단계 | 기능 | 설명 |
+|------|------|------|
+| V2 | EMR 연동 | 실제 병원 EMR 시스템 API 연결 |
+| V2 | 문자 발송 | 카카오 알림톡, NHN 등 실제 SMS 발송 |
+| V2 | 인증/권한 | 사용자 로그인, 역할 기반 접근 제어 |
+| V3 | Revisit Prediction | ML 기반 재내원 확률 예측 |
+| V3 | Churn Prediction | 이탈 위험 환자 조기 경보 |
+| V3 | 다국어 지원 | 영어, 일본어 UI/메시지 지원 |

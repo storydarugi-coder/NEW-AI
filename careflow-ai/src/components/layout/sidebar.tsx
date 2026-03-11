@@ -9,6 +9,7 @@ import {
   Activity,
   Menu,
   X,
+  Info,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,11 @@ const navItems = [
     label: "설정",
     href: "/settings",
     icon: Settings,
+  },
+  {
+    label: "제품 소개",
+    href: "/about",
+    icon: Info,
   },
 ];
 

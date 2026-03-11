@@ -131,6 +131,17 @@ export function PatientListContent({ patients }: Props) {
 
   const currentYear = new Date().getFullYear();
 
+  // 세그먼트별 카운트 계산
+  const segmentCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: patients.length };
+    counts.vip = patients.filter((p) => p.isVip).length;
+    counts.no_action = patients.filter((p) => p.detections.length === 0).length;
+    for (const s of ["treatment_dropout", "scaling_recall", "implant_followup", "potential_demand"]) {
+      counts[s] = patients.filter((p) => p.detections.some((d) => d.ruleType === s)).length;
+    }
+    return counts;
+  }, [patients]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -155,6 +166,11 @@ export function PatientListContent({ patients }: Props) {
               }`}
             >
               {s.label}
+              {segmentCounts[s.key] !== undefined && (
+                <span className={`ml-1 text-xs ${segment === s.key ? "text-blue-200" : "text-gray-400"}`}>
+                  {segmentCounts[s.key]}
+                </span>
+              )}
             </button>
           ))}
         </div>
