@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
     const patient = await prisma.patient.findUnique({
       where: { id: patientId },
       include: {
+        identity: true,
         visits: {
           include: { procedures: true, diagnoses: true },
           orderBy: { visitDate: "desc" },
@@ -54,15 +55,16 @@ export async function POST(request: NextRequest) {
       ? patient.visits[0].visitDate.toISOString().split("T")[0]
       : undefined;
 
-    // 새 AI 메시지 생성기 사용 (3가지 버전)
+    // PII: 메시지 생성에는 이름만 전달 (LLM에 최소 정보)
+    const patientName = patient.identity?.name || patient.chartNumber;
+
     const messages = await generateMessages({
-      patientName: patient.name,
+      patientName,
       detection,
       tone: selectedTone,
       recentVisitDate,
     });
 
-    // 3가지 버전을 DB에 저장
     const drafts = await Promise.all([
       prisma.messageDraft.create({
         data: {
@@ -92,6 +94,20 @@ export async function POST(request: NextRequest) {
         },
       }),
     ]);
+
+    // 감사 로그: 메시지 생성 기록 (PII 미포함)
+    await prisma.auditLog.create({
+      data: {
+        action: "generate_message",
+        entityType: "patient",
+        entityId: patient.id,
+        detail: JSON.stringify({
+          tone: selectedTone,
+          generatedBy: messages.generatedBy,
+          draftCount: drafts.length,
+        }),
+      },
+    });
 
     return NextResponse.json({
       messages,

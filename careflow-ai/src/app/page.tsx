@@ -36,6 +36,7 @@ export default async function DashboardPage() {
 
     const patients = await prisma.patient.findMany({
       include: {
+        identity: true,
         visits: {
           include: { procedures: true, diagnoses: true },
           orderBy: { visitDate: "desc" },
@@ -75,7 +76,7 @@ export default async function DashboardPage() {
 
       priorityPatients.push({
         patientId,
-        patientName: patient.name,
+        patientName: patient.identity?.name || patient.chartNumber,
         chartNumber: patient.chartNumber,
         isVip: patient.isVip,
         topPriority: Math.min(...detections.map((d) => d.priority)),
@@ -104,6 +105,14 @@ export default async function DashboardPage() {
       .filter((p) => p.topPriority <= 2)
       .slice(0, 5);
 
+    // CTA 요약 통계
+    const ctaAttributions = await prisma.leadAttribution.findMany();
+    const ctaStats = {
+      totalLeads: ctaAttributions.length,
+      pendingReview: ctaAttributions.filter((a) => a.reviewStatus === "pending").length,
+      confirmed: ctaAttributions.filter((a) => a.reviewStatus === "confirmed").length,
+    };
+
     return (
       <DashboardContent
         stats={{
@@ -115,6 +124,7 @@ export default async function DashboardPage() {
         weeklyChanges={weeklyChanges}
         urgentPatients={urgentPatients}
         priorityPatients={priorityPatients.slice(0, 20)}
+        ctaStats={ctaStats}
       />
     );
   } catch (error) {

@@ -30,11 +30,17 @@ import {
   PRIORITY_COLORS,
   PRIORITY_LABELS,
   TONE_LABELS,
+  CHANNEL_LABELS,
+  REVIEW_STATUS_LABELS,
+  REVIEW_STATUS_COLORS,
   type RuleType,
   type SubType,
   type Priority,
   type MessageTone,
+  type VisitChannel,
+  type AttributionReviewStatus,
 } from "@/types";
+import { maskName, maskPhone } from "@/lib/privacy";
 
 interface Detection {
   ruleType: string;
@@ -46,12 +52,23 @@ interface Detection {
   dueDate: string | null;
 }
 
+interface VisitAttribution {
+  reviewStatus: string;
+  campaignName: string;
+  autoReason: string | null;
+  confidence: number | null;
+}
+
 interface Visit {
   id: string;
   visitDate: string;
   memo: string | null;
+  channel: string | null;
+  isCta: boolean;
+  sourceRaw: string | null;
   procedures: { code: string; name: string; tooth: string | null }[];
   diagnoses: { code: string; name: string; tooth: string | null }[];
+  attribution: VisitAttribution | null;
 }
 
 interface MessageDraft {
@@ -71,7 +88,7 @@ interface PatientInfo {
   birthYear: number;
   phone: string;
   isVip: boolean;
-  memo: string | null;
+  tags: string | null;
 }
 
 interface Props {
@@ -229,10 +246,46 @@ export function PatientDetailContent({ data }: Props) {
         ))}
       </div>
 
-      {patient.memo && (
+      {patient.tags && (
         <Card className="border-0 shadow-sm bg-yellow-50/50">
           <CardContent className="p-4">
-            <p className="text-sm text-gray-600"><span className="font-medium">메모:</span> {patient.memo}</p>
+            <div className="flex flex-wrap gap-1.5">
+              <span className="text-sm font-medium text-gray-600 mr-1">태그:</span>
+              {patient.tags.split(",").map((tag, i) => (
+                <Badge key={i} variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
+                  {tag.trim()}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* CTA 유입 요약 */}
+      {visits.some((v) => v.isCta) && (
+        <Card className="border-0 shadow-sm border-l-4 border-l-green-400">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">CTA 광고 유입</Badge>
+            </div>
+            <div className="space-y-1.5">
+              {visits.filter((v) => v.isCta).map((v) => (
+                <div key={v.id} className="flex items-center gap-2 text-sm">
+                  <span className="text-gray-500">{formatDate(v.visitDate)}</span>
+                  <Badge variant="outline" className="text-[10px]">
+                    {CHANNEL_LABELS[v.channel as VisitChannel] || v.channel || "알 수 없음"}
+                  </Badge>
+                  {v.attribution && (
+                    <Badge variant="outline" className={`text-[10px] ${REVIEW_STATUS_COLORS[v.attribution.reviewStatus as AttributionReviewStatus] || ""}`}>
+                      {REVIEW_STATUS_LABELS[v.attribution.reviewStatus as AttributionReviewStatus] || v.attribution.reviewStatus}
+                    </Badge>
+                  )}
+                  {v.attribution?.campaignName && (
+                    <span className="text-xs text-gray-400">{v.attribution.campaignName}</span>
+                  )}
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -405,6 +458,11 @@ export function PatientDetailContent({ data }: Props) {
                               {formatDate(v.visitDate)}
                             </span>
                             {idx === 0 && <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-600 border-blue-200">최근</Badge>}
+                            {v.channel && (
+                              <Badge variant="outline" className={`text-[10px] ${v.isCta ? "bg-green-50 text-green-700 border-green-200" : ""}`}>
+                                {CHANNEL_LABELS[v.channel as VisitChannel] || v.channel}
+                              </Badge>
+                            )}
                           </div>
                           {v.diagnoses.length > 0 && (
                             <div className="flex flex-wrap gap-1">

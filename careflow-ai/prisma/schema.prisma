@@ -7,36 +7,68 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ──────────────────────────────────────────────
+// 환자 운영 데이터 (PII 분리 원칙)
+// Patient: 운영에 필요한 최소 필드만 보유
+// PatientIdentity: 직접 식별 가능 정보 (이름, 연락처)
+// ──────────────────────────────────────────────
+
 model Patient {
   id          String   @id @default(cuid())
   chartNumber String   @unique
-  name        String
-  gender      String
-  birthYear   Int
-  phone       String
-  memo        String?
+  gender      String   // M/F - 운영/리콜 판단에 필요
+  birthYear   Int      // 연령대 계산용 - 운영에 필요
   isVip       Boolean  @default(false)
+  tags        String?  // 운영 태그 (자유 텍스트 메모 아님, 정형화된 태그만)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  identity              PatientIdentity?
   visits                Visit[]
   recallRecommendations RecallRecommendation[]
   messageDrafts         MessageDraft[]
 }
 
-model Visit {
+// PII 계층: 직접 식별정보 분리 저장
+// 운영 목적에서는 Patient.id로만 참조하고,
+// 이름/연락처는 권한 있는 사용자만 접근
+model PatientIdentity {
   id        String   @id @default(cuid())
-  patientId String
-  visitDate DateTime
-  memo      String?
+  patientId String   @unique
+  name      String   // PII: 마스킹 처리 대상
+  phone     String   // PII: 마스킹 처리 대상
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  patient    Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  diagnoses  Diagnosis[]
-  procedures Procedure[]
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+// ──────────────────────────────────────────────
+// 방문 이력 + 유입 경로 추적
+// ──────────────────────────────────────────────
+
+model Visit {
+  id         String   @id @default(cuid())
+  patientId  String
+  visitDate  DateTime
+  memo       String?  // 운영 메모 (차트 원문 아님)
+  // 유입 경로 추적 필드
+  sourceRaw  String?  // EMR 원문 유입 경로 텍스트 (정제 전)
+  channel    String?  // 표준화 채널: walk_in, referral, cta_naver, cta_google, cta_kakao, online, phone
+  isCta      Boolean  @default(false) // CTA 광고 기여 방문 여부
+  campaignId String?  // CTA 캠페인 연결
+  createdAt  DateTime @default(now())
+
+  patient         Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  diagnoses       Diagnosis[]
+  procedures      Procedure[]
+  campaign        Campaign?        @relation(fields: [campaignId], references: [id])
+  leadAttribution LeadAttribution?
 
   @@index([patientId])
   @@index([visitDate])
+  @@index([channel])
+  @@index([isCta])
 }
 
 model Diagnosis {
@@ -64,6 +96,10 @@ model Procedure {
   @@index([visitId])
   @@index([code])
 }
+
+// ──────────────────────────────────────────────
+// 리콜 추천 + 메시지
+// ──────────────────────────────────────────────
 
 model RecallRecommendation {
   id             String    @id @default(cuid())
@@ -103,6 +139,76 @@ model MessageDraft {
   @@index([patientId])
   @@index([status])
 }
+
+// ──────────────────────────────────────────────
+// CTA 광고 캠페인 + 유입 귀속 추적
+// ──────────────────────────────────────────────
+
+model Campaign {
+  id          String    @id @default(cuid())
+  name        String    // 캠페인명: "2026년 3월 네이버 임플란트"
+  platform    String    // naver, google, kakao, instagram, etc.
+  adType      String    @default("cta") // cta, display, search
+  startDate   DateTime
+  endDate     DateTime?
+  budgetWon   Int?      // 월 예산 (원)
+  costPerClick Int?     // CPC 단가 (원)
+  status      String    @default("active") // active, paused, ended
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  visits           Visit[]
+  leadAttributions LeadAttribution[]
+
+  @@index([platform])
+  @@index([status])
+}
+
+model LeadAttribution {
+  id           String    @id @default(cuid())
+  visitId      String    @unique
+  campaignId   String
+  // 반자동 검토 워크플로우
+  reviewStatus String    @default("pending") // pending, confirmed, rejected
+  autoReason   String?   // 자동 분류 근거 텍스트
+  confidence   Float?    // 자동 분류 신뢰도 (0.0~1.0)
+  reviewer     String?   // 검토자 (향후 인증 연동)
+  reviewedAt   DateTime?
+  reviewMemo   String?   // 검토 메모
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  visit    Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+
+  @@index([campaignId])
+  @@index([reviewStatus])
+  @@index([createdAt])
+}
+
+// ──────────────────────────────────────────────
+// 감사 로그 (보안/접근 기록)
+// 민감정보 포함 금지 - entityType + entityId로만 참조
+// ──────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String   // view_pii, update_status, generate_message, review_attribution, export_data
+  entityType String   // patient, visit, campaign, attribution
+  entityId   String
+  userId     String?  // 향후 인증 연동 시 사용자 ID
+  detail     String?  // JSON 메타데이터 (PII 포함 금지)
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ──────────────────────────────────────────────
+// 규칙 설정
+// ──────────────────────────────────────────────
 
 model RuleConfig {
   id          String   @id @default(cuid())

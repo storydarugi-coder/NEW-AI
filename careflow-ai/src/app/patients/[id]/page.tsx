@@ -17,8 +17,15 @@ export default async function PatientDetailPage({ params }: PageProps) {
     const patient = await prisma.patient.findUnique({
       where: { id },
       include: {
+        identity: true,
         visits: {
-          include: { procedures: true, diagnoses: true },
+          include: {
+            procedures: true,
+            diagnoses: true,
+            leadAttribution: {
+              include: { campaign: true },
+            },
+          },
           orderBy: { visitDate: "desc" },
         },
         messageDrafts: {
@@ -40,17 +47,20 @@ export default async function PatientDetailPage({ params }: PageProps) {
       patient: {
         id: patient.id,
         chartNumber: patient.chartNumber,
-        name: patient.name,
+        name: patient.identity?.name || patient.chartNumber,
         gender: patient.gender,
         birthYear: patient.birthYear,
-        phone: patient.phone,
+        phone: patient.identity?.phone || "",
         isVip: patient.isVip,
-        memo: patient.memo,
+        tags: patient.tags,
       },
       visits: patient.visits.map((v) => ({
         id: v.id,
         visitDate: v.visitDate.toISOString(),
         memo: v.memo,
+        channel: v.channel,
+        isCta: v.isCta,
+        sourceRaw: v.sourceRaw,
         procedures: v.procedures.map((p) => ({
           code: p.code,
           name: p.name,
@@ -61,6 +71,12 @@ export default async function PatientDetailPage({ params }: PageProps) {
           name: d.name,
           tooth: d.tooth,
         })),
+        attribution: v.leadAttribution ? {
+          reviewStatus: v.leadAttribution.reviewStatus,
+          campaignName: v.leadAttribution.campaign.name,
+          autoReason: v.leadAttribution.autoReason,
+          confidence: v.leadAttribution.confidence,
+        } : null,
       })),
       detections: detections.map((d) => ({
         ruleType: d.ruleType,
@@ -83,7 +99,6 @@ export default async function PatientDetailPage({ params }: PageProps) {
 
     return <PatientDetailContent data={serialized} />;
   } catch (error) {
-    // notFound()는 특수한 Next.js 에러이므로 그대로 전파
     if (
       error &&
       typeof error === "object" &&

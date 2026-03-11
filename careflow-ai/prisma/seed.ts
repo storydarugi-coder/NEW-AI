@@ -982,26 +982,37 @@ const ruleConfigs = [
 async function main() {
   console.log("🌱 Seeding database...");
 
-  // 기존 데이터 삭제
+  // 기존 데이터 삭제 (FK 의존성 순서)
+  await prisma.auditLog.deleteMany();
+  await prisma.leadAttribution.deleteMany();
   await prisma.messageDraft.deleteMany();
   await prisma.recallRecommendation.deleteMany();
   await prisma.diagnosis.deleteMany();
   await prisma.procedure.deleteMany();
   await prisma.visit.deleteMany();
+  await prisma.patientIdentity.deleteMany();
   await prisma.patient.deleteMany();
+  await prisma.campaign.deleteMany();
   await prisma.ruleConfig.deleteMany();
 
-  // 환자 데이터 생성
+  // 환자 데이터 생성 (PII 분리 구조)
   for (const p of patients) {
     const patient = await prisma.patient.create({
       data: {
         chartNumber: p.chartNumber,
-        name: p.name,
         gender: p.gender,
         birthYear: p.birthYear,
-        phone: p.phone,
-        memo: p.memo || null,
+        tags: p.memo || null,
         isVip: p.isVip || false,
+      },
+    });
+
+    // PII는 PatientIdentity에 분리 저장
+    await prisma.patientIdentity.create({
+      data: {
+        patientId: patient.id,
+        name: p.name,
+        phone: p.phone,
       },
     });
 
@@ -1036,18 +1047,7 @@ async function main() {
   }
 
   console.log(`✅ Seeded ${patients.length} patients and ${ruleConfigs.length} rule configs`);
-  console.log("");
-  console.log("📋 Key demo stories:");
-  console.log("  1. 김민수 — 신경치료 중단 (바쁜 직장인)");
-  console.log("  2. 정태영 — VIP 신경치료 중단 (가족 단위 고가치)");
-  console.log("  3. 한지은 — 보철 중단 (비용 문제 추정)");
-  console.log("  4. 남궁석 — 만성치주염 VIP (정기관리 누락)");
-  console.log("  5. 문정훈 — 임플란트 점검 누락 (당뇨 VIP)");
-  console.log("  6. 하은채 — 양쪽 사랑니 잠재수요 (젊은 환자)");
-  console.log("  7. 탁지민 — 교정 상담 미전환 (비용 보류)");
-  console.log("  8. 민경호 — 복합 케이스 (임플+신경중단+스케일링)");
-  console.log("  9. 진소라 — 복합 케이스 (치주+교정+스케일링)");
-  console.log(" 10. 채영수 — VIP 복합 (임플+사랑니+스케일링)");
+  console.log("   (PII separated into PatientIdentity table)");
 }
 
 main()

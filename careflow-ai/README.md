@@ -74,16 +74,38 @@ npm run dev       # http://localhost:3000
 
 ---
 
+### 6. CTA 광고 귀속 관리 (NEW)
+- **유입 환자 목록**: CTA 광고로 유입된 환자 리스트 + 자동 분류 근거/신뢰도
+- **검토/확정/제외**: 반자동 워크플로우 — 규칙 기반 자동 분류 → 운영자 확인
+- **캠페인별 집계**: 플랫폼/캠페인별 유입 수, 확정 수, 검토 대기 현황
+- **정산 요약**: 확정 환자 × CPC 단가 기반 정산 가능 금액 계산
+- **대시보드 연동**: 메인 대시보드에 CTA 요약 카드 표시
+
+### 7. 개인정보 보호 아키텍처 (NEW)
+- **PII 분리**: 이름/전화번호를 별도 `PatientIdentity` 테이블에 분리 저장
+- **UI 마스킹**: 기본 화면에서 이름/전화번호 마스킹 표시 (토글 가능)
+- **LLM 안전성**: AI API에 최소 컨텍스트만 전달 (마스킹된 이름 + 정형 사유)
+- **감사 로그**: 모든 PII 조회/변경/발송 기록을 `AuditLog`에 저장
+- **데이터 최소화**: 차트 원문/자유서술/주민번호 등 불필요 정보 저장하지 않음
+
+> 상세 아키텍처: [`docs/DATA-ARCHITECTURE.md`](docs/DATA-ARCHITECTURE.md)
+
+---
+
 ## 데이터 모델
 
 | 모델 | 설명 |
 |------|------|
-| `Patient` | 환자 기본 정보 (차트번호, 이름, 성별, 생년, VIP) |
-| `Visit` | 방문 이력 (날짜, 메모) |
+| `Patient` | 환자 운영 데이터 (차트번호, 성별, 생년, VIP, 태그) |
+| `PatientIdentity` | PII 분리 저장 (이름, 전화번호) — 별도 접근 제어 |
+| `Visit` | 방문 이력 (날짜, 유입 채널, CTA 여부) |
 | `Diagnosis` | 진단 코드 (KCD 코드, 치아번호) |
 | `Procedure` | 처치 코드 (처치 코드, 치아번호) |
-| `RecallRecommendation` | 리콜 추천 기록 (상태: pending/contacted/completed/dismissed) |
+| `Campaign` | CTA 광고 캠페인 (플랫폼, 예산, CPC) |
+| `LeadAttribution` | CTA 유입 귀속 (검토 상태, 자동 분류 근거) |
+| `RecallRecommendation` | 리콜 추천 기록 |
 | `MessageDraft` | 문자 초안 (톤, 길이, 내용, 상태) |
+| `AuditLog` | 감사 로그 (액션, 엔티티, PII 미포함) |
 | `RuleConfig` | 규칙 설정 (활성/비활성, JSON 파라미터) |
 
 ---
@@ -93,17 +115,28 @@ npm run dev       # http://localhost:3000
 ```
 careflow-ai/
 ├── prisma/
-│   ├── schema.prisma          # 데이터 모델
-│   └── seed.ts                # 45명 mock 환자 (10개 핵심 스토리)
+│   ├── schema.prisma          # 데이터 모델 (PII 분리 구조)
+│   └── seed.ts                # 45명 mock 환자 + CTA 캠페인 데이터
+├── docs/
+│   └── DATA-ARCHITECTURE.md   # 데이터 아키텍처/보안 설계 문서
 ├── src/
 │   ├── app/                   # Next.js App Router 페이지
 │   │   ├── page.tsx           # 대시보드
 │   │   ├── patients/          # 환자 목록 + 상세
+│   │   ├── cta/               # CTA 광고 귀속 관리
 │   │   ├── settings/          # 설정
+│   │   ├── about/             # 제품 소개
 │   │   └── api/               # API Routes
+│   │       ├── dashboard/     # 대시보드 데이터
+│   │       ├── patients/      # 환자 CRUD
+│   │       ├── messages/      # AI 문자 생성
+│   │       ├── cta/           # CTA 유입 조회 + 검토
+│   │       └── seed/          # 데모 데이터 생성
 │   ├── components/
 │   │   ├── dashboard/         # 대시보드 UI
 │   │   ├── patients/          # 환자 목록/상세 UI
+│   │   ├── cta/               # CTA 광고 관리 UI
+│   │   ├── layout/            # 사이드바/레이아웃
 │   │   ├── settings/          # 설정 UI
 │   │   └── ui/                # shadcn/ui 컴포넌트
 │   ├── lib/
@@ -118,9 +151,10 @@ careflow-ai/
 │   │   │   ├── template-fallback.ts
 │   │   │   ├── generate-message.ts
 │   │   │   └── prompts.ts     # 프롬프트 설계
+│   │   ├── privacy.ts         # PII 마스킹/LLM 안전성 유틸리티
 │   │   └── message-generator/
 │   │       └── templates.ts   # 33개 한국어 메시지 템플릿
-│   ├── types/index.ts         # 공유 타입/라벨
+│   ├── types/index.ts         # 공유 타입/라벨 (CTA 포함)
 │   └── __tests__/             # Vitest 유닛 테스트
 ├── .env.example               # 환경변수 템플릿
 ├── vitest.config.ts           # 테스트 설정
@@ -283,11 +317,17 @@ ENABLE_LLM_MESSAGE_GENERATION=false  # 또는 변수 미설정
 
 | 기능 | 현재 상태 | 실제 연동 시 |
 |------|-----------|-------------|
-| 환자 데이터 | ✅ Mock 45명 seed | EMR/CRM API 연동 |
+| 환자 데이터 | ✅ Mock 45명 seed | EMR ETL 파이프라인 연동 |
+| PII 분리 | ✅ PatientIdentity 테이블 분리 | 그대로 사용 + 암호화 추가 |
+| UI 마스킹 | ✅ 이름/전화번호 마스킹 토글 | 그대로 사용 + 권한 연동 |
 | 규칙 엔진 | ✅ 실제 작동 (규칙 기반) | 그대로 사용 + ML 확장 |
 | 우선순위 점수 | ✅ 실제 작동 | 그대로 사용 |
 | 문자 생성 (템플릿) | ✅ 실제 작동 | 그대로 사용 (fallback) |
 | 문자 생성 (AI) | 🔧 Vertex AI 구조 준비 | 환경변수 설정만 하면 작동 |
+| LLM 안전성 | ✅ sanitizeForLLM 적용 | 그대로 사용 |
+| CTA 광고 귀속 | ✅ 반자동 분류 + 검토 워크플로우 | 광고 플랫폼 API 연동 |
+| CTA 정산 | ✅ CPC 기반 정산 계산 | 실제 광고비 데이터 연동 |
+| 감사 로그 | ✅ AuditLog 기록 | 그대로 사용 + 모니터링 연동 |
 | 상태 변경 | ✅ DB 저장 | 그대로 사용 |
 | 문자 발송 | ❌ UI만 (발송 안 됨) | 문자 발송 API 연동 |
 | 인증/권한 | ❌ 없음 | NextAuth 등 추가 |
@@ -298,11 +338,13 @@ ENABLE_LLM_MESSAGE_GENERATION=false  # 또는 변수 미설정
 ## 실제 운영 전 필요한 작업
 
 1. **DB 전환**: SQLite → PostgreSQL (Prisma provider 변경만으로 가능)
-2. **인증/권한**: NextAuth 또는 자체 인증 추가
-3. **EMR 연동**: 환자/방문/진단/처치 데이터 API 연결
-4. **문자 발송**: 실제 SMS API 연동 (카카오 알림톡, NHN 등)
-5. **개인정보**: 마스킹/가명처리 유틸리티 추가
-6. **HTTPS**: 프로덕션 배포 시 SSL 인증서
+2. **인증/권한**: NextAuth 또는 자체 인증 추가 → PII 접근 권한 연동
+3. **EMR 연동**: ETL 파이프라인 구축 (원본 차트 → 정형 데이터 추출 → 운영 DB)
+4. **PII 암호화**: PatientIdentity 테이블 AES 암호화 적용
+5. **문자 발송**: 실제 SMS API 연동 (카카오 알림톡, NHN 등)
+6. **광고 플랫폼 연동**: CTA 유입 소스 자동 수집 (UTM/리퍼러 파싱)
+7. **HTTPS**: 프로덕션 배포 시 SSL 인증서
+8. **감사 로그 모니터링**: AuditLog 대시보드/알림 설정
 
 ---
 
@@ -323,13 +365,18 @@ npm run test:watch # 테스트 감시 모드
 
 ---
 
-## 보안 및 개인정보 주의사항
+## 보안 및 개인정보 아키텍처
 
-- 현재 mock 데이터만 사용하며 실제 환자 정보는 포함되어 있지 않습니다.
-- 실제 운영 시 개인정보 마스킹/가명처리가 필요합니다.
-- AI 프롬프트에 환자의 구체적 질환명/상세 치료 내용을 직접 전달하지 않도록 설계했습니다.
-- 로그에 민감정보(이름, 전화번호)를 출력하지 않습니다.
-- `.env` 파일은 git에 포함하지 마세요.
+- **PII 분리 저장**: 이름/전화번호는 `PatientIdentity` 테이블에 분리, 운영 데이터와 독립적 접근 제어 가능
+- **데이터 최소화**: 차트 원문, 자유서술 메모, 주민번호, 주소 등 불필요 정보는 운영 DB에 저장하지 않음
+- **UI 마스킹**: 기본 화면에서 이름(`김*수`), 전화번호(`010-****-5678`) 마스킹 표시, 토글로 해제
+- **LLM 안전성**: `sanitizeForLLM()` — AI API에 마스킹된 이름 + 정형 사유만 전달, 차트 원문 전달 금지
+- **감사 로그**: 모든 PII 조회/메시지 생성/CTA 검토 기록을 `AuditLog`에 저장 (PII 미포함)
+- **로그 안전성**: 콘솔/서버 로그에 민감정보(이름, 전화번호)를 출력하지 않음
+- 현재 mock 데이터만 사용하며 실제 환자 정보는 포함되어 있지 않습니다
+- `.env` 파일은 git에 포함하지 마세요
+
+> 상세 설계: [`docs/DATA-ARCHITECTURE.md`](docs/DATA-ARCHITECTURE.md)
 
 ---
 
@@ -347,9 +394,12 @@ npm run test:watch # 테스트 감시 모드
 
 | 단계 | 기능 | 설명 |
 |------|------|------|
-| V2 | EMR 연동 | 실제 병원 EMR 시스템 API 연결 |
+| V2 | EMR ETL 파이프라인 | 실제 병원 EMR → 정형 데이터 자동 추출 |
 | V2 | 문자 발송 | 카카오 알림톡, NHN 등 실제 SMS 발송 |
-| V2 | 인증/권한 | 사용자 로그인, 역할 기반 접근 제어 |
+| V2 | 인증/권한 | 사용자 로그인, 역할 기반 접근 제어, PII 접근 권한 |
+| V2 | PII 암호화 | PatientIdentity 테이블 AES 암호화 |
+| V2 | 광고 플랫폼 연동 | UTM/리퍼러 기반 CTA 유입 자동 수집 |
 | V3 | Revisit Prediction | ML 기반 재내원 확률 예측 |
 | V3 | Churn Prediction | 이탈 위험 환자 조기 경보 |
+| V3 | CTA ROI 분석 | 캠페인별 전환율/LTV 분석 대시보드 |
 | V3 | 다국어 지원 | 영어, 일본어 UI/메시지 지원 |

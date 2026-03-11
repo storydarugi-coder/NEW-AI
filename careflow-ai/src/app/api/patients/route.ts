@@ -5,24 +5,15 @@ import { evaluateAllPatients, buildEngineConfig } from "@/lib/engine";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const segment = searchParams.get("segment"); // treatment_dropout, scaling_recall, implant_followup, potential_demand
+    const segment = searchParams.get("segment");
     const search = searchParams.get("search") || "";
-    const sort = searchParams.get("sort") || "priority"; // priority, name, lastVisit
+    const sort = searchParams.get("sort") || "priority";
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
 
-    // 모든 환자 + 방문 이력
     const patients = await prisma.patient.findMany({
-      where: search
-        ? {
-            OR: [
-              { name: { contains: search } },
-              { chartNumber: { contains: search } },
-              { phone: { contains: search } },
-            ],
-          }
-        : undefined,
       include: {
+        identity: true,
         visits: {
           include: {
             procedures: true,
@@ -33,25 +24,25 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // 규칙 엔진 실행
     const ruleConfigs = await prisma.ruleConfig.findMany();
     const engineConfig = buildEngineConfig(ruleConfigs);
     const detectionMap = evaluateAllPatients(patients, engineConfig);
 
-    // 결과 매핑
-    const results = patients.map((patient) => {
+    let results = patients.map((patient) => {
       const detections = detectionMap.get(patient.id) || [];
       const lastVisit = patient.visits[0]?.visitDate || null;
+      const name = patient.identity?.name || patient.chartNumber;
+      const phone = patient.identity?.phone || "";
 
       return {
         id: patient.id,
         chartNumber: patient.chartNumber,
-        name: patient.name,
+        name,
         gender: patient.gender,
         birthYear: patient.birthYear,
-        phone: patient.phone,
+        phone,
         isVip: patient.isVip,
-        memo: patient.memo,
+        tags: patient.tags,
         lastVisitDate: lastVisit,
         visitCount: patient.visits.length,
         detections: detections.map((d) => ({
@@ -65,7 +56,18 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // 세그먼트 필터
+    // Search filter (on resolved PII fields)
+    if (search) {
+      const q = search.toLowerCase();
+      results = results.filter(
+        (r) =>
+          r.name.toLowerCase().includes(q) ||
+          r.chartNumber.toLowerCase().includes(q) ||
+          r.phone.includes(q)
+      );
+    }
+
+    // Segment filter
     let filtered = results;
     if (segment) {
       if (segment === "vip") {
@@ -83,7 +85,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 정렬
     if (sort === "priority") {
       filtered.sort((a, b) => a.topPriority - b.topPriority);
     } else if (sort === "name") {
@@ -96,7 +97,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 페이지네이션
     const total = filtered.length;
     const paged = filtered.slice((page - 1) * limit, page * limit);
 

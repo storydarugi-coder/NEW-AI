@@ -10,6 +10,7 @@ import {
   Menu,
   X,
   Info,
+  Megaphone,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,11 @@ const navItems = [
     label: "환자 관리",
     href: "/patients",
     icon: Users,
+  },
+  {
+    label: "CTA 광고 관리",
+    href: "/cta",
+    icon: Megaphone,
   },
   {
     label: "설정",

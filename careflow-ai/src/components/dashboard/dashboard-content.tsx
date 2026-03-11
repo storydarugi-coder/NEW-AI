@@ -25,6 +25,7 @@ import {
   Minus,
   PhoneCall,
   Info,
+  Megaphone,
 } from "lucide-react";
 import {
   RULE_TYPE_LABELS,
@@ -78,6 +79,11 @@ interface DashboardContentProps {
   };
   urgentPatients: PriorityPatient[];
   priorityPatients: PriorityPatient[];
+  ctaStats?: {
+    totalLeads: number;
+    pendingReview: number;
+    confirmed: number;
+  };
 }
 
 const statCards = [
@@ -155,6 +161,7 @@ export function DashboardContent({
   weeklyChanges,
   urgentPatients,
   priorityPatients,
+  ctaStats,
 }: DashboardContentProps) {
   return (
     <div className="space-y-6">
@@ -199,6 +206,33 @@ export function DashboardContent({
           </Card>
         ))}
       </div>
+
+      {/* CTA 광고 유입 요약 */}
+      {ctaStats && ctaStats.totalLeads > 0 && (
+        <Card className="border-0 shadow-sm border-l-4 border-l-green-400">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-green-50">
+                  <Megaphone size={18} className="text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">CTA 광고 유입</p>
+                  <p className="text-xs text-gray-500">
+                    이번 달 {ctaStats.totalLeads}건 · 확정 {ctaStats.confirmed}건 · 검토 대기 {ctaStats.pendingReview}건
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/cta"
+                className="text-sm text-green-600 hover:text-green-700 flex items-center gap-1 font-medium"
+              >
+                관리 <ChevronRight size={14} />
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Urgent Contact Section */}
       {urgentPatients.length > 0 && (

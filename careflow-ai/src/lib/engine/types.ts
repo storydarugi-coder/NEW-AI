@@ -2,7 +2,6 @@ import { DetectionResult } from "@/types";
 
 export interface PatientWithVisits {
   id: string;
-  name: string;
   visits: {
     id: string;
     visitDate: Date;

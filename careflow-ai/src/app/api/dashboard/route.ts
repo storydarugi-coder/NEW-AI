@@ -4,13 +4,12 @@ import { evaluateAllPatients, buildEngineConfig } from "@/lib/engine";
 
 export async function GET() {
   try {
-    // 규칙 설정 로드
     const ruleConfigs = await prisma.ruleConfig.findMany();
     const engineConfig = buildEngineConfig(ruleConfigs);
 
-    // 모든 환자와 방문 이력 로드
     const patients = await prisma.patient.findMany({
       include: {
+        identity: true,
         visits: {
           include: {
             procedures: true,
@@ -21,10 +20,8 @@ export async function GET() {
       },
     });
 
-    // 규칙 엔진 실행
     const detectionMap = evaluateAllPatients(patients, engineConfig);
 
-    // 통계 계산
     let treatmentDropoutCount = 0;
     let recallDueCount = 0;
     let messageSuggestionCount = 0;
@@ -59,7 +56,7 @@ export async function GET() {
 
       priorityPatients.push({
         patientId,
-        patientName: patient.name,
+        patientName: patient.identity?.name || patient.chartNumber,
         chartNumber: patient.chartNumber,
         isVip: patient.isVip,
         topPriority: Math.min(...detections.map((d) => d.priority)),
@@ -73,7 +70,6 @@ export async function GET() {
       });
     }
 
-    // 우선순위순 정렬 (VIP 우선)
     priorityPatients.sort((a, b) => {
       if (a.isVip !== b.isVip) return a.isVip ? -1 : 1;
       return a.topPriority - b.topPriority;

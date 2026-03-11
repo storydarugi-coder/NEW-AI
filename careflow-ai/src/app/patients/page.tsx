@@ -12,12 +12,13 @@ export default async function PatientsPage() {
 
     const patients = await prisma.patient.findMany({
       include: {
+        identity: true,
         visits: {
           include: { procedures: true, diagnoses: true },
           orderBy: { visitDate: "desc" },
         },
       },
-      orderBy: { name: "asc" },
+      orderBy: { chartNumber: "asc" },
     });
 
     if (patients.length === 0) {
@@ -31,10 +32,10 @@ export default async function PatientsPage() {
       return {
         id: patient.id,
         chartNumber: patient.chartNumber,
-        name: patient.name,
+        name: patient.identity?.name || patient.chartNumber,
         gender: patient.gender,
         birthYear: patient.birthYear,
-        phone: patient.phone,
+        phone: patient.identity?.phone || "",
         isVip: patient.isVip,
         lastVisitDate: patient.visits[0]?.visitDate.toISOString() || null,
         visitCount: patient.visits.length,

@@ -101,3 +101,51 @@ export const LENGTH_LABELS: Record<MessageLength, string> = {
   medium: "보통",
   long: "자세히",
 };
+
+// ──────────────────────────────────────────────
+// CTA 광고 귀속 추적 타입
+// ──────────────────────────────────────────────
+
+export type VisitChannel =
+  | "walk_in"
+  | "referral"
+  | "cta_naver"
+  | "cta_google"
+  | "cta_kakao"
+  | "cta_instagram"
+  | "online"
+  | "phone"
+  | "other";
+
+export type AttributionReviewStatus = "pending" | "confirmed" | "rejected";
+export type CampaignStatus = "active" | "paused" | "ended";
+
+export const CHANNEL_LABELS: Record<VisitChannel, string> = {
+  walk_in: "직접 방문",
+  referral: "지인 소개",
+  cta_naver: "네이버 CTA",
+  cta_google: "구글 CTA",
+  cta_kakao: "카카오 CTA",
+  cta_instagram: "인스타그램 CTA",
+  online: "온라인 예약",
+  phone: "전화 문의",
+  other: "기타",
+};
+
+export const REVIEW_STATUS_LABELS: Record<AttributionReviewStatus, string> = {
+  pending: "검토 대기",
+  confirmed: "확정",
+  rejected: "제외",
+};
+
+export const REVIEW_STATUS_COLORS: Record<AttributionReviewStatus, string> = {
+  pending: "bg-amber-100 text-amber-700 border-amber-200",
+  confirmed: "bg-green-100 text-green-700 border-green-200",
+  rejected: "bg-gray-100 text-gray-500 border-gray-200",
+};
+
+export const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, string> = {
+  active: "진행 중",
+  paused: "일시중지",
+  ended: "종료",
+};

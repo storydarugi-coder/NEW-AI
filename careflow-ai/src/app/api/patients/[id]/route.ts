@@ -12,6 +12,7 @@ export async function GET(
     const patient = await prisma.patient.findUnique({
       where: { id },
       include: {
+        identity: true,
         visits: {
           include: {
             procedures: true,
@@ -33,7 +34,6 @@ export async function GET(
       );
     }
 
-    // 규칙 엔진 실행
     const ruleConfigs = await prisma.ruleConfig.findMany();
     const engineConfig = buildEngineConfig(ruleConfigs);
     const detections = evaluatePatient(patient, engineConfig);
@@ -42,18 +42,20 @@ export async function GET(
       patient: {
         id: patient.id,
         chartNumber: patient.chartNumber,
-        name: patient.name,
+        name: patient.identity?.name || patient.chartNumber,
         gender: patient.gender,
         birthYear: patient.birthYear,
-        phone: patient.phone,
+        phone: patient.identity?.phone || "",
         isVip: patient.isVip,
-        memo: patient.memo,
+        tags: patient.tags,
         createdAt: patient.createdAt,
       },
       visits: patient.visits.map((v) => ({
         id: v.id,
         visitDate: v.visitDate,
         memo: v.memo,
+        channel: v.channel,
+        isCta: v.isCta,
         procedures: v.procedures,
         diagnoses: v.diagnoses,
       })),
