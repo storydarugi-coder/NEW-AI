@@ -16,6 +16,7 @@ function hasAnyCode(codes: string[], targetCodes: string[]): boolean {
 export const potentialDemandRule: Rule = {
   type: "potential_demand",
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   evaluate(patient: PatientWithVisits, _params: RuleParams): DetectionResult[] {
     const results: DetectionResult[] = [];
 

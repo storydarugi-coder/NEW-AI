@@ -33,36 +33,60 @@ interface PatientSeed {
 }
 
 const patients: PatientSeed[] = [
-  // === 1~5: 신경치료 중단 의심 ===
+  // ============================================================
+  // KEY STORY 1: 신경치료 중단 — 바쁜 직장인 (데모 핵심 케이스)
+  // 김민수(38세) — 발수까지 했으나 직장이 바빠 근관충전을 미루는 중
+  // ============================================================
   {
     chartNumber: "CF-0001",
     name: "김민수",
     gender: "M",
     birthYear: 1985,
     phone: "010-1234-0001",
-    memo: "직장인, 바쁜 스케줄",
+    memo: "IT기업 과장. 야근 잦아 예약 자주 취소. 통증 사라지면 안 옴",
     visits: [
       {
-        visitDate: daysAgo(25),
-        procedures: [{ code: "U4411", name: "발수(전치)", tooth: "11" }],
-        diagnoses: [{ code: "K040", name: "치수염", tooth: "11" }],
+        visitDate: daysAgo(60),
+        memo: "우측 하악 통증 주소",
+        procedures: [{ code: "U0001", name: "검진" }],
+        diagnoses: [{ code: "K029", name: "치아우식증", tooth: "46" }],
       },
+      {
+        visitDate: daysAgo(53),
+        memo: "신경치료 시작, 통증 심함",
+        procedures: [{ code: "U4412", name: "발수(구치)", tooth: "46" }],
+        diagnoses: [{ code: "K040", name: "치수염", tooth: "46" }],
+      },
+      {
+        visitDate: daysAgo(46),
+        memo: "근관성형 진행. 다음주 충전 예약",
+        procedures: [{ code: "U4412", name: "근관성형(구치)", tooth: "46" }],
+        diagnoses: [],
+      },
+      // 이후 미내원 — 약 46일 경과, 치료 중단 의심
     ],
   },
+
+  // ============================================================
+  // KEY STORY 2: 신경치료 중단 — 통증 사라져서 안 오는 환자
+  // ============================================================
   {
     chartNumber: "CF-0002",
     name: "이영희",
     gender: "F",
     birthYear: 1990,
     phone: "010-1234-0002",
+    memo: "통증 없어지면 치료 중단 이력 있음. 2022년에도 같은 패턴",
     visits: [
       {
         visitDate: daysAgo(20),
+        memo: "좌측 하악 구치 통증",
         procedures: [{ code: "U4412", name: "발수(구치)", tooth: "36" }],
         diagnoses: [{ code: "K040", name: "치수염", tooth: "36" }],
       },
       {
         visitDate: daysAgo(13),
+        memo: "근관성형. 통증 많이 줄었다고 함",
         procedures: [{ code: "U4412", name: "근관성형(구치)", tooth: "36" }],
         diagnoses: [],
       },
@@ -74,10 +98,11 @@ const patients: PatientSeed[] = [
     gender: "M",
     birthYear: 1978,
     phone: "010-1234-0003",
-    memo: "통증에 민감",
+    memo: "치과 공포증. 마취 관련 불안감 있음",
     visits: [
       {
         visitDate: daysAgo(40),
+        memo: "치수괴사 확인, 발수 시행",
         procedures: [{ code: "U4413", name: "발수(복수근관)", tooth: "46" }],
         diagnoses: [{ code: "K041", name: "치수괴사", tooth: "46" }],
       },
@@ -97,6 +122,11 @@ const patients: PatientSeed[] = [
       },
     ],
   },
+
+  // ============================================================
+  // KEY STORY 3: VIP 신경치료 중단 — 고가치 환자 이탈 위험
+  // 정태영(43세) — 가족 단위 VIP, 근관충전 안 함
+  // ============================================================
   {
     chartNumber: "CF-0005",
     name: "정태영",
@@ -104,32 +134,52 @@ const patients: PatientSeed[] = [
     birthYear: 1982,
     phone: "010-1234-0005",
     isVip: true,
+    memo: "가족(4인) 모두 본원 환자. 매출 상위 5%. 연 3회 이상 내원 이력",
     visits: [
       {
+        visitDate: monthsAgo(6),
+        procedures: [{ code: "U2232", name: "치석제거(전악)" }],
+        diagnoses: [],
+      },
+      {
         visitDate: daysAgo(30),
+        memo: "우측 상악 통증. 즉일 발수",
         procedures: [{ code: "U4412", name: "발수(구치)", tooth: "16" }],
         diagnoses: [{ code: "K040", name: "치수염", tooth: "16" }],
       },
       {
         visitDate: daysAgo(23),
+        memo: "근관성형 완료. 다음주 충전 예약했으나 미내원",
         procedures: [{ code: "U4412", name: "근관성형(구치)", tooth: "16" }],
         diagnoses: [],
       },
     ],
   },
 
-  // === 6~10: 보철 중단 의심 ===
+  // ============================================================
+  // KEY STORY 4: 보철 중단 — 인상 떠놓고 안 오는 환자들
+  // ============================================================
   {
     chartNumber: "CF-0006",
     name: "한지은",
     gender: "F",
     birthYear: 1988,
     phone: "010-1234-0006",
+    memo: "크라운 인상 후 비용 문제로 보류 중인 것으로 추정",
     visits: [
       {
-        visitDate: daysAgo(30),
-        procedures: [{ code: "U6010", name: "크라운 인상", tooth: "26" }],
+        visitDate: daysAgo(45),
+        memo: "우식 제거 + 크라운 prep",
+        procedures: [
+          { code: "U6020", name: "보철 prep", tooth: "26" },
+        ],
         diagnoses: [{ code: "K029", name: "치아우식증", tooth: "26" }],
+      },
+      {
+        visitDate: daysAgo(30),
+        memo: "크라운 인상채득. 2주 후 세팅 예약",
+        procedures: [{ code: "U6010", name: "크라운 인상", tooth: "26" }],
+        diagnoses: [],
       },
     ],
   },
@@ -140,9 +190,11 @@ const patients: PatientSeed[] = [
     birthYear: 1975,
     phone: "010-1234-0007",
     isVip: true,
+    memo: "사업가. 해외 출장 잦음. VIP 관리 필요",
     visits: [
       {
         visitDate: daysAgo(35),
+        memo: "브릿지 인상. 출장 전에 세팅하겠다고 했으나 미내원",
         procedures: [{ code: "U6011", name: "브릿지 인상", tooth: "35" }],
         diagnoses: [],
       },
@@ -191,13 +243,17 @@ const patients: PatientSeed[] = [
     ],
   },
 
-  // === 11~17: 스케일링/치주 리콜 대상 ===
+  // ============================================================
+  // KEY STORY 5: 스케일링 리콜 — 보험 스케일링 놓치는 장기 환자
+  // 남궁석(60세) — 치주질환 이력 + 스케일링 미수진 + VIP
+  // ============================================================
   {
     chartNumber: "CF-0011",
     name: "임재현",
     gender: "M",
     birthYear: 1970,
     phone: "010-1234-0011",
+    memo: "매년 스케일링 안내 시 내원. 올해는 아직 미방문",
     visits: [
       {
         visitDate: monthsAgo(14),
@@ -226,24 +282,28 @@ const patients: PatientSeed[] = [
     gender: "M",
     birthYear: 1965,
     phone: "010-1234-0013",
-    memo: "치주질환 이력, 정기관리 중요",
+    memo: "만성치주염 10년차. 3~4개월 주기 관리 필수. 놓치면 급속 악화 우려",
     isVip: true,
     visits: [
       {
         visitDate: monthsAgo(16),
+        memo: "연간 스케일링",
         procedures: [{ code: "U2232", name: "치석제거(전악)" }],
         diagnoses: [],
       },
       {
         visitDate: monthsAgo(10),
+        memo: "치주 정기점검 + 소파술",
         procedures: [{ code: "U1010", name: "치주소파술" }],
         diagnoses: [{ code: "K053", name: "만성치주염" }],
       },
       {
         visitDate: monthsAgo(5),
+        memo: "치근활택 시행. 다음 3개월 후 재내원 권고",
         procedures: [{ code: "U1020", name: "치근활택술" }],
         diagnoses: [{ code: "K053", name: "만성치주염" }],
       },
+      // 5개월 경과 → 치주 리콜 대상 + 스케일링 리콜 대상
     ],
   },
   {
@@ -266,6 +326,7 @@ const patients: PatientSeed[] = [
     gender: "M",
     birthYear: 1968,
     phone: "010-1234-0015",
+    memo: "치주판막술 경험. 관리 순응도 높은 편이나 최근 미내원",
     visits: [
       {
         visitDate: monthsAgo(8),
@@ -274,6 +335,7 @@ const patients: PatientSeed[] = [
       },
       {
         visitDate: monthsAgo(6),
+        memo: "판막술 후 경과 관찰",
         procedures: [{ code: "U1010", name: "치주소파술" }],
         diagnoses: [{ code: "K053", name: "만성치주염" }],
       },
@@ -311,7 +373,10 @@ const patients: PatientSeed[] = [
     ],
   },
 
-  // === 18~25: 임플란트 사후관리 대상 ===
+  // ============================================================
+  // KEY STORY 6: 임플란트 사후관리 — 고가 시술 후 점검 누락
+  // 문정훈(62세) — 임플란트 보철 후 1개월 점검 안 함. VIP
+  // ============================================================
   {
     chartNumber: "CF-0018",
     name: "문정훈",
@@ -319,17 +384,27 @@ const patients: PatientSeed[] = [
     birthYear: 1963,
     phone: "010-1234-0018",
     isVip: true,
+    memo: "임플란트 2개 식립 이력. 당뇨 관리 중. 임플란트 주위염 예방 중요",
     visits: [
       {
-        visitDate: monthsAgo(2),
+        visitDate: monthsAgo(8),
+        memo: "임플란트 1차 수술 (#36)",
         procedures: [{ code: "U4451", name: "임플란트 fixture 식립", tooth: "36" }],
         diagnoses: [{ code: "K081", name: "사고로 인한 치아상실", tooth: "36" }],
       },
       {
-        visitDate: monthsAgo(1),
+        visitDate: monthsAgo(5),
+        memo: "healing 확인, 2차 수술 진행",
+        procedures: [{ code: "U4451", name: "임플란트 2차 수술", tooth: "36" }],
+        diagnoses: [],
+      },
+      {
+        visitDate: monthsAgo(2),
+        memo: "최종 보철 세팅. 1개월 후 점검 예약",
         procedures: [{ code: "U6050", name: "임플란트 보철", tooth: "36" }],
         diagnoses: [],
       },
+      // 2개월 경과 → 1개월 점검 누락
     ],
   },
   {
@@ -338,6 +413,7 @@ const patients: PatientSeed[] = [
     gender: "F",
     birthYear: 1958,
     phone: "010-1234-0019",
+    memo: "골다공증 약 복용 중 (비스포스포네이트 계열)",
     visits: [
       {
         visitDate: monthsAgo(4),
@@ -396,6 +472,7 @@ const patients: PatientSeed[] = [
     birthYear: 1950,
     phone: "010-1234-0022",
     isVip: true,
+    memo: "75세 고령. 전체 틀니에서 임플란트 전환. 관리 순응도 높음",
     visits: [
       {
         visitDate: monthsAgo(5),
@@ -467,7 +544,10 @@ const patients: PatientSeed[] = [
     ],
   },
 
-  // === 26~30: 사랑니 잠재 수요 ===
+  // ============================================================
+  // KEY STORY 7: 사랑니 잠재수요 — 젊은 환자, 전환 기회
+  // 하은채(25세) — 양쪽 매복지치, 발치 필요하나 미결정
+  // ============================================================
   {
     chartNumber: "CF-0026",
     name: "송지원",
@@ -502,9 +582,11 @@ const patients: PatientSeed[] = [
     gender: "F",
     birthYear: 2000,
     phone: "010-1234-0028",
+    memo: "양쪽 사랑니 매복. 군 입대 전 발치 고민 중이었으나 미결정",
     visits: [
       {
         visitDate: monthsAgo(2),
+        memo: "양측 매복지치 확인. 파노라마 촬영. 발치 권유했으나 시기 고민 중",
         procedures: [{ code: "U0001", name: "검진" }],
         diagnoses: [
           { code: "K010", name: "매복치", tooth: "18" },
@@ -542,7 +624,10 @@ const patients: PatientSeed[] = [
     ],
   },
 
-  // === 31~35: 교정 잠재 수요 ===
+  // ============================================================
+  // KEY STORY 8: 교정 잠재수요 — 상담 후 미전환
+  // 탁지민(26세) — 교정 상담 + 검사까지 했으나 시작 안 함
+  // ============================================================
   {
     chartNumber: "CF-0031",
     name: "양서준",
@@ -591,14 +676,19 @@ const patients: PatientSeed[] = [
     gender: "F",
     birthYear: 1999,
     phone: "010-1234-0034",
+    memo: "교정 상담 + 세팔로/모델 분석까지 완료. 비용 상담 후 보류",
     visits: [
       {
-        visitDate: monthsAgo(2),
-        procedures: [
-          { code: "ZZ001", name: "교정 상담" },
-          { code: "ZZ002", name: "교정 검사" },
-        ],
+        visitDate: monthsAgo(3),
+        memo: "교정 초진 상담",
+        procedures: [{ code: "ZZ001", name: "교정 상담" }],
         diagnoses: [{ code: "K073", name: "치아 위치 이상" }],
+      },
+      {
+        visitDate: monthsAgo(2),
+        memo: "교정 정밀검사(세팔로, 모델). 비용 안내 후 생각해보겠다고 함",
+        procedures: [{ code: "ZZ002", name: "교정 검사" }],
+        diagnoses: [],
       },
     ],
   },
@@ -617,7 +707,9 @@ const patients: PatientSeed[] = [
     ],
   },
 
-  // === 36~42: 일반 환자 (액션 불필요) ===
+  // ============================================================
+  // 일반 환자 (액션 불필요) — 정상 치료 완료 또는 최근 내원
+  // ============================================================
   {
     chartNumber: "CF-0036",
     name: "백은호",
@@ -652,6 +744,7 @@ const patients: PatientSeed[] = [
     gender: "M",
     birthYear: 1979,
     phone: "010-1234-0038",
+    memo: "신경치료 + 근관충전 완료 (정상 종료 케이스)",
     visits: [
       {
         visitDate: daysAgo(14),
@@ -669,19 +762,16 @@ const patients: PatientSeed[] = [
     gender: "F",
     birthYear: 1984,
     phone: "010-1234-0039",
+    memo: "크라운 인상 → 세팅 완료 (정상 종료 케이스)",
     visits: [
       {
         visitDate: daysAgo(10),
-        procedures: [
-          { code: "U6010", name: "크라운 인상", tooth: "46" },
-        ],
+        procedures: [{ code: "U6010", name: "크라운 인상", tooth: "46" }],
         diagnoses: [],
       },
       {
         visitDate: daysAgo(3),
-        procedures: [
-          { code: "U6030", name: "크라운 세팅", tooth: "46" },
-        ],
+        procedures: [{ code: "U6030", name: "크라운 세팅", tooth: "46" }],
         diagnoses: [],
       },
     ],
@@ -740,7 +830,10 @@ const patients: PatientSeed[] = [
     ],
   },
 
-  // === 43~45: 복합 케이스 ===
+  // ============================================================
+  // KEY STORY 9: 복합 케이스 — VIP, 임플란트+신경치료 중단+스케일링
+  // 민경호(63세) — 전체 치료 계획 중 신경치료 중단 + 스케일링 리콜
+  // ============================================================
   {
     chartNumber: "CF-0043",
     name: "민경호",
@@ -748,54 +841,71 @@ const patients: PatientSeed[] = [
     birthYear: 1962,
     phone: "010-1234-0043",
     isVip: true,
-    memo: "전체 치료 계획 진행 중",
+    memo: "전체 치료 계획(임플+신경+스케일링) 진행 중. 고혈압 관리. 최고 우선 관리 대상",
     visits: [
       {
+        visitDate: monthsAgo(18),
+        memo: "연간 스케일링",
+        procedures: [{ code: "U2230", name: "치석제거(1/3악)" }],
+        diagnoses: [],
+      },
+      {
         visitDate: monthsAgo(6),
+        memo: "임플란트 식립 (#36)",
         procedures: [{ code: "U4451", name: "임플란트 fixture 식립", tooth: "36" }],
         diagnoses: [],
       },
       {
         visitDate: monthsAgo(5),
+        memo: "임플란트 보철 완료 (#36)",
         procedures: [{ code: "U6050", name: "임플란트 보철", tooth: "36" }],
         diagnoses: [],
       },
       {
         visitDate: monthsAgo(4),
+        memo: "반대측 47번 신경치료 시작. 다음 주 근관충전 예약",
         procedures: [{ code: "U4412", name: "발수(구치)", tooth: "47" }],
         diagnoses: [{ code: "K040", name: "치수염", tooth: "47" }],
       },
-      {
-        visitDate: monthsAgo(18),
-        procedures: [{ code: "U2230", name: "치석제거(1/3악)" }],
-        diagnoses: [],
-      },
+      // 4개월 경과 → 신경치료 중단 + 임플란트 6개월 점검 + 스케일링 리콜
     ],
   },
+
+  // ============================================================
+  // KEY STORY 10: 복합 케이스 — 치주+교정 상담+스케일링 리콜
+  // 진소라(40세) — 치주관리 + 교정 상담 미전환 + 스케일링 시기
+  // ============================================================
   {
     chartNumber: "CF-0044",
     name: "진소라",
     gender: "F",
     birthYear: 1985,
     phone: "010-1234-0044",
+    memo: "치주 관리 중이면서 교정도 고민. 성인교정 비용 부담 언급",
     visits: [
       {
+        visitDate: monthsAgo(14),
+        memo: "스케일링 시행",
+        procedures: [{ code: "U2230", name: "치석제거(1/3악)" }],
+        diagnoses: [],
+      },
+      {
         visitDate: monthsAgo(5),
+        memo: "치주소파술 시행",
         procedures: [{ code: "U1010", name: "치주소파술" }],
         diagnoses: [{ code: "K053", name: "만성치주염" }],
       },
       {
         visitDate: monthsAgo(3),
+        memo: "교정 상담. 치주 안정 후 교정 가능하다고 안내",
         procedures: [{ code: "ZZ001", name: "교정 상담" }],
         diagnoses: [],
       },
-      {
-        visitDate: monthsAgo(14),
-        procedures: [{ code: "U2230", name: "치석제거(1/3악)" }],
-        diagnoses: [],
-      },
+      // 치주 리콜 + 교정 잠재수요 + 스케일링 리콜
     ],
   },
+
+  // VIP 복합 — 임플란트+사랑니+스케일링
   {
     chartNumber: "CF-0045",
     name: "채영수",
@@ -803,7 +913,13 @@ const patients: PatientSeed[] = [
     birthYear: 1957,
     phone: "010-1234-0045",
     isVip: true,
+    memo: "장기 VIP. 임플란트 3개 이력. 정기관리 충실했으나 최근 미내원",
     visits: [
+      {
+        visitDate: monthsAgo(20),
+        procedures: [{ code: "U2232", name: "치석제거(전악)" }],
+        diagnoses: [],
+      },
       {
         visitDate: monthsAgo(8),
         procedures: [{ code: "U4452", name: "임플란트 fixture 식립", tooth: "25" }],
@@ -816,13 +932,9 @@ const patients: PatientSeed[] = [
       },
       {
         visitDate: monthsAgo(2),
+        memo: "정기검진 시 매복지치 발견",
         procedures: [{ code: "U0001", name: "검진" }],
         diagnoses: [{ code: "K010", name: "매복치", tooth: "18" }],
-      },
-      {
-        visitDate: monthsAgo(20),
-        procedures: [{ code: "U2232", name: "치석제거(전악)" }],
-        diagnoses: [],
       },
     ],
   },
@@ -924,6 +1036,18 @@ async function main() {
   }
 
   console.log(`✅ Seeded ${patients.length} patients and ${ruleConfigs.length} rule configs`);
+  console.log("");
+  console.log("📋 Key demo stories:");
+  console.log("  1. 김민수 — 신경치료 중단 (바쁜 직장인)");
+  console.log("  2. 정태영 — VIP 신경치료 중단 (가족 단위 고가치)");
+  console.log("  3. 한지은 — 보철 중단 (비용 문제 추정)");
+  console.log("  4. 남궁석 — 만성치주염 VIP (정기관리 누락)");
+  console.log("  5. 문정훈 — 임플란트 점검 누락 (당뇨 VIP)");
+  console.log("  6. 하은채 — 양쪽 사랑니 잠재수요 (젊은 환자)");
+  console.log("  7. 탁지민 — 교정 상담 미전환 (비용 보류)");
+  console.log("  8. 민경호 — 복합 케이스 (임플+신경중단+스케일링)");
+  console.log("  9. 진소라 — 복합 케이스 (치주+교정+스케일링)");
+  console.log(" 10. 채영수 — VIP 복합 (임플+사랑니+스케일링)");
 }
 
 main()

@@ -29,11 +29,8 @@ import {
 import {
   RULE_TYPE_LABELS,
   SUB_TYPE_LABELS,
-  PRIORITY_COLORS,
-  PRIORITY_LABELS,
   type RuleType,
   type SubType,
-  type Priority,
 } from "@/types";
 
 interface Detection {

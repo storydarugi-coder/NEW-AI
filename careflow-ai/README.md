@@ -10,6 +10,7 @@
 ## 빠른 시작
 
 ```bash
+cp .env.example .env
 npm install
 npm run setup     # Prisma generate + DB push + seed (45명 mock 환자)
 npm run dev       # http://localhost:3000
@@ -29,6 +30,7 @@ npm run dev       # http://localhost:3000
 | ORM/DB | Prisma 5 + SQLite |
 | AI | Vertex AI (Gemini) — 선택적 |
 | 아이콘 | Lucide React |
+| 테스트 | Vitest |
 
 ---
 
@@ -84,63 +86,125 @@ npm run dev       # http://localhost:3000
 | `MessageDraft` | 문자 초안 (톤, 길이, 내용, 상태) |
 | `RuleConfig` | 규칙 설정 (활성/비활성, JSON 파라미터) |
 
-### 실제 EMR 연동 시 필요한 데이터
+---
+
+## 프로젝트 구조
+
 ```
-환자: 차트번호, 이름, 성별, 생년월일, 연락처
-방문: 방문일, 메모
-진단: KCD 진단코드, 진단명, 치아번호
-처치: 처치코드, 처치명, 치아번호
+careflow-ai/
+├── prisma/
+│   ├── schema.prisma          # 데이터 모델
+│   └── seed.ts                # 45명 mock 환자 (10개 핵심 스토리)
+├── src/
+│   ├── app/                   # Next.js App Router 페이지
+│   │   ├── page.tsx           # 대시보드
+│   │   ├── patients/          # 환자 목록 + 상세
+│   │   ├── settings/          # 설정
+│   │   └── api/               # API Routes
+│   ├── components/
+│   │   ├── dashboard/         # 대시보드 UI
+│   │   ├── patients/          # 환자 목록/상세 UI
+│   │   ├── settings/          # 설정 UI
+│   │   └── ui/                # shadcn/ui 컴포넌트
+│   ├── lib/
+│   │   ├── engine/            # 규칙 기반 탐지 엔진
+│   │   │   ├── index.ts       # 오케스트레이터
+│   │   │   ├── types.ts       # Rule 인터페이스
+│   │   │   ├── scoring.ts     # 우선순위 점수 (explainable)
+│   │   │   └── rules/         # 개별 규칙
+│   │   ├── ai/                # AI 메시지 생성
+│   │   │   ├── provider.ts    # AIProvider 인터페이스
+│   │   │   ├── vertex.ts      # Vertex AI 프로바이더
+│   │   │   ├── template-fallback.ts
+│   │   │   ├── generate-message.ts
+│   │   │   └── prompts.ts     # 프롬프트 설계
+│   │   └── message-generator/
+│   │       └── templates.ts   # 33개 한국어 메시지 템플릿
+│   ├── types/index.ts         # 공유 타입/라벨
+│   └── __tests__/             # Vitest 유닛 테스트
+├── .env.example               # 환경변수 템플릿
+├── vitest.config.ts           # 테스트 설정
+└── package.json
 ```
 
 ---
 
-## 규칙 엔진 구조
+## 테스트
 
-```
-src/lib/engine/
-├── index.ts              # 오케스트레이터 (모든 규칙 실행)
-├── types.ts              # Rule 인터페이스 정의
-├── scoring.ts            # 우선순위 점수 산정 (explainable)
-└── rules/
-    ├── treatment-dropout.ts  # 치료 중단 탐지
-    ├── scaling-recall.ts     # 스케일링/치주 리콜
-    ├── implant-followup.ts   # 임플란트 사후관리
-    └── potential-demand.ts   # 잠재 수요 발굴
+```bash
+npm test           # 전체 테스트 실행
+npm run test:watch # 감시 모드
 ```
 
-새 규칙 추가 시 `Rule` 인터페이스를 구현하고 `index.ts`의 `ALL_RULES`에 등록하면 됩니다.
+### 테스트 커버리지
+- **치료 중단 탐지** (8 tests): 신경치료/보철 중단, 완료 케이스, 경계값, 치아별 독립 판정
+- **스케일링/치주 리콜** (5 tests): 보험 스케일링, 치주 리콜 주기, 미이력 케이스
+- **우선순위 점수** (7 tests): 심각도, 미방문 기간, VIP, 단골, 복합 케이스
+- **템플릿 fallback** (9 tests): 3버전 생성, 톤별 분기, SMS 길이, 미지원 subType 처리
 
 ---
 
-## AI 메시지 생성 구조
+## 배포 가이드
 
-```
-src/lib/ai/
-├── provider.ts           # AIProvider 인터페이스 (확장 포인트)
-├── vertex.ts             # Vertex AI (Gemini) 프로바이더
-├── template-fallback.ts  # 템플릿 기반 fallback 프로바이더
-├── generate-message.ts   # 오케스트레이터 (provider 선택 + fallback)
-└── prompts.ts            # 프롬프트 설계 (별도 모듈)
+### Vercel (권장)
+
+1. GitHub 레포지토리를 Vercel에 연결
+2. Build Settings:
+   - Framework: Next.js
+   - Build Command: `npx prisma generate && next build`
+   - Output Directory: `.next`
+3. Environment Variables 설정:
+   - `DATABASE_URL`: SQLite는 Vercel에서 사용 불가 → Postgres로 전환 필요
+   - (선택) AI 관련 환경변수
+4. **참고**: Vercel 배포 시 SQLite → Postgres 전환이 필요합니다 (아래 마이그레이션 가이드 참조)
+
+### Node.js 서버
+
+```bash
+cp .env.example .env
+# .env 파일 편집 (DB URL 등)
+npm install
+npm run setup
+npm run build
+npm start         # http://localhost:3000
 ```
 
-### Fallback 구조
-```
-ENABLE_LLM=true?
-  → Vertex AI 호출 시도
-    → 성공: generatedBy = "vertex"
-    → 실패: 템플릿 fallback, generatedBy = "fallback"
-ENABLE_LLM=false?
-  → 직접 템플릿 사용, generatedBy = "template"
+### Docker (참고)
+
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npx prisma generate && npm run build
+EXPOSE 3000
+CMD ["npm", "start"]
 ```
 
-### 프로바이더 확장
-`AIProvider` 인터페이스를 구현하면 OpenAI, Claude 등 다른 LLM도 추가 가능:
-```typescript
-interface AIProvider {
-  name: string;
-  generate(input: MessageGenerationInput): Promise<GeneratedMessages>;
-  isAvailable(): Promise<boolean>;
+---
+
+## SQLite → PostgreSQL 마이그레이션
+
+프로덕션 배포 시 SQLite에서 Postgres로 전환하는 방법:
+
+1. `prisma/schema.prisma`에서 provider 변경:
+```prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
+```
+
+2. `.env` 업데이트:
+```env
+DATABASE_URL="postgresql://user:password@host:5432/careflow"
+```
+
+3. 마이그레이션 실행:
+```bash
+npx prisma db push
+npx tsx prisma/seed.ts
 ```
 
 ---
@@ -177,7 +241,7 @@ ENABLE_LLM_MESSAGE_GENERATION=false  # 또는 변수 미설정
 
 | 변수 | 필수 | 기본값 | 설명 |
 |------|------|--------|------|
-| `DATABASE_URL` | O | `file:./dev.db` | SQLite DB 경로 |
+| `DATABASE_URL` | O | `file:./dev.db` | DB 경로 |
 | `ENABLE_LLM_MESSAGE_GENERATION` | X | `false` | LLM 메시지 생성 활성화 |
 | `GOOGLE_CLOUD_PROJECT` | X | - | GCP 프로젝트 ID |
 | `GOOGLE_CLOUD_LOCATION` | X | `us-central1` | Vertex AI 리전 |
@@ -198,17 +262,18 @@ ENABLE_LLM_MESSAGE_GENERATION=false  # 또는 변수 미설정
 | 상태 변경 | ✅ DB 저장 | 그대로 사용 |
 | 문자 발송 | ❌ UI만 (발송 안 됨) | 문자 발송 API 연동 |
 | 인증/권한 | ❌ 없음 | NextAuth 등 추가 |
+| 전주 대비 변화 | 🔧 결정적 Mock | 실제 날짜 기반 비교 |
 
 ---
 
-## 보안 및 개인정보 주의사항
+## 실제 운영 전 필요한 작업
 
-- 현재 mock 데이터만 사용하며 실제 환자 정보는 포함되어 있지 않습니다.
-- 실제 운영 시 개인정보 마스킹/가명처리가 필요합니다.
-  - 확장 포인트: `Patient` 모델의 `name`, `phone` 필드 마스킹 유틸리티 추가
-- AI 프롬프트에 환자의 구체적 질환명/상세 치료 내용을 직접 전달하지 않도록 설계했습니다.
-- 로그에 민감정보(이름, 전화번호)를 출력하지 않습니다.
-- `.env` 파일은 git에 포함하지 마세요.
+1. **DB 전환**: SQLite → PostgreSQL (Prisma provider 변경만으로 가능)
+2. **인증/권한**: NextAuth 또는 자체 인증 추가
+3. **EMR 연동**: 환자/방문/진단/처치 데이터 API 연결
+4. **문자 발송**: 실제 SMS API 연동 (카카오 알림톡, NHN 등)
+5. **개인정보**: 마스킹/가명처리 유틸리티 추가
+6. **HTTPS**: 프로덕션 배포 시 SSL 인증서
 
 ---
 
@@ -217,24 +282,25 @@ ENABLE_LLM_MESSAGE_GENERATION=false  # 또는 변수 미설정
 ```bash
 npm run dev        # 개발 서버
 npm run build      # 프로덕션 빌드
+npm run start      # 프로덕션 서버
 npm run setup      # 전체 초기 설정 (설치 + DB + seed)
 npm run db:push    # 스키마 반영
 npm run db:seed    # seed 데이터 재삽입
 npm run db:reset   # DB 초기화 + seed
 npm run lint       # ESLint
+npm test           # 유닛 테스트
+npm run test:watch # 테스트 감시 모드
 ```
 
 ---
 
-## 확장 포인트 (V2+)
+## 보안 및 개인정보 주의사항
 
-- **재방문 예측** (Revisit Prediction) — ML 기반 규칙 추가
-- **케어 갭 분석** (Care Gap Analysis)
-- **이탈 예측** (Churn Prediction)
-- **실시간 알림/대시보드**
-- **멀티테넌시** (병원별 분리)
-- **실제 EMR 연동** (HL7 FHIR 등)
-- **문자 발송 API 연동**
+- 현재 mock 데이터만 사용하며 실제 환자 정보는 포함되어 있지 않습니다.
+- 실제 운영 시 개인정보 마스킹/가명처리가 필요합니다.
+- AI 프롬프트에 환자의 구체적 질환명/상세 치료 내용을 직접 전달하지 않도록 설계했습니다.
+- 로그에 민감정보(이름, 전화번호)를 출력하지 않습니다.
+- `.env` 파일은 git에 포함하지 마세요.
 
 ---
 

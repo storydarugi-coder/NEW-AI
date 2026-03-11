@@ -62,7 +62,7 @@ export async function generateMessages(
         return result;
       }
       console.log(`[CareFlow] ${provider.name} 프로바이더를 사용할 수 없어 fallback합니다.`);
-    } catch (error) {
+    } catch {
       // 민감 정보 노출 방지: 에러 메시지 간소화
       console.log(`[CareFlow] AI 메시지 생성 실패, 기본 메시지로 전환합니다.`);
     }
