@@ -15,15 +15,15 @@ function monthsAgo(months: number): Date {
   return d;
 }
 
-type VisitChannel = "walk_in" | "referral" | "cta_naver" | "cta_google" | "cta_kakao" | "cta_instagram" | "online" | "phone" | "other";
-
 interface SeedVisit {
   visitDate: Date;
   memo?: string;
   sourceRaw?: string;
-  channel?: VisitChannel;
+  channel?: string;
   isCta?: boolean;
   campaignKey?: string;
+  /** CTA: 이 방문에 실제 치료 처치가 포함되어 있는지 (상담/검사만이면 false) */
+  hasTreatment?: boolean;
   procedures: { code: string; name: string; tooth?: string }[];
   diagnoses: { code: string; name: string; tooth?: string }[];
 }
@@ -123,7 +123,7 @@ const patients: SeedPatient[] = [
   {
     chartNumber: "CF-0004", name: "최서연", gender: "F", birthYear: 1995, phone: "010-1234-0004",
     visits: [
-      { visitDate: daysAgo(18), procedures: [{ code: "U4411", name: "발수(전치)", tooth: "21" }], diagnoses: [{ code: "K040", name: "치수염", tooth: "21" }], sourceRaw: "네이버 검색 광고 클릭", channel: "cta_naver", isCta: true, campaignKey: "naver_implant_mar" },
+      { visitDate: daysAgo(18), procedures: [{ code: "U4411", name: "발수(전치)", tooth: "21" }], diagnoses: [{ code: "K040", name: "치수염", tooth: "21" }], sourceRaw: "네이버 검색 광고 클릭", channel: "cta_naver", isCta: true, campaignKey: "naver_implant_mar", hasTreatment: true },
     ],
   },
   {
@@ -156,7 +156,7 @@ const patients: SeedPatient[] = [
   },
   {
     chartNumber: "CF-0009", name: "강현우", gender: "M", birthYear: 1980, phone: "010-1234-0009",
-    visits: [{ visitDate: daysAgo(25), procedures: [{ code: "U6010", name: "크라운 인상", tooth: "47" }], diagnoses: [], sourceRaw: "구글 스케일링 검색 광고", channel: "cta_google", isCta: true, campaignKey: "google_scaling_q1" }],
+    visits: [{ visitDate: daysAgo(25), procedures: [{ code: "U6010", name: "크라운 인상", tooth: "47" }], diagnoses: [], sourceRaw: "구글 스케일링 검색 광고", channel: "cta_google", isCta: true, campaignKey: "google_scaling_q1", hasTreatment: true }],
   },
   {
     chartNumber: "CF-0010", name: "서미라", gender: "F", birthYear: 1987, phone: "010-1234-0010",
@@ -169,7 +169,7 @@ const patients: SeedPatient[] = [
   },
   {
     chartNumber: "CF-0012", name: "조은별", gender: "F", birthYear: 1993, phone: "010-1234-0012",
-    visits: [{ visitDate: monthsAgo(13), procedures: [{ code: "U2231", name: "치석제거(2/3악)" }], diagnoses: [], sourceRaw: "카카오 플러스친구 쿠폰", channel: "cta_kakao", isCta: true, campaignKey: "kakao_general_feb" }],
+    visits: [{ visitDate: monthsAgo(13), procedures: [{ code: "U2231", name: "치석제거(2/3악)" }], diagnoses: [], sourceRaw: "카카오 플러스친구 쿠폰", channel: "cta_kakao", isCta: true, campaignKey: "kakao_general_feb", hasTreatment: true }],
   },
   {
     chartNumber: "CF-0013", name: "남궁석", gender: "M", birthYear: 1965, phone: "010-1234-0013",
@@ -198,13 +198,13 @@ const patients: SeedPatient[] = [
   },
   {
     chartNumber: "CF-0017", name: "고윤성", gender: "M", birthYear: 1983, phone: "010-1234-0017",
-    visits: [{ visitDate: monthsAgo(7), procedures: [{ code: "U1040", name: "치주치료" }, { code: "U2230", name: "치석제거(1/3악)" }], diagnoses: [{ code: "K052", name: "급성치주염" }], sourceRaw: "구글 치과 검색", channel: "cta_google", isCta: true, campaignKey: "google_scaling_q1" }],
+    visits: [{ visitDate: monthsAgo(7), procedures: [{ code: "U1040", name: "치주치료" }, { code: "U2230", name: "치석제거(1/3악)" }], diagnoses: [{ code: "K052", name: "급성치주염" }], sourceRaw: "구글 치과 검색", channel: "cta_google", isCta: true, campaignKey: "google_scaling_q1", hasTreatment: true }],
   },
   {
     chartNumber: "CF-0018", name: "문정훈", gender: "M", birthYear: 1963, phone: "010-1234-0018",
     isVip: true, tags: "임플란트2개,당뇨관리중",
     visits: [
-      { visitDate: monthsAgo(8), procedures: [{ code: "U4451", name: "임플란트 fixture 식립", tooth: "36" }], diagnoses: [{ code: "K081", name: "치아상실", tooth: "36" }], sourceRaw: "네이버 임플란트 CTA 광고", channel: "cta_naver", isCta: true, campaignKey: "naver_implant_mar" },
+      { visitDate: monthsAgo(8), procedures: [{ code: "U4451", name: "임플란트 fixture 식립", tooth: "36" }], diagnoses: [{ code: "K081", name: "치아상실", tooth: "36" }], sourceRaw: "네이버 임플란트 CTA 광고", channel: "cta_naver", isCta: true, campaignKey: "naver_implant_mar", hasTreatment: true },
       { visitDate: monthsAgo(5), procedures: [{ code: "U4451", name: "임플란트 2차 수술", tooth: "36" }], diagnoses: [] },
       { visitDate: monthsAgo(2), memo: "최종 보철 세팅", procedures: [{ code: "U6050", name: "임플란트 보철", tooth: "36" }], diagnoses: [] },
     ],
@@ -220,7 +220,7 @@ const patients: SeedPatient[] = [
   {
     chartNumber: "CF-0020", name: "황인석", gender: "M", birthYear: 1955, phone: "010-1234-0020",
     visits: [
-      { visitDate: monthsAgo(7), procedures: [{ code: "U4451", name: "임플란트 fixture 식립", tooth: "16" }], diagnoses: [], sourceRaw: "네이버 플레이스 광고 유입", channel: "cta_naver", isCta: true, campaignKey: "naver_implant_mar" },
+      { visitDate: monthsAgo(7), procedures: [{ code: "U4451", name: "임플란트 fixture 식립", tooth: "16" }], diagnoses: [], sourceRaw: "네이버 플레이스 광고 유입", channel: "cta_naver", isCta: true, campaignKey: "naver_implant_mar", hasTreatment: true },
       { visitDate: monthsAgo(6), procedures: [{ code: "U6050", name: "임플란트 보철", tooth: "16" }], diagnoses: [] },
     ],
   },
@@ -249,7 +249,7 @@ const patients: SeedPatient[] = [
   {
     chartNumber: "CF-0024", name: "차민재", gender: "M", birthYear: 1975, phone: "010-1234-0024",
     visits: [
-      { visitDate: monthsAgo(2), procedures: [{ code: "U4451", name: "임플란트 fixture 식립", tooth: "45" }], diagnoses: [], sourceRaw: "카카오 채널 임플란트 이벤트", channel: "cta_kakao", isCta: true, campaignKey: "kakao_general_feb" },
+      { visitDate: monthsAgo(2), procedures: [{ code: "U4451", name: "임플란트 fixture 식립", tooth: "45" }], diagnoses: [], sourceRaw: "카카오 채널 임플란트 이벤트", channel: "cta_kakao", isCta: true, campaignKey: "kakao_general_feb", hasTreatment: true },
       { visitDate: daysAgo(20), procedures: [{ code: "U6050", name: "임플란트 보철", tooth: "45" }], diagnoses: [] },
     ],
   },
@@ -271,7 +271,7 @@ const patients: SeedPatient[] = [
   {
     chartNumber: "CF-0028", name: "하은채", gender: "F", birthYear: 2000, phone: "010-1234-0028",
     tags: "양쪽사랑니매복",
-    visits: [{ visitDate: monthsAgo(2), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [{ code: "K010", name: "매복치", tooth: "18" }, { code: "K018", name: "매복치 기타", tooth: "28" }], sourceRaw: "인스타그램 교정 광고 → 사랑니 문의", channel: "cta_instagram", isCta: true, campaignKey: "insta_ortho_mar" }],
+    visits: [{ visitDate: monthsAgo(2), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [{ code: "K010", name: "매복치", tooth: "18" }, { code: "K018", name: "매복치 기타", tooth: "28" }], sourceRaw: "인스타그램 교정 광고 → 사랑니 문의", channel: "cta_instagram", isCta: true, campaignKey: "insta_ortho_mar", hasTreatment: false }],
   },
   {
     chartNumber: "CF-0029", name: "구본철", gender: "M", birthYear: 1994, phone: "010-1234-0029",
@@ -283,11 +283,11 @@ const patients: SeedPatient[] = [
   },
   {
     chartNumber: "CF-0031", name: "양서준", gender: "M", birthYear: 2002, phone: "010-1234-0031",
-    visits: [{ visitDate: monthsAgo(5), procedures: [{ code: "ZZ001", name: "교정 상담" }], diagnoses: [{ code: "K070", name: "악안면 이상" }], sourceRaw: "인스타그램 교정 비포애프터 광고", channel: "cta_instagram", isCta: true, campaignKey: "insta_ortho_mar" }],
+    visits: [{ visitDate: monthsAgo(5), procedures: [{ code: "ZZ001", name: "교정 상담" }], diagnoses: [{ code: "K070", name: "악안면 이상" }], sourceRaw: "인스타그램 교정 비포애프터 광고", channel: "cta_instagram", isCta: true, campaignKey: "insta_ortho_mar", hasTreatment: false }],
   },
   {
     chartNumber: "CF-0032", name: "도하영", gender: "F", birthYear: 2001, phone: "010-1234-0032",
-    visits: [{ visitDate: monthsAgo(3), procedures: [{ code: "ZZ002", name: "교정 검사" }], diagnoses: [{ code: "K071", name: "상하악 관계 이상" }], sourceRaw: "인스타 교정 DM 문의", channel: "cta_instagram", isCta: true, campaignKey: "insta_ortho_mar" }],
+    visits: [{ visitDate: monthsAgo(3), procedures: [{ code: "ZZ002", name: "교정 검사" }], diagnoses: [{ code: "K071", name: "상하악 관계 이상" }], sourceRaw: "인스타 교정 DM 문의", channel: "cta_instagram", isCta: true, campaignKey: "insta_ortho_mar", hasTreatment: false }],
   },
   {
     chartNumber: "CF-0033", name: "원세훈", gender: "M", birthYear: 2003, phone: "010-1234-0033",
@@ -307,7 +307,7 @@ const patients: SeedPatient[] = [
   },
   {
     chartNumber: "CF-0036", name: "백은호", gender: "M", birthYear: 1986, phone: "010-1234-0036",
-    visits: [{ visitDate: daysAgo(7), procedures: [{ code: "U2230", name: "치석제거(1/3악)" }], diagnoses: [], sourceRaw: "구글 스케일링 검색 유입", channel: "cta_google", isCta: true, campaignKey: "google_scaling_q1" }],
+    visits: [{ visitDate: daysAgo(7), procedures: [{ code: "U2230", name: "치석제거(1/3악)" }], diagnoses: [], sourceRaw: "구글 스케일링 검색 유입", channel: "cta_google", isCta: true, campaignKey: "google_scaling_q1", hasTreatment: true }],
   },
   {
     chartNumber: "CF-0037", name: "공다은", gender: "F", birthYear: 1991, phone: "010-1234-0037",
@@ -350,7 +350,7 @@ const patients: SeedPatient[] = [
     isVip: true, tags: "전체치료계획,고혈압,최우선관리",
     visits: [
       { visitDate: monthsAgo(18), procedures: [{ code: "U2230", name: "치석제거(1/3악)" }], diagnoses: [] },
-      { visitDate: monthsAgo(6), procedures: [{ code: "U4451", name: "임플란트 fixture 식립", tooth: "36" }], diagnoses: [], sourceRaw: "네이버 임플란트 CTA", channel: "cta_naver", isCta: true, campaignKey: "naver_implant_mar" },
+      { visitDate: monthsAgo(6), procedures: [{ code: "U4451", name: "임플란트 fixture 식립", tooth: "36" }], diagnoses: [], sourceRaw: "네이버 임플란트 CTA", channel: "cta_naver", isCta: true, campaignKey: "naver_implant_mar", hasTreatment: true },
       { visitDate: monthsAgo(5), procedures: [{ code: "U6050", name: "임플란트 보철", tooth: "36" }], diagnoses: [] },
       { visitDate: monthsAgo(4), procedures: [{ code: "U4412", name: "발수(구치)", tooth: "47" }], diagnoses: [{ code: "K040", name: "치수염", tooth: "47" }] },
     ],
@@ -403,6 +403,7 @@ export async function POST() {
 
     // 기존 데이터 삭제 (FK 의존성 순서)
     await prisma.auditLog.deleteMany();
+    await prisma.messageDelivery.deleteMany();
     await prisma.leadAttribution.deleteMany();
     await prisma.messageDraft.deleteMany();
     await prisma.recallRecommendation.deleteMany();
@@ -433,6 +434,9 @@ export async function POST() {
     }
 
     // 환자 + PatientIdentity + Visit + LeadAttribution
+    // 중복 환자 추적: patientId → campaignKey 세트
+    const ctaPatientCampaigns = new Map<string, Set<string>>();
+
     for (const p of patients) {
       const patient = await prisma.patient.create({
         data: {
@@ -482,16 +486,41 @@ export async function POST() {
         });
 
         if (v.isCta && campaignId) {
-          const isConfirmed = Math.random() > 0.4;
+          // 중복 환자 체크: 같은 환자가 같은 캠페인에 이미 있으면 중복
+          const patientCampaigns = ctaPatientCampaigns.get(patient.id) || new Set();
+          const isDuplicate = patientCampaigns.has(v.campaignKey || "");
+          patientCampaigns.add(v.campaignKey || "");
+          ctaPatientCampaigns.set(patient.id, patientCampaigns);
+
+          const treatmentStarted = v.hasTreatment ?? true;
+          const isConfirmed = Math.random() > 0.35;
+          const reviewStatus = isConfirmed ? "confirmed" : "pending";
+
+          // 정산 인정: 확정 + 진료 시작 + 중복 아님
+          const settlementEligible = reviewStatus === "confirmed" && treatmentStarted && !isDuplicate;
+          let ineligibleReason: string | null = null;
+          if (!settlementEligible) {
+            if (reviewStatus !== "confirmed") ineligibleReason = "검토 대기 중";
+            else if (!treatmentStarted) ineligibleReason = "실제 진료 미시작 (상담/검사만)";
+            else if (isDuplicate) ineligibleReason = "동일 환자 중복 유입 (1회만 인정)";
+          }
+
+          const settlementMonth = `${v.visitDate.getFullYear()}-${String(v.visitDate.getMonth() + 1).padStart(2, "0")}`;
+
           await prisma.leadAttribution.create({
             data: {
               visitId: visit.id,
               campaignId,
-              reviewStatus: isConfirmed ? "confirmed" : "pending",
+              reviewStatus,
               autoReason: getAutoReason(v.sourceRaw || "", v.channel || ""),
               confidence: 0.7 + Math.random() * 0.25,
               reviewer: isConfirmed ? "데스크 김" : null,
               reviewedAt: isConfirmed ? daysAgo(Math.floor(Math.random() * 7)) : null,
+              treatmentStarted,
+              isDuplicate,
+              settlementMonth,
+              settlementEligible,
+              ineligibleReason,
             },
           });
         }

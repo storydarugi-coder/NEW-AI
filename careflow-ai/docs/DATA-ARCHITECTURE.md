@@ -164,3 +164,69 @@ EMR API/HL7/FHIR
 
 → **엔진 동작, 광고 귀속 추적, 정산 계산은 모두 PII 없이 가능**
 → **PII는 UI 표시와 메시지 발송 시점에만 필요** → PatientIdentity 분리가 합리적
+
+## 8. 메시지 발송 아키텍처
+
+### MessageDelivery 모델
+```
+MessageDraft (초안 생성)
+  ↓ 운영자 검토
+MessageDraft.status = "reviewed"
+  ↓ 발송 요청
+MessageDelivery 생성 (status: "queued")
+  ↓ Provider.send()
+MessageDelivery.status = "sent" / "failed"
+  ↓ 실패 시
+retryCount++, 재시도 가능 (최대 3회)
+```
+
+### Provider 추상화
+- `MockMessageProvider`: 개발/데모용, 95% 성공 시뮬레이션
+- `KakaoAlimtalkProvider`: 카카오 알림톡 API (stub 준비)
+- `MESSAGE_PROVIDER` 환경변수로 전환
+
+### 감사 로그
+- `queue_message`: 발송 대기열 추가 시 기록
+- `send_message`: 실제 발송 시 기록
+- 모든 발송 기록에 `messageId`, `provider` 포함 (PII 미포함)
+
+## 9. CTA 정산 적격성 판정 로직
+
+### 3-조건 게이트
+```
+settlementEligible = confirmed AND treatmentStarted AND NOT isDuplicate
+```
+
+| 조건 | 검증 방식 |
+|------|----------|
+| confirmed | 운영자가 CTA 유입으로 최종 확인 (`reviewStatus = "confirmed"`) |
+| treatmentStarted | 비치료 코드(상담/초진/검사/방사선) 제외 후 치료 시술 1건 이상 |
+| !isDuplicate | 동일 환자·캠페인 조합 첫 건만 인정 |
+
+### 비적격 시 사유 기록
+`ineligibleReason` 필드에 사람이 읽을 수 있는 사유를 저장:
+- `"검토 대기 중입니다"` / `"실제 진료가 시작되지 않았습니다"` / `"동일 환자·캠페인 중복 유입입니다"`
+
+### 정산 단위
+- 월 기준 (`settlementMonth: "YYYY-MM"`)
+- CPC 단가 × 적격 건수로 정산 금액 산출
+
+## 10. EMR 연동 필드 명세
+
+### CareFlow AI가 필요로 하는 최소 데이터
+
+| 출처 | 필드 | 형식 | 용도 |
+|------|------|------|------|
+| 환자 마스터 | 차트번호 | string | 식별 키 |
+| 환자 마스터 | 이름/전화번호 | string | PII → PatientIdentity |
+| 환자 마스터 | 성별/출생연도 | M·F / number | 개인화 |
+| 진료 기록 | 방문일 | date | 리콜 주기 |
+| 진료 기록 | 수가코드 + 명칭 | string | 치료 중단 탐지 |
+| 진료 기록 | 치아번호 | number (옵션) | 치아별 판정 |
+| 진단 기록 | KCD 코드 + 명칭 | string | 잠재수요 |
+| 접수 기록 | 유입경로 (free text) | string | CTA 자동 분류 |
+
+### ETL 원칙
+- 위 필드만 추출, 차트 원문/자유서술/주민번호/주소 등은 **폐기**
+- PII(이름, 전화번호)는 별도 `PatientIdentity` 테이블에 분리 저장
+- 수가코드는 표준 코드 매핑 후 저장 (자유텍스트 → 코드 변환)

@@ -11,6 +11,7 @@ import {
   X,
   Info,
   Megaphone,
+  MessageSquare,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -78,7 +79,7 @@ export function Sidebar() {
           <Activity className="h-7 w-7 text-blue-600 mr-2" />
           <div>
             <h1 className="text-lg font-bold text-gray-900">CareFlow AI</h1>
-            <p className="text-[10px] text-gray-400 -mt-0.5">운영 보조 · 리콜 추천</p>
+            <p className="text-[10px] text-gray-400 -mt-0.5">운영 보조 · 리콜 · 광고 관리</p>
           </div>
         </div>
 

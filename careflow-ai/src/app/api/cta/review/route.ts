@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { evaluateSettlementEligibility } from "@/lib/cta/classify";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,6 +26,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 현재 귀속 정보 조회
+    const current = await prisma.leadAttribution.findUnique({
+      where: { id: attributionId },
+    });
+
+    if (!current) {
+      return NextResponse.json(
+        { error: "해당 귀속 정보를 찾을 수 없습니다." },
+        { status: 404 }
+      );
+    }
+
+    // 정산 인정 여부 재계산
+    const { eligible, reason } = evaluateSettlementEligibility({
+      reviewStatus,
+      treatmentStarted: current.treatmentStarted,
+      isDuplicate: current.isDuplicate,
+    });
+
     const attribution = await prisma.leadAttribution.update({
       where: { id: attributionId },
       data: {
@@ -32,16 +52,22 @@ export async function POST(request: NextRequest) {
         reviewer: reviewer || "운영자",
         reviewedAt: new Date(),
         reviewMemo: memo || null,
+        settlementEligible: eligible,
+        ineligibleReason: eligible ? null : reason,
       },
     });
 
-    // 감사 로그
+    // 감사 로그 (PII 미포함)
     await prisma.auditLog.create({
       data: {
         action: "review_attribution",
         entityType: "attribution",
         entityId: attributionId,
-        detail: JSON.stringify({ reviewStatus, reviewer: reviewer || "운영자" }),
+        detail: JSON.stringify({
+          reviewStatus,
+          reviewer: reviewer || "운영자",
+          settlementEligible: eligible,
+        }),
       },
     });
 

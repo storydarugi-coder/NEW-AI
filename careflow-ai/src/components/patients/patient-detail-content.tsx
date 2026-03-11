@@ -23,6 +23,8 @@ import {
   Sparkles,
   FileCode,
   Bot,
+  Send,
+  Megaphone,
 } from "lucide-react";
 import {
   RULE_TYPE_LABELS,
@@ -261,31 +263,62 @@ export function PatientDetailContent({ data }: Props) {
         </Card>
       )}
 
-      {/* CTA 유입 요약 */}
+      {/* CTA 광고 유입 + CRM 통합 요약 */}
       {visits.some((v) => v.isCta) && (
         <Card className="border-0 shadow-sm border-l-4 border-l-green-400">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">CTA 광고 유입</Badge>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Megaphone size={16} className="text-green-600" />
+                <span className="font-medium text-gray-900">광고 유입 환자</span>
+              </div>
+              <Link href="/cta" className="text-xs text-green-600 hover:text-green-700">
+                광고 관리 →
+              </Link>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {visits.filter((v) => v.isCta).map((v) => (
-                <div key={v.id} className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-500">{formatDate(v.visitDate)}</span>
-                  <Badge variant="outline" className="text-[10px]">
-                    {CHANNEL_LABELS[v.channel as VisitChannel] || v.channel || "알 수 없음"}
-                  </Badge>
-                  {v.attribution && (
-                    <Badge variant="outline" className={`text-[10px] ${REVIEW_STATUS_COLORS[v.attribution.reviewStatus as AttributionReviewStatus] || ""}`}>
-                      {REVIEW_STATUS_LABELS[v.attribution.reviewStatus as AttributionReviewStatus] || v.attribution.reviewStatus}
+                <div key={v.id} className="bg-green-50/50 rounded-lg p-3 space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-gray-700">{formatDate(v.visitDate)}</span>
+                    <Badge variant="outline" className="text-[10px]">
+                      {CHANNEL_LABELS[v.channel as string] || v.channel || "미분류"}
                     </Badge>
+                    {v.attribution && (
+                      <Badge variant="outline" className={`text-[10px] ${REVIEW_STATUS_COLORS[v.attribution.reviewStatus as AttributionReviewStatus] || ""}`}>
+                        {REVIEW_STATUS_LABELS[v.attribution.reviewStatus as AttributionReviewStatus] || v.attribution.reviewStatus}
+                      </Badge>
+                    )}
+                    {v.attribution?.campaignName && (
+                      <span className="text-xs text-gray-400">{v.attribution.campaignName}</span>
+                    )}
+                  </div>
+                  {v.sourceRaw && (
+                    <p className="text-xs text-gray-500">유입 경로: {v.sourceRaw}</p>
                   )}
-                  {v.attribution?.campaignName && (
-                    <span className="text-xs text-gray-400">{v.attribution.campaignName}</span>
+                  {v.attribution?.autoReason && (
+                    <p className="text-xs text-gray-400">분류 근거: {v.attribution.autoReason}</p>
                   )}
                 </div>
               ))}
             </div>
+
+            {/* CRM 연계 요약 */}
+            {detections.length > 0 && (
+              <div className="border-t pt-3 mt-2">
+                <p className="text-xs font-medium text-gray-600 mb-1.5">이 환자의 CRM 상태</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {detections.map((d, i) => (
+                    <Badge key={i} variant="outline" className={`text-[10px] ${getRuleColor(d.ruleType)}`}>
+                      {SUB_TYPE_LABELS[d.subType as SubType] || RULE_TYPE_LABELS[d.ruleType as RuleType]}
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  광고 유입 후 {detections.length}건의 후속 관리가 필요합니다
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -505,14 +538,37 @@ export function PatientDetailContent({ data }: Props) {
           {drafts.map((m) => (
             <Card key={m.id} className="border-0 shadow-sm">
               <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Badge variant="outline" className="text-[11px]">{TONE_LABELS[m.tone as MessageTone]}</Badge>
-                  <Badge variant="outline" className="text-[11px]">
-                    {m.length === "short" ? "짧은 버전" : m.length === "long" ? "따뜻한 버전" : "기본 버전"}
-                  </Badge>
-                  <span className="text-xs text-gray-400">{formatDate(m.createdAt)}</span>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[11px]">{TONE_LABELS[m.tone as MessageTone]}</Badge>
+                    <Badge variant="outline" className="text-[11px]">
+                      {m.length === "short" ? "짧은 버전" : m.length === "long" ? "따뜻한 버전" : "기본 버전"}
+                    </Badge>
+                    <span className="text-xs text-gray-400">{formatDate(m.createdAt)}</span>
+                    {m.status === "sent" && <Badge className="bg-green-100 text-green-700 text-[10px]">발송 완료</Badge>}
+                    {m.status === "queued" && <Badge className="bg-blue-100 text-blue-700 text-[10px]">발송 대기</Badge>}
+                    {m.status === "failed" && <Badge className="bg-red-100 text-red-700 text-[10px]">발송 실패</Badge>}
+                  </div>
+                  {(m.status === "draft" || m.status === "reviewed") && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        await fetch("/api/messages/send", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ messageId: m.id, action: "send" }),
+                        });
+                        setDrafts((prev) => prev.map((d) => d.id === m.id ? { ...d, status: "sent" } : d));
+                      }}
+                      className="text-xs gap-1"
+                    >
+                      <Send size={12} /> 발송
+                    </Button>
+                  )}
                 </div>
                 <p className="text-sm text-gray-700 whitespace-pre-wrap">{m.content}</p>
+                <p className="text-[10px] text-amber-600 mt-2">운영 참고용 초안 — 발송 전 반드시 검토하세요</p>
               </CardContent>
             </Card>
           ))}

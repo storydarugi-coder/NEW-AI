@@ -130,14 +130,39 @@ model MessageDraft {
   tone      String   @default("polite")
   length    String   @default("medium")
   content   String
-  status    String   @default("draft")
+  status    String   @default("draft") // draft, reviewed, queued, sent, failed
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient    Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  deliveries MessageDelivery[]
 
   @@index([patientId])
   @@index([status])
+}
+
+// ──────────────────────────────────────────────
+// 메시지 발송 (카카오톡 채널 등)
+// 실제 발송 provider와 상태를 추적
+// ──────────────────────────────────────────────
+
+model MessageDelivery {
+  id          String    @id @default(cuid())
+  messageId   String    // MessageDraft.id 참조
+  provider    String    @default("kakao_alimtalk") // kakao_alimtalk, sms, mock
+  status      String    @default("queued") // queued, sending, sent, failed, cancelled
+  sentAt      DateTime?
+  failReason  String?
+  retryCount  Int       @default(0)
+  externalId  String?   // 카카오/SMS API 발송 ID
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  message MessageDraft @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 // ──────────────────────────────────────────────
@@ -175,6 +200,12 @@ model LeadAttribution {
   reviewer     String?   // 검토자 (향후 인증 연동)
   reviewedAt   DateTime?
   reviewMemo   String?   // 검토 메모
+  // 정산 인정 조건 필드
+  treatmentStarted Boolean @default(false) // 실제 진료 시작 여부 (상담만은 불인정)
+  isDuplicate      Boolean @default(false) // 같은 환자 중복 유입 여부
+  settlementMonth  String? // 정산 대상 월 (YYYY-MM 형식)
+  settlementEligible Boolean @default(false) // 최종 정산 대상 여부
+  ineligibleReason String? // 정산 미인정 사유
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -183,6 +214,7 @@ model LeadAttribution {
 
   @@index([campaignId])
   @@index([reviewStatus])
+  @@index([settlementMonth])
   @@index([createdAt])
 }
 

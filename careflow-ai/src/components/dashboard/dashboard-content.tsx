@@ -83,6 +83,7 @@ interface DashboardContentProps {
     totalLeads: number;
     pendingReview: number;
     confirmed: number;
+    settlementEligible: number;
   };
 }
 
@@ -219,7 +220,7 @@ export function DashboardContent({
                 <div>
                   <p className="text-sm font-medium text-gray-900">CTA 광고 유입</p>
                   <p className="text-xs text-gray-500">
-                    이번 달 {ctaStats.totalLeads}건 · 확정 {ctaStats.confirmed}건 · 검토 대기 {ctaStats.pendingReview}건
+                    유입 {ctaStats.totalLeads}건 · 확정 {ctaStats.confirmed}건 · 정산 대상 {ctaStats.settlementEligible}건 · 검토 필요 {ctaStats.pendingReview}건
                   </p>
                 </div>
               </div>

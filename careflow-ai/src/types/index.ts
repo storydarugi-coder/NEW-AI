@@ -113,29 +113,43 @@ export type VisitChannel =
   | "cta_google"
   | "cta_kakao"
   | "cta_instagram"
+  | "cta_meta"
+  | "cta_youtube"
+  | "cta_danggeun"
+  | "cta_other"
+  | "online_search"
   | "online"
   | "phone"
+  | "unknown"
   | "other";
 
 export type AttributionReviewStatus = "pending" | "confirmed" | "rejected";
 export type CampaignStatus = "active" | "paused" | "ended";
 
-export const CHANNEL_LABELS: Record<VisitChannel, string> = {
+export type MessageDeliveryStatus = "queued" | "sending" | "sent" | "failed" | "cancelled";
+
+export const CHANNEL_LABELS: Record<string, string> = {
   walk_in: "직접 방문",
   referral: "지인 소개",
-  cta_naver: "네이버 CTA",
-  cta_google: "구글 CTA",
-  cta_kakao: "카카오 CTA",
-  cta_instagram: "인스타그램 CTA",
+  cta_naver: "네이버 광고",
+  cta_google: "구글 광고",
+  cta_kakao: "카카오 광고",
+  cta_instagram: "인스타그램 광고",
+  cta_meta: "메타/페이스북 광고",
+  cta_youtube: "유튜브 광고",
+  cta_danggeun: "당근마켓 광고",
+  cta_other: "기타 광고",
+  online_search: "온라인 검색",
   online: "온라인 예약",
   phone: "전화 문의",
+  unknown: "미분류",
   other: "기타",
 };
 
 export const REVIEW_STATUS_LABELS: Record<AttributionReviewStatus, string> = {
-  pending: "검토 대기",
+  pending: "검토 필요",
   confirmed: "확정",
-  rejected: "제외",
+  rejected: "반려",
 };
 
 export const REVIEW_STATUS_COLORS: Record<AttributionReviewStatus, string> = {
@@ -148,4 +162,20 @@ export const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, string> = {
   active: "진행 중",
   paused: "일시중지",
   ended: "종료",
+};
+
+export const DELIVERY_STATUS_LABELS: Record<MessageDeliveryStatus, string> = {
+  queued: "발송 대기",
+  sending: "발송 중",
+  sent: "발송 완료",
+  failed: "발송 실패",
+  cancelled: "취소",
+};
+
+export const DELIVERY_STATUS_COLORS: Record<MessageDeliveryStatus, string> = {
+  queued: "bg-blue-100 text-blue-700",
+  sending: "bg-yellow-100 text-yellow-700",
+  sent: "bg-green-100 text-green-700",
+  failed: "bg-red-100 text-red-700",
+  cancelled: "bg-gray-100 text-gray-500",
 };

@@ -1,52 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Megaphone,
-  Check,
-  X,
-  Star,
-  TrendingUp,
-  FileCheck,
+  CheckCircle2,
+  XCircle,
   Clock,
-  ChevronRight,
-  BarChart3,
+  AlertTriangle,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  Stethoscope,
+  Users,
   Receipt,
+  Eye,
+  EyeOff,
+  Copy,
+  TrendingUp,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   CHANNEL_LABELS,
   REVIEW_STATUS_LABELS,
   REVIEW_STATUS_COLORS,
-  CAMPAIGN_STATUS_LABELS,
-  type VisitChannel,
-  type AttributionReviewStatus,
-  type CampaignStatus,
 } from "@/types";
 import { maskName } from "@/lib/privacy";
 
 interface Lead {
   id: string;
   visitId: string;
-  visitDate: string;
   patientId: string;
   patientName: string;
   chartNumber: string;
-  isVip: boolean;
-  channel: string | null;
+  visitDate: string;
   sourceRaw: string | null;
+  channel: string | null;
   campaignId: string;
   campaignName: string;
   platform: string;
@@ -56,378 +45,573 @@ interface Lead {
   reviewer: string | null;
   reviewedAt: string | null;
   reviewMemo: string | null;
+  treatmentStarted: boolean;
+  isDuplicate: boolean;
+  settlementMonth: string | null;
+  settlementEligible: boolean;
+  ineligibleReason: string | null;
+  procedures: { code: string; name: string }[];
 }
 
 interface CampaignStat {
   id: string;
   name: string;
   platform: string;
-  adType: string;
   status: string;
-  startDate: string;
-  endDate: string | null;
-  budgetWon: number | null;
   costPerClick: number | null;
+  budgetWon: number | null;
   totalLeads: number;
-  confirmedLeads: number;
-  pendingLeads: number;
-  rejectedLeads: number;
+  confirmed: number;
+  pending: number;
+  rejected: number;
+  treatmentStarted: number;
+  settlementEligible: number;
+  duplicateCount: number;
+  settlementAmount: number;
 }
 
-interface Props {
+interface Summary {
+  totalLeads: number;
+  pending: number;
+  confirmed: number;
+  rejected: number;
+  treatmentStarted: number;
+  treatmentNotStarted: number;
+  settlementEligible: number;
+  duplicateExcluded: number;
+  totalSettlementAmount: number;
+}
+
+interface CtaData {
   leads: Lead[];
   campaignStats: CampaignStat[];
+  summary: Summary;
+  availableMonths: string[];
 }
 
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function formatWon(amount: number | null): string {
-  if (amount == null) return "-";
-  return `${(amount / 10000).toFixed(0)}만원`;
-}
-
-function getPlatformColor(platform: string): string {
-  switch (platform) {
-    case "naver": return "bg-green-100 text-green-700 border-green-200";
-    case "google": return "bg-blue-100 text-blue-700 border-blue-200";
-    case "kakao": return "bg-yellow-100 text-yellow-700 border-yellow-200";
-    case "instagram": return "bg-pink-100 text-pink-700 border-pink-200";
-    default: return "bg-gray-100 text-gray-700 border-gray-200";
-  }
-}
-
-export function CtaContent({ leads: initialLeads, campaignStats }: Props) {
-  const [leads, setLeads] = useState(initialLeads);
-  const [filter, setFilter] = useState<"all" | "pending" | "confirmed" | "rejected">("all");
-  const [reviewingId, setReviewingId] = useState<string | null>(null);
+export function CtaContent() {
+  const [data, setData] = useState<CtaData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"leads" | "campaigns" | "settlement">("leads");
   const [showMasked, setShowMasked] = useState(true);
+  const [expandedLead, setExpandedLead] = useState<string | null>(null);
 
-  const filteredLeads = filter === "all" ? leads : leads.filter((l) => l.reviewStatus === filter);
+  // 필터
+  const [monthFilter, setMonthFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [treatmentFilter, setTreatmentFilter] = useState("all");
+  const [settlementFilter, setSettlementFilter] = useState("all");
 
-  const summary = {
-    total: leads.length,
-    pending: leads.filter((l) => l.reviewStatus === "pending").length,
-    confirmed: leads.filter((l) => l.reviewStatus === "confirmed").length,
-    rejected: leads.filter((l) => l.reviewStatus === "rejected").length,
-  };
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (monthFilter !== "all") params.set("month", monthFilter);
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    if (treatmentFilter !== "all") params.set("treatment", treatmentFilter);
+    if (settlementFilter !== "all") params.set("settlement", settlementFilter);
 
-  async function reviewLead(id: string, status: "confirmed" | "rejected") {
-    setReviewingId(id);
-    try {
-      const res = await fetch("/api/cta/review", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ attributionId: id, reviewStatus: status }),
-      });
-      if (res.ok) {
-        setLeads((prev) =>
-          prev.map((l) =>
-            l.id === id ? { ...l, reviewStatus: status, reviewer: "운영자", reviewedAt: new Date().toISOString() } : l
-          )
-        );
-      }
-    } catch {
-      // silent
-    } finally {
-      setReviewingId(null);
-    }
+    const res = await fetch(`/api/cta?${params.toString()}`);
+    const json = await res.json();
+    setData(json);
+    setLoading(false);
+  }, [monthFilter, statusFilter, treatmentFilter, settlementFilter]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  async function handleReview(attributionId: string, reviewStatus: "confirmed" | "rejected") {
+    await fetch("/api/cta/review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attributionId, reviewStatus }),
+    });
+    fetchData();
   }
 
-  // 정산 요약 계산
-  const settlementByCampaign = campaignStats.map((c) => ({
-    ...c,
-    settlementAmount: c.confirmedLeads * (c.costPerClick || 0),
-  }));
+  if (loading || !data) {
+    return (
+      <div className="p-6 space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />
+        ))}
+      </div>
+    );
+  }
 
-  const totalSettlement = settlementByCampaign.reduce((sum, c) => sum + c.settlementAmount, 0);
+  const { leads, campaignStats, summary, availableMonths } = data;
+  const displayName = (name: string) => showMasked ? maskName(name) : name;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">CTA 광고 귀속 관리</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          광고 유입 환자 검토 · 캠페인별 집계 · 정산 근거 관리
-        </p>
+      {/* 헤더 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Megaphone className="h-6 w-6 text-blue-600" />
+            광고 유입 관리
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            CTA 광고를 통해 내원한 환자를 검토하고 정산 근거를 관리합니다
+          </p>
+        </div>
+        <button
+          onClick={() => setShowMasked(!showMasked)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-gray-50"
+        >
+          {showMasked ? <EyeOff size={14} /> : <Eye size={14} />}
+          {showMasked ? "이름 표시" : "이름 숨김"}
+        </button>
       </div>
 
-      {/* KPI 카드 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "이번 달 CTA 유입", value: summary.total, icon: TrendingUp, color: "text-blue-600", bg: "bg-blue-50" },
-          { label: "검토 대기", value: summary.pending, icon: Clock, color: "text-amber-600", bg: "bg-amber-50" },
-          { label: "확정", value: summary.confirmed, icon: FileCheck, color: "text-green-600", bg: "bg-green-50" },
-          { label: "진행 중 캠페인", value: campaignStats.filter((c) => c.status === "active").length, icon: Megaphone, color: "text-purple-600", bg: "bg-purple-50" },
-        ].map((card) => (
-          <Card key={card.label} className="border-0 shadow-sm">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">{card.label}</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-1">{card.value}</p>
-                </div>
-                <div className={`p-3 rounded-xl ${card.bg}`}>
-                  <card.icon size={22} className={card.color} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      {/* KPI */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        <KpiCard label="전체 유입" value={summary.totalLeads} icon={<Users size={16} />} color="blue" />
+        <KpiCard label="검토 필요" value={summary.pending} icon={<Clock size={16} />} color="amber" />
+        <KpiCard label="확정" value={summary.confirmed} icon={<CheckCircle2 size={16} />} color="green" />
+        <KpiCard label="진료 시작" value={summary.treatmentStarted} icon={<Stethoscope size={16} />} color="purple" />
+        <KpiCard
+          label="정산 대상"
+          value={summary.settlementEligible}
+          subtext={`${summary.totalSettlementAmount.toLocaleString()}원`}
+          icon={<Receipt size={16} />}
+          color="emerald"
+        />
+      </div>
+
+      {/* 주의사항 */}
+      {(summary.duplicateExcluded > 0 || summary.treatmentNotStarted > 0) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2 text-sm">
+          <AlertTriangle size={16} className="text-amber-600 mt-0.5 shrink-0" />
+          <div className="text-amber-800">
+            {summary.duplicateExcluded > 0 && (
+              <span>중복 제외 {summary.duplicateExcluded}건 · </span>
+            )}
+            {summary.treatmentNotStarted > 0 && (
+              <span>진료 미시작 {summary.treatmentNotStarted}건</span>
+            )}
+            <span className="text-amber-600 ml-1">— 정산 대상에서 제외됩니다</span>
+          </div>
+        </div>
+      )}
+
+      {/* 필터 */}
+      <div className="bg-white border rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Filter size={14} className="text-gray-400" />
+          <span className="text-sm font-medium text-gray-700">필터</span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <FilterSelect
+            label="정산 월"
+            value={monthFilter}
+            onChange={setMonthFilter}
+            options={[{ value: "all", label: "전체 기간" }, ...availableMonths.map((m) => ({ value: m, label: m }))]}
+          />
+          <FilterSelect
+            label="검토 상태"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: "all", label: "전체" },
+              { value: "pending", label: "검토 필요" },
+              { value: "confirmed", label: "확정" },
+              { value: "rejected", label: "반려" },
+            ]}
+          />
+          <FilterSelect
+            label="진료 여부"
+            value={treatmentFilter}
+            onChange={setTreatmentFilter}
+            options={[
+              { value: "all", label: "전체" },
+              { value: "started", label: "진료 시작" },
+              { value: "not_started", label: "상담/검사만" },
+            ]}
+          />
+          <FilterSelect
+            label="정산 대상"
+            value={settlementFilter}
+            onChange={setSettlementFilter}
+            options={[
+              { value: "all", label: "전체" },
+              { value: "eligible", label: "정산 대상" },
+              { value: "ineligible", label: "정산 미인정" },
+            ]}
+          />
+        </div>
+      </div>
+
+      {/* 탭 */}
+      <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+        {([
+          { key: "leads", label: "유입 환자 목록", icon: Users },
+          { key: "campaigns", label: "캠페인별 집계", icon: Megaphone },
+          { key: "settlement", label: "정산 요약", icon: Receipt },
+        ] as const).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-sm font-medium transition-colors",
+              activeTab === tab.key
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            )}
+          >
+            <tab.icon size={14} />
+            {tab.label}
+          </button>
         ))}
       </div>
 
-      <Tabs defaultValue="leads" className="space-y-4">
-        <TabsList className="bg-white border">
-          <TabsTrigger value="leads" className="gap-1.5"><FileCheck size={14} />유입 환자 ({leads.length})</TabsTrigger>
-          <TabsTrigger value="campaigns" className="gap-1.5"><BarChart3 size={14} />캠페인 집계</TabsTrigger>
-          <TabsTrigger value="settlement" className="gap-1.5"><Receipt size={14} />정산 요약</TabsTrigger>
-        </TabsList>
+      {/* 콘텐츠 */}
+      {activeTab === "leads" && (
+        <div className="space-y-3">
+          {leads.length === 0 ? (
+            <div className="bg-gray-50 rounded-xl p-8 text-center text-gray-500">
+              조건에 맞는 유입 환자가 없습니다
+            </div>
+          ) : (
+            leads.map((lead) => (
+              <LeadCard
+                key={lead.id}
+                lead={lead}
+                displayName={displayName}
+                expanded={expandedLead === lead.id}
+                onToggle={() => setExpandedLead(expandedLead === lead.id ? null : lead.id)}
+                onReview={handleReview}
+              />
+            ))
+          )}
+        </div>
+      )}
 
-        {/* 유입 환자 목록 탭 */}
-        <TabsContent value="leads" className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            {(["all", "pending", "confirmed", "rejected"] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  filter === f
-                    ? "bg-blue-600 text-white"
-                    : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
-                }`}
-              >
-                {f === "all" ? "전체" : REVIEW_STATUS_LABELS[f as AttributionReviewStatus]}
-                <span className={`ml-1 text-xs ${filter === f ? "text-blue-200" : "text-gray-400"}`}>
-                  {f === "all" ? summary.total : summary[f as keyof typeof summary]}
-                </span>
-              </button>
-            ))}
-            <button
-              onClick={() => setShowMasked(!showMasked)}
-              className="ml-auto px-3 py-1.5 rounded-lg text-xs border border-gray-200 text-gray-500 hover:bg-gray-50"
-            >
-              {showMasked ? "이름 표시" : "이름 마스킹"}
-            </button>
-          </div>
+      {activeTab === "campaigns" && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {campaignStats.map((c) => (
+            <CampaignCard key={c.id} campaign={c} />
+          ))}
+        </div>
+      )}
 
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gray-50/50">
-                      <TableHead>환자</TableHead>
-                      <TableHead>방문일</TableHead>
-                      <TableHead>유입 채널</TableHead>
-                      <TableHead>캠페인</TableHead>
-                      <TableHead className="hidden lg:table-cell">자동 분류 근거</TableHead>
-                      <TableHead className="text-center">상태</TableHead>
-                      <TableHead className="w-[140px] text-center">액션</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredLeads.map((lead) => (
-                      <TableRow key={lead.id} className="hover:bg-blue-50/30">
-                        <TableCell>
-                          <div className="flex items-center gap-1.5">
-                            <Link href={`/patients/${lead.patientId}`} className="font-medium text-gray-900 hover:text-blue-600">
-                              {showMasked ? maskName(lead.patientName) : lead.patientName}
-                            </Link>
-                            {lead.isVip && <Star size={12} className="text-yellow-500 fill-yellow-500" />}
-                          </div>
-                          <span className="text-xs text-gray-400">{lead.chartNumber}</span>
-                        </TableCell>
-                        <TableCell className="text-sm text-gray-600">
-                          {formatDate(lead.visitDate)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={`text-[11px] ${getPlatformColor(lead.platform)}`}>
-                            {CHANNEL_LABELS[lead.channel as VisitChannel] || lead.channel || "-"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm text-gray-600 max-w-[160px] truncate">
-                          {lead.campaignName}
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell text-xs text-gray-500 max-w-[200px] truncate">
-                          {lead.autoReason || "-"}
-                          {lead.confidence != null && (
-                            <span className="ml-1 text-gray-400">({Math.round(lead.confidence * 100)}%)</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className={`text-[11px] ${REVIEW_STATUS_COLORS[lead.reviewStatus as AttributionReviewStatus] || ""}`}>
-                            {REVIEW_STATUS_LABELS[lead.reviewStatus as AttributionReviewStatus] || lead.reviewStatus}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {lead.reviewStatus === "pending" ? (
-                            <div className="flex gap-1 justify-center">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 px-2 text-xs text-green-600 hover:bg-green-50"
-                                disabled={reviewingId === lead.id}
-                                onClick={() => reviewLead(lead.id, "confirmed")}
-                              >
-                                <Check size={12} className="mr-0.5" />확정
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 px-2 text-xs text-gray-500 hover:bg-gray-50"
-                                disabled={reviewingId === lead.id}
-                                onClick={() => reviewLead(lead.id, "rejected")}
-                              >
-                                <X size={12} className="mr-0.5" />제외
-                              </Button>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-gray-400">
-                              {lead.reviewer && `${lead.reviewer}`}
-                            </span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {filteredLeads.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-12 text-gray-400">
-                          해당 조건의 유입 데이터가 없습니다
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* 캠페인 집계 탭 */}
-        <TabsContent value="campaigns" className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {campaignStats.map((c) => (
-              <Card key={c.id} className="border-0 shadow-sm">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-medium">{c.name}</CardTitle>
-                    <div className="flex gap-1.5">
-                      <Badge variant="outline" className={`text-[10px] ${getPlatformColor(c.platform)}`}>
-                        {c.platform}
-                      </Badge>
-                      <Badge variant="outline" className={`text-[10px] ${c.status === "active" ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-50 text-gray-500 border-gray-200"}`}>
-                        {CAMPAIGN_STATUS_LABELS[c.status as CampaignStatus] || c.status}
-                      </Badge>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-4 gap-3 text-center">
-                    <div>
-                      <p className="text-lg font-bold text-gray-900">{c.totalLeads}</p>
-                      <p className="text-[10px] text-gray-500">총 유입</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold text-green-600">{c.confirmedLeads}</p>
-                      <p className="text-[10px] text-gray-500">확정</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold text-amber-600">{c.pendingLeads}</p>
-                      <p className="text-[10px] text-gray-500">검토 대기</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold text-gray-400">{c.rejectedLeads}</p>
-                      <p className="text-[10px] text-gray-500">제외</p>
-                    </div>
-                  </div>
-                  <div className="mt-3 pt-3 border-t flex justify-between text-xs text-gray-500">
-                    <span>{formatDate(c.startDate)} ~ {c.endDate ? formatDate(c.endDate) : "진행 중"}</span>
-                    <span>예산 {formatWon(c.budgetWon)} · CPC {c.costPerClick ? `${c.costPerClick}원` : "-"}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        {/* 정산 요약 탭 */}
-        <TabsContent value="settlement" className="space-y-4">
-          <Card className="border-0 shadow-sm bg-gradient-to-r from-green-50 to-emerald-50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">이번 달 정산 가능 총액 (확정 기준)</p>
-                  <p className="text-3xl font-bold text-green-700 mt-1">
-                    {totalSettlement > 0 ? `${(totalSettlement / 10000).toFixed(1)}만원` : "-"}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    확정 환자 {summary.confirmed}명 · 검토 대기 {summary.pending}명
-                  </p>
-                </div>
-                <Receipt size={40} className="text-green-300" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">캠페인별 정산 내역</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gray-50/50">
-                      <TableHead>캠페인</TableHead>
-                      <TableHead>플랫폼</TableHead>
-                      <TableHead className="text-center">총 유입</TableHead>
-                      <TableHead className="text-center">확정</TableHead>
-                      <TableHead className="text-center">CPC</TableHead>
-                      <TableHead className="text-right">정산 금액</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {settlementByCampaign.map((c) => (
-                      <TableRow key={c.id}>
-                        <TableCell className="font-medium text-sm">{c.name}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={`text-[11px] ${getPlatformColor(c.platform)}`}>
-                            {c.platform}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center text-sm">{c.totalLeads}</TableCell>
-                        <TableCell className="text-center text-sm font-medium text-green-600">{c.confirmedLeads}</TableCell>
-                        <TableCell className="text-center text-sm text-gray-500">{c.costPerClick ? `${c.costPerClick}원` : "-"}</TableCell>
-                        <TableCell className="text-right text-sm font-medium">
-                          {c.settlementAmount > 0 ? `${(c.settlementAmount / 10000).toFixed(1)}만원` : "-"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="bg-gray-50 font-medium">
-                      <TableCell colSpan={3}>합계</TableCell>
-                      <TableCell className="text-center text-green-600">{summary.confirmed}</TableCell>
-                      <TableCell></TableCell>
-                      <TableCell className="text-right text-green-700">
-                        {totalSettlement > 0 ? `${(totalSettlement / 10000).toFixed(1)}만원` : "-"}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="bg-amber-50/50 border border-amber-100 rounded-lg px-4 py-3">
-            <p className="text-xs text-amber-700">
-              정산 금액은 확정된 CTA 유입 환자 수 × CPC 단가로 산정됩니다.
-              검토 대기 건은 정산에 포함되지 않으며, 확정 후 반영됩니다.
-              실제 정산은 광고 대행사와의 계약 조건에 따릅니다.
-            </p>
-          </div>
-        </TabsContent>
-      </Tabs>
+      {activeTab === "settlement" && (
+        <SettlementTab campaignStats={campaignStats} summary={summary} monthFilter={monthFilter} />
+      )}
     </div>
   );
+}
+
+// ── 서브 컴포넌트 ──
+
+function KpiCard({ label, value, subtext, icon, color }: {
+  label: string; value: number; subtext?: string; icon: React.ReactNode; color: string;
+}) {
+  const colorMap: Record<string, string> = {
+    blue: "bg-blue-50 text-blue-600",
+    amber: "bg-amber-50 text-amber-600",
+    green: "bg-green-50 text-green-600",
+    purple: "bg-purple-50 text-purple-600",
+    emerald: "bg-emerald-50 text-emerald-600",
+  };
+  return (
+    <div className="bg-white border rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <div className={cn("p-1.5 rounded-lg", colorMap[color])}>{icon}</div>
+        <span className="text-xs text-gray-500">{label}</span>
+      </div>
+      <div className="text-2xl font-bold text-gray-900">{value}</div>
+      {subtext && <div className="text-xs text-gray-500 mt-0.5">{subtext}</div>}
+    </div>
+  );
+}
+
+function FilterSelect({ label, value, onChange, options }: {
+  label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[];
+}) {
+  return (
+    <div>
+      <label className="block text-xs text-gray-500 mb-1">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-3 py-1.5 bg-white border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+      >
+        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function LeadCard({ lead, displayName, expanded, onToggle, onReview }: {
+  lead: Lead; displayName: (n: string) => string; expanded: boolean;
+  onToggle: () => void; onReview: (id: string, s: "confirmed" | "rejected") => void;
+}) {
+  const statusColor = REVIEW_STATUS_COLORS[lead.reviewStatus as keyof typeof REVIEW_STATUS_COLORS] || "bg-gray-100 text-gray-600";
+  const channelLabel = CHANNEL_LABELS[lead.channel || "unknown"] || lead.channel || "미분류";
+
+  return (
+    <div className="bg-white border rounded-xl overflow-hidden">
+      <button onClick={onToggle} className="w-full text-left p-4 hover:bg-gray-50 transition-colors">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Link href={`/patients/${lead.patientId}`} onClick={(e) => e.stopPropagation()} className="font-medium text-gray-900 hover:text-blue-600">
+                {displayName(lead.patientName)}
+              </Link>
+              <span className="text-xs text-gray-400">{lead.chartNumber}</span>
+              {lead.isDuplicate && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-700">
+                  <Copy size={10} className="inline mr-0.5" />중복
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+              <span>{new Date(lead.visitDate).toLocaleDateString("ko-KR")}</span>
+              <span className="text-gray-300">·</span>
+              <span>{channelLabel}</span>
+              <span className="text-gray-300">·</span>
+              <span>{lead.campaignName}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={cn("px-2 py-0.5 rounded-full text-[11px] font-medium",
+              lead.treatmentStarted ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-500"
+            )}>
+              {lead.treatmentStarted ? "진료 시작" : "상담만"}
+            </span>
+            <span className={cn("px-2 py-0.5 rounded-full text-[11px] font-medium border", statusColor)}>
+              {REVIEW_STATUS_LABELS[lead.reviewStatus as keyof typeof REVIEW_STATUS_LABELS] || lead.reviewStatus}
+            </span>
+            {lead.settlementEligible && (
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100 text-emerald-700">정산 대상</span>
+            )}
+            {expanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+          </div>
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="border-t px-4 py-4 bg-gray-50 space-y-3">
+          <DetailRow label="방문 경로 원문" value={lead.sourceRaw || "(미입력)"} />
+          <DetailRow label="분류 결과" value={channelLabel} />
+          <DetailRow label="자동 분류 근거" value={lead.autoReason || "-"} />
+          {lead.confidence != null && <DetailRow label="분류 신뢰도" value={`${Math.round(lead.confidence * 100)}%`} />}
+          <DetailRow label="캠페인" value={`${lead.campaignName} (${lead.platform})`} />
+
+          <div className="flex items-start gap-2 text-sm">
+            <span className="w-32 shrink-0 text-gray-500">진료 시작 여부</span>
+            <div>
+              {lead.treatmentStarted
+                ? <span className="text-purple-700 font-medium">실제 진료 시작됨</span>
+                : <span className="text-gray-500">상담/검사만 — 진료 미시작</span>
+              }
+              {lead.procedures.length > 0 && (
+                <div className="text-xs text-gray-400 mt-0.5">처치: {lead.procedures.map((p) => p.name).join(", ")}</div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2 text-sm">
+            <span className="w-32 shrink-0 text-gray-500">정산 인정</span>
+            <div>
+              {lead.settlementEligible
+                ? <span className="text-emerald-700 font-medium">정산 대상 인정</span>
+                : <span className="text-red-600">{lead.ineligibleReason || "미인정"}</span>
+              }
+            </div>
+          </div>
+
+          {lead.settlementMonth && <DetailRow label="정산 월" value={lead.settlementMonth} />}
+
+          {lead.isDuplicate && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 text-xs text-orange-700">
+              동일 환자의 중복 유입 — 같은 환자는 1회만 정산 인정됩니다
+            </div>
+          )}
+
+          {lead.reviewer && (
+            <>
+              <DetailRow label="검토자" value={lead.reviewer} />
+              <DetailRow label="검토 일시" value={lead.reviewedAt ? new Date(lead.reviewedAt).toLocaleString("ko-KR") : "-"} />
+              {lead.reviewMemo && <DetailRow label="검토 메모" value={lead.reviewMemo} />}
+            </>
+          )}
+
+          {lead.reviewStatus === "pending" && (
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => onReview(lead.id, "confirmed")} className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+                <CheckCircle2 size={14} /> 확정
+              </button>
+              <button onClick={() => onReview(lead.id, "rejected")} className="flex items-center gap-1.5 px-4 py-2 bg-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-300">
+                <XCircle size={14} /> 반려
+              </button>
+            </div>
+          )}
+
+          <div className="pt-1">
+            <Link href={`/patients/${lead.patientId}`} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+              환자 상세 보기 →
+            </Link>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-2 text-sm">
+      <span className="w-32 shrink-0 text-gray-500">{label}</span>
+      <span className="text-gray-900">{value}</span>
+    </div>
+  );
+}
+
+function CampaignCard({ campaign: c }: { campaign: CampaignStat }) {
+  const platformColors: Record<string, string> = {
+    naver: "bg-green-100 text-green-700",
+    google: "bg-blue-100 text-blue-700",
+    kakao: "bg-yellow-100 text-yellow-700",
+    instagram: "bg-pink-100 text-pink-700",
+  };
+  return (
+    <div className="bg-white border rounded-xl p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-medium text-gray-900">{c.name}</h3>
+          <span className={cn("inline-block px-2 py-0.5 rounded text-xs font-medium mt-1", platformColors[c.platform] || "bg-gray-100 text-gray-600")}>{c.platform}</span>
+        </div>
+        {c.costPerClick != null && (
+          <div className="text-right">
+            <div className="text-xs text-gray-500">CPC</div>
+            <div className="text-sm font-medium">{c.costPerClick.toLocaleString()}원</div>
+          </div>
+        )}
+      </div>
+      <div className="grid grid-cols-4 gap-2 text-center">
+        <MiniStat label="전체" value={c.totalLeads} />
+        <MiniStat label="확정" value={c.confirmed} color="green" />
+        <MiniStat label="검토중" value={c.pending} color="amber" />
+        <MiniStat label="반려" value={c.rejected} color="gray" />
+      </div>
+      <div className="border-t pt-2 grid grid-cols-3 gap-2 text-center">
+        <MiniStat label="진료시작" value={c.treatmentStarted} color="purple" />
+        <MiniStat label="중복제외" value={c.duplicateCount} color="orange" />
+        <MiniStat label="정산대상" value={c.settlementEligible} color="emerald" />
+      </div>
+      {c.settlementAmount > 0 && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 text-center">
+          <div className="text-xs text-emerald-600">정산 가능 금액</div>
+          <div className="text-lg font-bold text-emerald-700">{c.settlementAmount.toLocaleString()}원</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MiniStat({ label, value, color }: { label: string; value: number; color?: string }) {
+  const c: Record<string, string> = { green: "text-green-700", amber: "text-amber-700", gray: "text-gray-500", purple: "text-purple-700", orange: "text-orange-700", emerald: "text-emerald-700" };
+  return (
+    <div>
+      <div className="text-xs text-gray-500">{label}</div>
+      <div className={cn("text-lg font-bold", color ? c[color] : "text-gray-900")}>{value}</div>
+    </div>
+  );
+}
+
+function SettlementTab({ campaignStats, summary, monthFilter }: { campaignStats: CampaignStat[]; summary: Summary; monthFilter: string }) {
+  return (
+    <div className="space-y-4">
+      <div className="bg-white border rounded-xl p-6">
+        <h3 className="font-bold text-gray-900 flex items-center gap-2 mb-4">
+          <Receipt size={18} className="text-emerald-600" />
+          정산 요약 {monthFilter !== "all" && <span className="text-sm font-normal text-gray-500">({monthFilter})</span>}
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div><div className="text-xs text-gray-500">CTA 전체 유입</div><div className="text-xl font-bold">{summary.totalLeads}명</div></div>
+          <div><div className="text-xs text-gray-500">확정</div><div className="text-xl font-bold text-green-700">{summary.confirmed}명</div></div>
+          <div><div className="text-xs text-gray-500">진료 시작</div><div className="text-xl font-bold text-purple-700">{summary.treatmentStarted}명</div></div>
+          <div><div className="text-xs text-gray-500">최종 정산 대상</div><div className="text-xl font-bold text-emerald-700">{summary.settlementEligible}명</div></div>
+        </div>
+
+        <div className="bg-gray-50 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1"><TrendingUp size={14} /> 정산 인정 흐름</h4>
+          <div className="flex items-center gap-2 text-sm flex-wrap">
+            <StepBadge label="전체 유입" count={summary.totalLeads} color="blue" />
+            <span className="text-gray-400">→</span>
+            <StepBadge label="확정" count={summary.confirmed} color="green" />
+            <span className="text-gray-400">→</span>
+            <StepBadge label="진료 시작" count={summary.treatmentStarted} color="purple" />
+            <span className="text-gray-400">→</span>
+            <StepBadge label={`중복 제외 (−${summary.duplicateExcluded})`} count={null} color="orange" />
+            <span className="text-gray-400">→</span>
+            <StepBadge label="정산 대상" count={summary.settlementEligible} color="emerald" />
+          </div>
+        </div>
+
+        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+          <strong>정산 인정 기준:</strong>
+          <ol className="list-decimal ml-4 mt-1 space-y-0.5">
+            <li>CTA 광고 유입으로 검토/확정됨</li>
+            <li>실제 진료를 시작한 환자 (상담/예약만은 불인정)</li>
+            <li>같은 환자는 1회만 인정 (중복 제외)</li>
+            <li>월 기준으로 집계</li>
+          </ol>
+        </div>
+      </div>
+
+      <div className="bg-white border rounded-xl p-6">
+        <h3 className="font-bold text-gray-900 mb-4">캠페인별 정산</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-gray-500">
+                <th className="pb-2 font-medium">캠페인</th>
+                <th className="pb-2 font-medium text-center">유입</th>
+                <th className="pb-2 font-medium text-center">확정</th>
+                <th className="pb-2 font-medium text-center">진료시작</th>
+                <th className="pb-2 font-medium text-center">중복제외</th>
+                <th className="pb-2 font-medium text-center">정산대상</th>
+                <th className="pb-2 font-medium text-right">CPC</th>
+                <th className="pb-2 font-medium text-right">정산금액</th>
+              </tr>
+            </thead>
+            <tbody>
+              {campaignStats.map((c) => (
+                <tr key={c.id} className="border-b last:border-0">
+                  <td className="py-2"><div className="font-medium">{c.name}</div><div className="text-xs text-gray-400">{c.platform}</div></td>
+                  <td className="py-2 text-center">{c.totalLeads}</td>
+                  <td className="py-2 text-center text-green-700">{c.confirmed}</td>
+                  <td className="py-2 text-center text-purple-700">{c.treatmentStarted}</td>
+                  <td className="py-2 text-center text-orange-600">{c.duplicateCount}</td>
+                  <td className="py-2 text-center font-bold text-emerald-700">{c.settlementEligible}</td>
+                  <td className="py-2 text-right">{c.costPerClick?.toLocaleString() || "-"}원</td>
+                  <td className="py-2 text-right font-bold">{c.settlementAmount.toLocaleString()}원</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 font-bold">
+                <td className="pt-2">합계</td>
+                <td className="pt-2 text-center">{summary.totalLeads}</td>
+                <td className="pt-2 text-center text-green-700">{summary.confirmed}</td>
+                <td className="pt-2 text-center text-purple-700">{summary.treatmentStarted}</td>
+                <td className="pt-2 text-center text-orange-600">{summary.duplicateExcluded}</td>
+                <td className="pt-2 text-center text-emerald-700">{summary.settlementEligible}</td>
+                <td className="pt-2 text-right">-</td>
+                <td className="pt-2 text-right text-emerald-700">{summary.totalSettlementAmount.toLocaleString()}원</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StepBadge({ label, count, color }: { label: string; count: number | null; color: string }) {
+  const c: Record<string, string> = { blue: "bg-blue-100 text-blue-700", green: "bg-green-100 text-green-700", purple: "bg-purple-100 text-purple-700", orange: "bg-orange-100 text-orange-700", emerald: "bg-emerald-100 text-emerald-700" };
+  return <span className={cn("px-2 py-1 rounded-lg text-xs font-medium", c[color])}>{label}{count !== null && ` ${count}명`}</span>;
 }

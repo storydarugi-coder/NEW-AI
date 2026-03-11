@@ -111,6 +111,7 @@ export default async function DashboardPage() {
       totalLeads: ctaAttributions.length,
       pendingReview: ctaAttributions.filter((a) => a.reviewStatus === "pending").length,
       confirmed: ctaAttributions.filter((a) => a.reviewStatus === "confirmed").length,
+      settlementEligible: ctaAttributions.filter((a) => a.settlementEligible).length,
     };
 
     return (

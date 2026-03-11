@@ -1,9 +1,18 @@
-# CareFlow AI — 치과/병원용 AI 리콜 관리 시스템
+# CareFlow AI — 치과/병원용 운영 보조 CRM
 
 > ⚕️ **본 시스템은 병원 운영 보조 및 리콜 추천 도구이며, 의료적 판단을 대신하지 않습니다.**
 
-환자 재내원 관리, 치료 중단 탐지, 리콜 자동화, AI 개인화 메시지 생성을 통해
+환자 재내원 관리, 치료 중단 탐지, 리콜 자동화, AI 개인화 메시지 생성, **CTA 광고 유입 추적 및 정산 관리**를 통해
 병원의 매출과 환자 관리 품질을 높이는 운영 보조 웹앱입니다.
+
+### 주요 사용자
+- **데스크** — 환자 연락/검토/발송 실행
+- **상담실장** — 리콜 우선순위/CTA 정산 검토/보고
+
+### 핵심 가치
+1. 어떤 환자에게 지금 연락해야 하는지 **한눈에** 보여줌
+2. CTA 광고로 유입된 환자가 **실제 진료까지 했는지** 추적하여 정산 근거 관리
+3. 모든 추천에 **왜 이 환자가 여기 뜨는지** 근거를 표시
 
 ---
 
@@ -104,7 +113,8 @@ npm run dev       # http://localhost:3000
 | `Campaign` | CTA 광고 캠페인 (플랫폼, 예산, CPC) |
 | `LeadAttribution` | CTA 유입 귀속 (검토 상태, 자동 분류 근거) |
 | `RecallRecommendation` | 리콜 추천 기록 |
-| `MessageDraft` | 문자 초안 (톤, 길이, 내용, 상태) |
+| `MessageDraft` | 문자 초안 (톤, 길이, 내용, 상태: draft→reviewed→queued→sent/failed) |
+| `MessageDelivery` | 메시지 발송 추적 (프로바이더, 상태, 재시도, 외부ID) |
 | `AuditLog` | 감사 로그 (액션, 엔티티, PII 미포함) |
 | `RuleConfig` | 규칙 설정 (활성/비활성, JSON 파라미터) |
 
@@ -130,7 +140,8 @@ careflow-ai/
 │   │       ├── dashboard/     # 대시보드 데이터
 │   │       ├── patients/      # 환자 CRUD
 │   │       ├── messages/      # AI 문자 생성
-│   │       ├── cta/           # CTA 유입 조회 + 검토
+│   │       ├── cta/           # CTA 유입 조회 + 검토 + 정산
+│   │       ├── messages/      # 메시지 발송 (queue/send/cancel)
 │   │       └── seed/          # 데모 데이터 생성
 │   ├── components/
 │   │   ├── dashboard/         # 대시보드 UI
@@ -151,6 +162,10 @@ careflow-ai/
 │   │   │   ├── template-fallback.ts
 │   │   │   ├── generate-message.ts
 │   │   │   └── prompts.ts     # 프롬프트 설계
+│   │   ├── cta/               # CTA 광고 유입 분류/정산
+│   │   │   └── classify.ts    # 자유입력→채널 분류, 정산 적격 판정
+│   │   ├── messaging/         # 메시지 발송 프로바이더
+│   │   │   └── provider.ts    # MockProvider / KakaoAlimtalkProvider
 │   │   ├── privacy.ts         # PII 마스킹/LLM 안전성 유틸리티
 │   │   └── message-generator/
 │   │       └── templates.ts   # 33개 한국어 메시지 템플릿
@@ -310,6 +325,9 @@ ENABLE_LLM_MESSAGE_GENERATION=false  # 또는 변수 미설정
 | `GOOGLE_CLOUD_LOCATION` | X | `us-central1` | Vertex AI 리전 |
 | `VERTEX_MODEL` | X | `gemini-2.0-flash` | Vertex AI 모델 |
 | `GOOGLE_APPLICATION_CREDENTIALS` | X | - | 서비스 계정 키 경로 |
+| `MESSAGE_PROVIDER` | X | `mock` | 메시지 발송 프로바이더 (mock/kakao) |
+| `KAKAO_API_KEY` | X | - | 카카오 알림톡 API 키 |
+| `KAKAO_SENDER_KEY` | X | - | 카카오 발신 프로필 키 |
 
 ---
 
@@ -329,7 +347,11 @@ ENABLE_LLM_MESSAGE_GENERATION=false  # 또는 변수 미설정
 | CTA 정산 | ✅ CPC 기반 정산 계산 | 실제 광고비 데이터 연동 |
 | 감사 로그 | ✅ AuditLog 기록 | 그대로 사용 + 모니터링 연동 |
 | 상태 변경 | ✅ DB 저장 | 그대로 사용 |
-| 문자 발송 | ❌ UI만 (발송 안 됨) | 문자 발송 API 연동 |
+| CTA 정산 적격 판정 | ✅ 3조건 판정 + 사유 표시 | 그대로 사용 |
+| CTA 자유입력 분류 | ✅ 키워드 기반 자동 분류 | 그대로 사용 + ML 보강 |
+| 메시지 발송 | ✅ MockProvider (95% 시뮬) | MESSAGE_PROVIDER=kakao 전환 |
+| 메시지 발송 추적 | ✅ MessageDelivery 상태 관리 | 그대로 사용 |
+| 카카오 알림톡 | 🔧 Provider stub 준비됨 | API 키 + 템플릿 등록 |
 | 인증/권한 | ❌ 없음 | NextAuth 등 추가 |
 | 전주 대비 변화 | 🔧 결정적 Mock | 실제 날짜 기반 비교 |
 
@@ -377,6 +399,114 @@ npm run test:watch # 테스트 감시 모드
 - `.env` 파일은 git에 포함하지 마세요
 
 > 상세 설계: [`docs/DATA-ARCHITECTURE.md`](docs/DATA-ARCHITECTURE.md)
+
+---
+
+## CTA 광고 유입 환자 정의 및 정산 기준
+
+### CTA 광고 유입 환자란?
+방문경로(자유 입력 텍스트)에 **광고 플랫폼 키워드**가 포함된 환자를 자동 분류합니다.
+
+### 자유 입력 → 채널 분류 방식
+```
+"인스타 광고 보고 옴" → Instagram (confidence: 0.9)
+"블로그 보고 옴"     → Naver Blog (confidence: 0.8)
+"지인 소개"          → Referral (confidence: 0.9)
+"그냥 지나가다"       → Walk-in (confidence: 0.7)
+```
+- `src/lib/cta/classify.ts`의 `CHANNEL_RULES` — 키워드 매칭 기반
+- 분류 결과(채널, 신뢰도, 근거)를 `LeadAttribution`에 저장
+- 운영자가 검토(확정/반려) → 최종 확정
+
+### 정산 적격 조건 (3가지 모두 충족)
+
+| 조건 | 설명 |
+|------|------|
+| **확정 (confirmed)** | 운영자가 CTA 유입으로 최종 확인 |
+| **실제 진료 시작 (treatmentStarted)** | 상담/검사만으로는 불인정. 실제 치료 시술 코드가 있어야 인정 |
+| **중복 아님 (!isDuplicate)** | 같은 환자·같은 캠페인은 **1회만 인정** |
+
+### 진료 시작 판정 로직
+상담, 초진, 검사, 방사선 등 **비치료 코드는 제외**하고, 실제 치료 시술 코드(스케일링, 충전, 발치, 보철 등)가 1건 이상 있으면 `treatmentStarted = true`.
+
+### 정산 단위
+- **월 기준** (`settlementMonth: "2026-03"`)
+- 해당 월에 유입된 CTA 환자 중 적격 조건 충족 건수 × CPC 단가
+
+### 비적격 사유 예시
+- `"검토 대기 중입니다"` — 아직 운영자 확인 전
+- `"실제 진료가 시작되지 않았습니다"` — 상담만 하고 치료 미시작
+- `"동일 환자·캠페인 중복 유입입니다"` — 이미 1회 인정됨
+- `"CTA 유입으로 인정되지 않았습니다"` — 반려
+
+---
+
+## EMR 연동 시 필요한 데이터 필드
+
+CareFlow AI가 정상 작동하기 위해 EMR에서 가져와야 하는 최소 필드:
+
+| 데이터 | 필드 | 형식 | 용도 |
+|--------|------|------|------|
+| **환자** | 차트번호 | string | 식별 키 |
+| **환자** | 이름 | string | PII (PatientIdentity) |
+| **환자** | 전화번호 | string | PII (PatientIdentity) |
+| **환자** | 성별 | M/F | 메시지 개인화 |
+| **환자** | 출생연도 | number | 연령대 기반 추천 |
+| **방문** | 방문일 | date | 리콜 주기 계산 |
+| **방문** | 유입경로 | free text | CTA 자동 분류 |
+| **진료** | 진료코드 | string | 치료 중단 탐지 |
+| **진료** | 진료명 | string | UI 표시 |
+| **진료** | 치아번호 | number (옵션) | 치아별 판정 |
+| **진단** | KCD 코드 | string | 잠재수요 탐지 |
+| **진단** | 진단명 | string | UI 표시 |
+| **진단** | 치아번호 | number (옵션) | 치아별 매칭 |
+
+> **주의**: 차트 원문, 자유서술 메모, 주민번호, 주소, 보험 상세는 **가져오지 않습니다**.
+> ETL 파이프라인에서 위 필드만 추출하고 나머지는 폐기합니다.
+
+---
+
+## 카카오톡 채널 연동 구조
+
+### 아키텍처
+```
+MessageDraft (초안)
+  → 운영자 검토 (reviewed)
+    → 발송 대기열 (queued) → MessageDelivery 생성
+      → Provider.send() → 성공(sent) / 실패(failed)
+        → 실패 시 retryCount 증가, 재시도 가능
+```
+
+### Provider 추상화 (`src/lib/messaging/provider.ts`)
+```typescript
+interface MessageProvider {
+  send(request: SendRequest): Promise<SendResult>;
+}
+```
+- **MockMessageProvider**: 개발/데모용 (95% 성공 시뮬레이션)
+- **KakaoAlimtalkProvider**: 실제 카카오 알림톡 연동 (stub 준비됨)
+
+### 환경변수로 전환
+```env
+MESSAGE_PROVIDER=mock    # 현재 기본값
+MESSAGE_PROVIDER=kakao   # 카카오 알림톡 연동 시
+KAKAO_API_KEY=...
+KAKAO_SENDER_KEY=...
+```
+
+### 카카오 알림톡 연동 시 필요한 작업
+1. 카카오 비즈니스 채널 개설
+2. 알림톡 템플릿 등록 및 검수 승인
+3. 발신 프로필 등록
+4. `KAKAO_API_KEY`, `KAKAO_SENDER_KEY` 환경변수 설정
+5. `KakaoAlimtalkProvider`의 TODO 부분 구현
+
+### MessageDelivery 상태 흐름
+```
+queued → sending → sent ✅
+                 → failed ❌ (retryCount++, 재시도 가능)
+queued → cancelled 🚫 (운영자 취소)
+```
 
 ---
 
