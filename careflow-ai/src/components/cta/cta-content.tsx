@@ -32,6 +32,7 @@ import {
   REVIEW_STATUS_COLORS,
 } from "@/types";
 import { maskName } from "@/lib/privacy";
+import { CATEGORY_LABELS, CONFIDENCE_LABELS, CONFIDENCE_COLORS } from "@/lib/attribution/rules";
 
 interface Lead {
   id: string;
@@ -57,6 +58,15 @@ interface Lead {
   settlementEligible: boolean;
   ineligibleReason: string | null;
   procedures: { code: string; name: string }[];
+  // 정규화 정보
+  normalizedSource: string | null;
+  sourceCategory: string | null;
+  matchConfidence: string | null;
+  reviewedSource: string | null;
+  reviewedCategory: string | null;
+  sourceReviewStatus: string;
+  finalSource: string | null;
+  finalCategory: string | null;
 }
 
 interface CampaignStat {
@@ -177,6 +187,19 @@ export function CtaContent() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href="/source-review"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-gray-50 text-purple-700"
+          >
+            <ListChecks size={14} />
+            경로 검토
+          </Link>
+          <Link
+            href="/source-rules"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-gray-50 text-indigo-700"
+          >
+            분류 사전
+          </Link>
           <button
             onClick={handleCsvExport}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-gray-50 text-emerald-700"
@@ -426,6 +449,35 @@ function LeadCard({ lead, displayName, expanded, onToggle, onReview, onUpdate }:
       {expanded && (
         <div className="border-t px-4 py-4 bg-gray-50 space-y-3">
           <DetailRow label="방문 경로 원문" value={lead.sourceRaw || "(미입력)"} />
+          {/* 정규화 정보 */}
+          {lead.normalizedSource && (
+            <div className="bg-white rounded-lg p-2.5 border space-y-1">
+              <div className="text-xs font-medium text-gray-500">경로 정규화</div>
+              <div className="flex items-center gap-2 text-xs flex-wrap">
+                <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">
+                  추천: {lead.normalizedSource}
+                </span>
+                {lead.matchConfidence && (
+                  <span className={cn("px-1.5 py-0.5 rounded", CONFIDENCE_COLORS[lead.matchConfidence] || "bg-gray-100")}>
+                    {CONFIDENCE_LABELS[lead.matchConfidence] || lead.matchConfidence}
+                  </span>
+                )}
+                {lead.sourceCategory && (
+                  <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                    {CATEGORY_LABELS[lead.sourceCategory] || lead.sourceCategory}
+                  </span>
+                )}
+                {lead.reviewedSource && lead.reviewedSource !== lead.normalizedSource && (
+                  <>
+                    <span className="text-gray-400">→</span>
+                    <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700">
+                      확정: {lead.reviewedSource}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
           <DetailRow label="분류 결과" value={channelLabel} />
           <DetailRow label="자동 분류 근거" value={lead.autoReason || "-"} />
           {lead.confidence != null && <DetailRow label="분류 신뢰도" value={`${Math.round(lead.confidence * 100)}%`} />}

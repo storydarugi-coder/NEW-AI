@@ -11,7 +11,8 @@ import {
   X,
   Info,
   Megaphone,
-  MessageSquare,
+  BookOpen,
+  Search,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,16 @@ const navItems = [
     label: "CTA 광고 관리",
     href: "/cta",
     icon: Megaphone,
+  },
+  {
+    label: "경로 검토 큐",
+    href: "/source-review",
+    icon: Search,
+  },
+  {
+    label: "분류 사전",
+    href: "/source-rules",
+    icon: BookOpen,
   },
   {
     label: "설정",

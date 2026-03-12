@@ -120,6 +120,15 @@ export async function GET(request: NextRequest) {
       settlementEligible: a.settlementEligible,
       ineligibleReason: a.ineligibleReason,
       procedures: a.visit.procedures.map((p) => ({ code: p.code, name: p.name })),
+      // 정규화 정보
+      normalizedSource: a.visit.normalizedSource,
+      sourceCategory: a.visit.sourceCategory,
+      matchConfidence: a.visit.matchConfidence,
+      reviewedSource: a.visit.reviewedSource,
+      reviewedCategory: a.visit.reviewedCategory,
+      sourceReviewStatus: a.visit.sourceReviewStatus,
+      finalSource: a.visit.reviewedSource || a.visit.normalizedSource || null,
+      finalCategory: a.visit.reviewedCategory || a.visit.sourceCategory || null,
     }));
 
     return NextResponse.json({ leads, campaignStats, summary, availableMonths });

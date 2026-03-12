@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ──────────────────────────────────────────────
@@ -60,6 +59,21 @@ model Visit {
   channel    String?  // 표준화 채널: walk_in, referral, cta_naver, cta_google, cta_kakao, online, phone
   isCta      Boolean  @default(false) // CTA 광고 기여 방문 여부
   campaignId String?  // CTA 캠페인 연결
+  // 방문경로 정규화 필드 (시스템 추천 vs 사람 확정 분리)
+  normalizedSource  String?  // 시스템 추천 정규화 소스 (예: "Instagram", "Naver Search Ads")
+  sourceCategory    String?  // 시스템 추천 카테고리 (예: "SNS", "Search Ads", "Referral")
+  ctaCandidate      Boolean? // 시스템 추천 CTA 후보 여부
+  matchConfidence   String?  // 매칭 신뢰도: HIGH, MEDIUM, LOW
+  matchReason       String?  // 매칭 근거 텍스트
+  matchedRuleId     String?  // 매칭된 SourceRule ID
+  // 사람이 최종 확정한 값
+  reviewedSource    String?  // 최종 확정 정규화 소스
+  reviewedCategory  String?  // 최종 확정 카테고리
+  reviewedCtaFlag   Boolean? // 최종 확정 CTA 여부
+  sourceReviewStatus String  @default("unreviewed") // unreviewed, auto_confirmed, manually_confirmed, rejected
+  sourceReviewedBy  String?  // 검토자
+  sourceReviewedAt  DateTime? // 검토 일시
+  sourceReviewMemo  String?  // 검토 메모
   createdAt  DateTime @default(now())
 
   patient         Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
@@ -67,11 +81,14 @@ model Visit {
   procedures      Procedure[]
   campaign        Campaign?        @relation(fields: [campaignId], references: [id])
   leadAttribution LeadAttribution?
+  matchedRule     SourceRule?      @relation(fields: [matchedRuleId], references: [id])
 
   @@index([patientId])
   @@index([visitDate])
   @@index([channel])
   @@index([isCta])
+  @@index([sourceReviewStatus])
+  @@index([matchConfidence])
 }
 
 model Diagnosis {
@@ -308,6 +325,29 @@ model ActivityLog {
   @@index([taskId])
   @@index([patientId])
   @@index([createdAt])
+}
+
+// ──────────────────────────────────────────────
+// 방문경로 분류 사전 (Source Rule Dictionary)
+// ──────────────────────────────────────────────
+
+model SourceRule {
+  id               String   @id @default(cuid())
+  ruleName         String   @unique // 규칙 식별자: instagram_ads, naver_search_ads, referral
+  keywords         String   // JSON 배열: ["인스타", "인스타그램", "insta"]
+  normalizedSource String   // 표준 소스명: "Instagram", "Naver Search Ads"
+  sourceCategory   String   // 카테고리: "SNS", "Search Ads", "Referral", "Organic", "Offline", "Unknown"
+  ctaCandidate     Boolean  @default(false) // CTA 후보 기본값
+  priority         Int      @default(100) // 우선순위 (낮을수록 먼저 매칭)
+  isActive         Boolean  @default(true)
+  description      String?  // 규칙 설명
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  matchedVisits Visit[]
+
+  @@index([isActive])
+  @@index([priority])
 }
 
 // ──────────────────────────────────────────────

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma, isDatabaseAvailable } from "@/lib/prisma";
 import { randomUUID } from "crypto";
+import { DEFAULT_SOURCE_RULES } from "@/lib/attribution/rules";
+import { normalizeSource, type NormalizationResult } from "@/lib/attribution/normalizer";
 
 function daysAgo(days: number): Date {
   const d = new Date();
@@ -424,6 +426,73 @@ const patients: SeedPatient[] = [
     chartNumber: "CF-0055", name: "백동우", gender: "M", birthYear: 1974, phone: "010-1234-0055",
     visits: [{ visitDate: daysAgo(16), procedures: [{ code: "U0001", name: "상담 및 X-ray" }], diagnoses: [{ code: "K081", name: "치아상실", tooth: "46" }], sourceRaw: "카카오 채널에서 임플란트 무료상담 이벤트 보고", channel: "cta_kakao", isCta: true, campaignKey: "kakao_general_feb", hasTreatment: false }],
   },
+  // ── 다양한 자유입력 방문경로 시나리오 ──
+  // 인스타 다양한 표현
+  {
+    chartNumber: "CF-0056", name: "김수현", gender: "F", birthYear: 1999, phone: "010-1234-0056",
+    visits: [{ visitDate: daysAgo(3), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "인스타에서 봤어요" }],
+  },
+  {
+    chartNumber: "CF-0057", name: "이준서", gender: "M", birthYear: 1993, phone: "010-1234-0057",
+    visits: [{ visitDate: daysAgo(5), procedures: [{ code: "U2230", name: "치석제거(1/3악)" }], diagnoses: [], sourceRaw: "인스타그램 보고 예약했습니다" }],
+  },
+  {
+    chartNumber: "CF-0058", name: "박지현", gender: "F", birthYear: 1996, phone: "010-1234-0058",
+    visits: [{ visitDate: daysAgo(7), procedures: [{ code: "ZZ001", name: "교정 상담" }], diagnoses: [], sourceRaw: "instagram 교정 후기 보고 왔어요" }],
+  },
+  // 네이버 다양한 표현
+  {
+    chartNumber: "CF-0059", name: "정우진", gender: "M", birthYear: 1987, phone: "010-1234-0059",
+    visits: [{ visitDate: daysAgo(2), procedures: [{ code: "U4411", name: "발수(전치)", tooth: "21" }], diagnoses: [{ code: "K040", name: "치수염", tooth: "21" }], sourceRaw: "네이버에서 검색해서 옴" }],
+  },
+  {
+    chartNumber: "CF-0060", name: "최민지", gender: "F", birthYear: 1990, phone: "010-1234-0060",
+    visits: [{ visitDate: daysAgo(4), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "네이버 블로그 후기 읽고 왔는데요" }],
+  },
+  // 블로그/검색/지인 혼합
+  {
+    chartNumber: "CF-0061", name: "강예린", gender: "F", birthYear: 1985, phone: "010-1234-0061",
+    visits: [{ visitDate: daysAgo(6), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "친구가 블로그 링크 보내줘서 옴" }],
+  },
+  {
+    chartNumber: "CF-0062", name: "윤재혁", gender: "M", birthYear: 1979, phone: "010-1234-0062",
+    visits: [{ visitDate: daysAgo(10), procedures: [{ code: "U2232", name: "치석제거(전악)" }], diagnoses: [], sourceRaw: "지인소개 추천받아서요" }],
+  },
+  // 애매한 원문 (Unknown으로 가야 함)
+  {
+    chartNumber: "CF-0063", name: "임하윤", gender: "F", birthYear: 2002, phone: "010-1234-0063",
+    visits: [{ visitDate: daysAgo(1), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "그냥 왔어요" }],
+  },
+  {
+    chartNumber: "CF-0064", name: "조성민", gender: "M", birthYear: 1971, phone: "010-1234-0064",
+    visits: [{ visitDate: daysAgo(8), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "지나가다 봄" }],
+  },
+  {
+    chartNumber: "CF-0065", name: "한소윤", gender: "F", birthYear: 1983, phone: "010-1234-0065",
+    visits: [{ visitDate: daysAgo(14), procedures: [{ code: "U4412", name: "발수(구치)", tooth: "46" }], diagnoses: [{ code: "K040", name: "치수염", tooth: "46" }], sourceRaw: "아파서 급하게" }],
+  },
+  // 오분류 가능성 사례
+  {
+    chartNumber: "CF-0066", name: "서유진", gender: "F", birthYear: 1995, phone: "010-1234-0066",
+    visits: [{ visitDate: daysAgo(9), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "네이버 광고 아니고 블로그에서 봤는데" }],
+  },
+  {
+    chartNumber: "CF-0067", name: "오태준", gender: "M", birthYear: 1988, phone: "010-1234-0067",
+    visits: [{ visitDate: daysAgo(13), procedures: [{ code: "U2231", name: "치석제거(2/3악)" }], diagnoses: [], sourceRaw: "간판보고 들어왔는데 인스타도 팔로우함" }],
+  },
+  // 전화/온라인 예약 등
+  {
+    chartNumber: "CF-0068", name: "남시은", gender: "F", birthYear: 1992, phone: "010-1234-0068",
+    visits: [{ visitDate: daysAgo(11), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "전화로 예약하고 옴" }],
+  },
+  {
+    chartNumber: "CF-0069", name: "문준혁", gender: "M", birthYear: 1977, phone: "010-1234-0069",
+    visits: [{ visitDate: daysAgo(15), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "동네 근처 치과 검색하다가" }],
+  },
+  {
+    chartNumber: "CF-0070", name: "배소연", gender: "F", birthYear: 2001, phone: "010-1234-0070",
+    visits: [{ visitDate: daysAgo(2), procedures: [{ code: "ZZ001", name: "교정 상담" }], diagnoses: [], sourceRaw: "유튜브 교정 영상 광고에서 봤어요" }],
+  },
 ];
 
 const ruleConfigs = [
@@ -476,6 +545,7 @@ export async function POST() {
       prisma.patientIdentity.deleteMany(),
       prisma.campaign.deleteMany(),
       prisma.ruleConfig.deleteMany(),
+      prisma.sourceRule.deleteMany(),
     ]);
     await prisma.patient.deleteMany();
 
@@ -506,10 +576,28 @@ export async function POST() {
     // 룰 설정
     const ruleRows = ruleConfigs.map((rc) => ({ id: randomUUID(), ...rc }));
 
+    // 방문경로 분류 사전 (SourceRule)
+    const sourceRuleMap = new Map<string, string>();
+    const sourceRuleRows = DEFAULT_SOURCE_RULES.map((r) => {
+      const id = randomUUID();
+      sourceRuleMap.set(r.ruleName, id);
+      return {
+        id,
+        ruleName: r.ruleName,
+        keywords: JSON.stringify(r.keywords),
+        normalizedSource: r.normalizedSource,
+        sourceCategory: r.sourceCategory,
+        ctaCandidate: r.ctaCandidate,
+        priority: r.priority,
+        isActive: r.isActive,
+        description: r.description,
+      };
+    });
+
     // 환자 + identity + visit + procedure + diagnosis + leadAttribution
     const patientRows: { id: string; chartNumber: string; gender: string; birthYear: number; isVip: boolean; tags: string | null }[] = [];
     const identityRows: { id: string; patientId: string; name: string; phone: string }[] = [];
-    const visitRows: { id: string; patientId: string; visitDate: Date; memo: string | null; sourceRaw: string | null; channel: string | null; isCta: boolean; campaignId: string | null }[] = [];
+    const visitRows: { id: string; patientId: string; visitDate: Date; memo: string | null; sourceRaw: string | null; channel: string | null; isCta: boolean; campaignId: string | null; normalizedSource: string | null; sourceCategory: string | null; ctaCandidate: boolean | null; matchConfidence: string | null; matchReason: string | null; matchedRuleId: string | null; reviewedSource: string | null; reviewedCategory: string | null; reviewedCtaFlag: boolean | null; sourceReviewStatus: string }[] = [];
     const procedureRows: { id: string; visitId: string; code: string; name: string; tooth: string | null }[] = [];
     const diagnosisRows: { id: string; visitId: string; code: string; name: string; tooth: string | null }[] = [];
     const leadRows: { id: string; visitId: string; campaignId: string; reviewStatus: string; autoReason: string; confidence: number; reviewer: string | null; reviewedAt: Date | null; treatmentStarted: boolean; isDuplicate: boolean; settlementMonth: string; settlementEligible: boolean; ineligibleReason: string | null }[] = [];
@@ -542,6 +630,14 @@ export async function POST() {
         const visitId = randomUUID();
         const campaignId = v.campaignKey ? campaignMap.get(v.campaignKey) || null : null;
 
+        // 방문경로 정규화 실행
+        let norm: NormalizationResult | null = null;
+        if (v.sourceRaw) {
+          norm = normalizeSource(v.sourceRaw);
+        }
+        const matchedRuleId = norm?.matchedRuleName ? sourceRuleMap.get(norm.matchedRuleName) || null : null;
+        const isHighConfidence = norm?.matchConfidence === "HIGH";
+
         visitRows.push({
           id: visitId,
           patientId,
@@ -551,6 +647,16 @@ export async function POST() {
           channel: v.channel || null,
           isCta: v.isCta || false,
           campaignId,
+          normalizedSource: norm?.normalizedSource || null,
+          sourceCategory: norm?.sourceCategory || null,
+          ctaCandidate: norm?.ctaCandidate ?? null,
+          matchConfidence: norm?.matchConfidence || null,
+          matchReason: norm?.matchReason || null,
+          matchedRuleId,
+          reviewedSource: isHighConfidence ? norm?.normalizedSource || null : null,
+          reviewedCategory: isHighConfidence ? norm?.sourceCategory || null : null,
+          reviewedCtaFlag: isHighConfidence ? (norm?.ctaCandidate ?? null) : null,
+          sourceReviewStatus: norm ? (isHighConfidence ? "auto_confirmed" : "unreviewed") : "unreviewed",
         });
 
         for (const proc of v.procedures) {
@@ -689,6 +795,7 @@ export async function POST() {
       prisma.campaign.createMany({ data: campaignRows }),
       prisma.staff.createMany({ data: staffRows }),
       prisma.ruleConfig.createMany({ data: ruleRows }),
+      prisma.sourceRule.createMany({ data: sourceRuleRows }),
       prisma.patient.createMany({ data: patientRows }),
     ]);
 
@@ -714,13 +821,13 @@ export async function POST() {
         action: "seed_data",
         entityType: "system",
         entityId: "seed",
-        detail: JSON.stringify({ patientCount: patients.length, campaignCount: campaigns.length, taskCount: taskRows.length, staffCount: staffRows.length, ctaLeadCount: leadRows.length }),
+        detail: JSON.stringify({ patientCount: patients.length, campaignCount: campaigns.length, taskCount: taskRows.length, staffCount: staffRows.length, ctaLeadCount: leadRows.length, sourceRuleCount: sourceRuleRows.length }),
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: `${patients.length}명의 환자, ${campaigns.length}개의 캠페인, ${leadRows.length}개의 CTA 귀속, ${taskRows.length}개의 업무, ${staffRows.length}명의 담당자가 생성되었습니다.`,
+      message: `${patients.length}명의 환자, ${campaigns.length}개의 캠페인, ${leadRows.length}개의 CTA 귀속, ${sourceRuleRows.length}개의 분류 규칙, ${taskRows.length}개의 업무, ${staffRows.length}명의 담당자가 생성되었습니다.`,
     });
   } catch (error) {
     console.error("Seed API error:", error);
