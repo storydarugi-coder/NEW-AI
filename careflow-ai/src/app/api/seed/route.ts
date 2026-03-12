@@ -394,6 +394,89 @@ function getAutoReason(sourceRaw: string, channel: string): string {
 // Vercel 함수 타임아웃 확장 (Hobby: 최대 60초)
 export const maxDuration = 60;
 
+// 개별 환자 + 방문 + LeadAttribution 생성 (병렬 처리용)
+async function seedOnePatient(p: SeedPatient, campaignMap: Map<string, string>) {
+  const patient = await prisma.patient.create({
+    data: {
+      chartNumber: p.chartNumber,
+      gender: p.gender,
+      birthYear: p.birthYear,
+      isVip: p.isVip || false,
+      tags: p.tags || null,
+    },
+  });
+
+  await prisma.patientIdentity.create({
+    data: { patientId: patient.id, name: p.name, phone: p.phone },
+  });
+
+  const campaignsSeen = new Set<string>();
+
+  for (const v of p.visits) {
+    const campaignId = v.campaignKey ? campaignMap.get(v.campaignKey) : undefined;
+
+    const visit = await prisma.visit.create({
+      data: {
+        patientId: patient.id,
+        visitDate: v.visitDate,
+        memo: v.memo || null,
+        sourceRaw: v.sourceRaw || null,
+        channel: v.channel || null,
+        isCta: v.isCta || false,
+        campaignId: campaignId || null,
+        procedures: {
+          create: v.procedures.map((proc) => ({
+            code: proc.code, name: proc.name, tooth: proc.tooth || null,
+          })),
+        },
+        diagnoses: {
+          create: v.diagnoses.map((diag) => ({
+            code: diag.code, name: diag.name, tooth: diag.tooth || null,
+          })),
+        },
+      },
+    });
+
+    if (v.isCta && campaignId) {
+      const isDuplicate = campaignsSeen.has(v.campaignKey || "");
+      campaignsSeen.add(v.campaignKey || "");
+
+      const treatmentStarted = v.hasTreatment ?? true;
+      const isConfirmed = Math.random() > 0.35;
+      const reviewStatus = isConfirmed ? "confirmed" : "pending";
+
+      const settlementEligible = reviewStatus === "confirmed" && treatmentStarted && !isDuplicate;
+      let ineligibleReason: string | null = null;
+      if (!settlementEligible) {
+        if (reviewStatus !== "confirmed") ineligibleReason = "검토 대기 중";
+        else if (!treatmentStarted) ineligibleReason = "실제 진료 미시작 (상담/검사만)";
+        else if (isDuplicate) ineligibleReason = "동일 환자 중복 유입 (1회만 인정)";
+      }
+
+      const settlementMonth = `${v.visitDate.getFullYear()}-${String(v.visitDate.getMonth() + 1).padStart(2, "0")}`;
+
+      await prisma.leadAttribution.create({
+        data: {
+          visitId: visit.id,
+          campaignId,
+          reviewStatus,
+          autoReason: getAutoReason(v.sourceRaw || "", v.channel || ""),
+          confidence: 0.7 + Math.random() * 0.25,
+          reviewer: isConfirmed ? "데스크 김" : null,
+          reviewedAt: isConfirmed ? daysAgo(Math.floor(Math.random() * 7)) : null,
+          treatmentStarted,
+          isDuplicate,
+          settlementMonth,
+          settlementEligible,
+          ineligibleReason,
+        },
+      });
+    }
+  }
+
+  return patient;
+}
+
 export async function POST() {
   try {
     const dbCheck = await isDatabaseAvailable();
@@ -404,156 +487,76 @@ export async function POST() {
       );
     }
 
-    // 기존 데이터 삭제 (FK 의존성 순서)
-    await prisma.activityLog.deleteMany();
-    await prisma.workflowTask.deleteMany();
-    await prisma.staff.deleteMany();
-    await prisma.auditLog.deleteMany();
-    await prisma.messageDelivery.deleteMany();
-    await prisma.leadAttribution.deleteMany();
-    await prisma.messageDraft.deleteMany();
-    await prisma.recallRecommendation.deleteMany();
-    await prisma.diagnosis.deleteMany();
-    await prisma.procedure.deleteMany();
+    // ── 1단계: 기존 데이터 삭제 (leaf → root 순서, 독립 테이블은 병렬) ──
+    // leaf 테이블 먼저 (서로 의존 없음 → 병렬)
+    await Promise.all([
+      prisma.activityLog.deleteMany(),
+      prisma.auditLog.deleteMany(),
+      prisma.messageDelivery.deleteMany(),
+      prisma.leadAttribution.deleteMany(),
+      prisma.messageDraft.deleteMany(),
+      prisma.recallRecommendation.deleteMany(),
+    ]);
+    // workflowTask, staff (activityLog 삭제 후)
+    await Promise.all([
+      prisma.workflowTask.deleteMany(),
+      prisma.staff.deleteMany(),
+    ]);
+    // diagnosis, procedure (독립 leaf of visit)
+    await Promise.all([
+      prisma.diagnosis.deleteMany(),
+      prisma.procedure.deleteMany(),
+    ]);
+    // visit → patientIdentity → patient, campaign, ruleConfig
     await prisma.visit.deleteMany();
-    await prisma.patientIdentity.deleteMany();
+    await Promise.all([
+      prisma.patientIdentity.deleteMany(),
+      prisma.campaign.deleteMany(),
+      prisma.ruleConfig.deleteMany(),
+    ]);
     await prisma.patient.deleteMany();
-    await prisma.campaign.deleteMany();
-    await prisma.ruleConfig.deleteMany();
 
-    // 캠페인 생성
+    // ── 2단계: 캠페인 + 룰 + 담당자 동시 생성 ──
     const campaignMap = new Map<string, string>();
-    for (const c of campaigns) {
-      const campaign = await prisma.campaign.create({
-        data: {
-          name: c.name,
-          platform: c.platform,
-          adType: c.adType,
-          startDate: c.startDate,
-          endDate: c.endDate || null,
-          budgetWon: c.budgetWon || null,
-          costPerClick: c.costPerClick || null,
-          status: c.status,
-        },
-      });
-      campaignMap.set(c.key, campaign.id);
+    const [, , createdStaff] = await Promise.all([
+      // 캠페인 생성
+      (async () => {
+        const created = await Promise.all(
+          campaigns.map((c) =>
+            prisma.campaign.create({
+              data: {
+                name: c.name, platform: c.platform, adType: c.adType,
+                startDate: c.startDate, endDate: c.endDate || null,
+                budgetWon: c.budgetWon || null, costPerClick: c.costPerClick || null,
+                status: c.status,
+              },
+            }).then((campaign) => ({ key: c.key, id: campaign.id }))
+          )
+        );
+        for (const { key, id } of created) campaignMap.set(key, id);
+      })(),
+      // 룰 설정 생성
+      Promise.all(ruleConfigs.map((rc) => prisma.ruleConfig.create({ data: rc }))),
+      // 담당자 생성
+      Promise.all([
+        prisma.staff.create({ data: { name: "김수진", role: "desk" } }),
+        prisma.staff.create({ data: { name: "박미영", role: "counselor" } }),
+        prisma.staff.create({ data: { name: "이원장", role: "doctor" } }),
+        prisma.staff.create({ data: { name: "정관리", role: "manager" } }),
+      ]),
+    ]);
+
+    // ── 3단계: 환자 병렬 생성 (5개씩 배치) ──
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < patients.length; i += BATCH_SIZE) {
+      const batch = patients.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch.map((p) => seedOnePatient(p, campaignMap)));
     }
 
-    // 환자 + PatientIdentity + Visit + LeadAttribution
-    const ctaPatientCampaigns = new Map<string, Set<string>>();
-
-    for (const p of patients) {
-      const patient = await prisma.patient.create({
-        data: {
-          chartNumber: p.chartNumber,
-          gender: p.gender,
-          birthYear: p.birthYear,
-          isVip: p.isVip || false,
-          tags: p.tags || null,
-        },
-      });
-
-      await prisma.patientIdentity.create({
-        data: {
-          patientId: patient.id,
-          name: p.name,
-          phone: p.phone,
-        },
-      });
-
-      for (const v of p.visits) {
-        const campaignId = v.campaignKey ? campaignMap.get(v.campaignKey) : undefined;
-
-        const visit = await prisma.visit.create({
-          data: {
-            patientId: patient.id,
-            visitDate: v.visitDate,
-            memo: v.memo || null,
-            sourceRaw: v.sourceRaw || null,
-            channel: v.channel || null,
-            isCta: v.isCta || false,
-            campaignId: campaignId || null,
-            procedures: {
-              create: v.procedures.map((proc) => ({
-                code: proc.code,
-                name: proc.name,
-                tooth: proc.tooth || null,
-              })),
-            },
-            diagnoses: {
-              create: v.diagnoses.map((diag) => ({
-                code: diag.code,
-                name: diag.name,
-                tooth: diag.tooth || null,
-              })),
-            },
-          },
-        });
-
-        if (v.isCta && campaignId) {
-          const patientCampaigns = ctaPatientCampaigns.get(patient.id) || new Set();
-          const isDuplicate = patientCampaigns.has(v.campaignKey || "");
-          patientCampaigns.add(v.campaignKey || "");
-          ctaPatientCampaigns.set(patient.id, patientCampaigns);
-
-          const treatmentStarted = v.hasTreatment ?? true;
-          const isConfirmed = Math.random() > 0.35;
-          const reviewStatus = isConfirmed ? "confirmed" : "pending";
-
-          const settlementEligible = reviewStatus === "confirmed" && treatmentStarted && !isDuplicate;
-          let ineligibleReason: string | null = null;
-          if (!settlementEligible) {
-            if (reviewStatus !== "confirmed") ineligibleReason = "검토 대기 중";
-            else if (!treatmentStarted) ineligibleReason = "실제 진료 미시작 (상담/검사만)";
-            else if (isDuplicate) ineligibleReason = "동일 환자 중복 유입 (1회만 인정)";
-          }
-
-          const settlementMonth = `${v.visitDate.getFullYear()}-${String(v.visitDate.getMonth() + 1).padStart(2, "0")}`;
-
-          await prisma.leadAttribution.create({
-            data: {
-              visitId: visit.id,
-              campaignId,
-              reviewStatus,
-              autoReason: getAutoReason(v.sourceRaw || "", v.channel || ""),
-              confidence: 0.7 + Math.random() * 0.25,
-              reviewer: isConfirmed ? "데스크 김" : null,
-              reviewedAt: isConfirmed ? daysAgo(Math.floor(Math.random() * 7)) : null,
-              treatmentStarted,
-              isDuplicate,
-              settlementMonth,
-              settlementEligible,
-              ineligibleReason,
-            },
-          });
-        }
-      }
-    }
-
-    // 룰 설정 생성
-    for (const rc of ruleConfigs) {
-      await prisma.ruleConfig.create({ data: rc });
-    }
-
-    // ── 담당자 생성 ──
-    const staffMembers = [
-      { name: "김수진", role: "desk" },
-      { name: "박미영", role: "counselor" },
-      { name: "이원장", role: "doctor" },
-      { name: "정관리", role: "manager" },
-    ];
-    const createdStaff = [];
-    for (const sm of staffMembers) {
-      const s = await prisma.staff.create({ data: sm });
-      createdStaff.push(s);
-    }
-
-    // ── 워크플로우 태스크 생성 ──
+    // ── 4단계: 워크플로우 태스크 병렬 생성 ──
     const allPatients = await prisma.patient.findMany({ select: { id: true, chartNumber: true } });
     const chartToId: Record<string, string> = {};
-    for (const p of allPatients) {
-      chartToId[p.chartNumber] = p.id;
-    }
+    for (const p of allPatients) chartToId[p.chartNumber] = p.id;
 
     interface TaskSeedItem {
       actionType: string;
@@ -586,46 +589,52 @@ export async function POST() {
       "CF-0045": [{ actionType: "RECALL", status: "on_hold", staffIndex: 0, note: "장기 VIP 최근 미내원, 스케일링 시기 지남", reason: "진료 시작 여부 확인 필요", nextFollowUpDays: -2 }],
     };
 
+    const taskPromises: Promise<void>[] = [];
     let taskCount = 0;
+
     for (const [chartNumber, taskItems] of Object.entries(taskSeedMap)) {
       const patientId = chartToId[chartNumber];
       if (!patientId) continue;
 
       for (const ts of taskItems) {
+        taskCount++;
         const assigneeId = ts.staffIndex >= 0 ? createdStaff[ts.staffIndex].id : null;
         const nextFollowUpAt = ts.nextFollowUpDays !== null
           ? (() => { const d = new Date(); d.setDate(d.getDate() + ts.nextFollowUpDays); d.setHours(9, 0, 0, 0); return d; })()
           : null;
 
-        const task = await prisma.workflowTask.create({
-          data: {
-            patientId,
-            actionType: ts.actionType,
-            status: ts.status,
-            assigneeId,
-            note: ts.note,
-            reason: ts.reason,
-            nextFollowUpAt,
-            completedAt: ts.status === "completed" ? daysAgo(3) : null,
-          },
-        });
+        taskPromises.push(
+          (async () => {
+            const task = await prisma.workflowTask.create({
+              data: {
+                patientId, actionType: ts.actionType, status: ts.status,
+                assigneeId, note: ts.note, reason: ts.reason, nextFollowUpAt,
+                completedAt: ts.status === "completed" ? daysAgo(3) : null,
+              },
+            });
 
-        await prisma.activityLog.create({
-          data: { taskId: task.id, patientId, staffId: assigneeId, action: "task_created", toValue: ts.actionType },
-        });
-        if (ts.status !== "unprocessed") {
-          await prisma.activityLog.create({
-            data: { taskId: task.id, patientId, staffId: assigneeId, action: "status_change", fromValue: "unprocessed", toValue: ts.status },
-          });
-        }
-        if (ts.note) {
-          await prisma.activityLog.create({
-            data: { taskId: task.id, patientId, staffId: assigneeId, action: "note_added", toValue: ts.note.substring(0, 100) },
-          });
-        }
-        taskCount++;
+            const logPromises: Promise<unknown>[] = [
+              prisma.activityLog.create({
+                data: { taskId: task.id, patientId, staffId: assigneeId, action: "task_created", toValue: ts.actionType },
+              }),
+            ];
+            if (ts.status !== "unprocessed") {
+              logPromises.push(prisma.activityLog.create({
+                data: { taskId: task.id, patientId, staffId: assigneeId, action: "status_change", fromValue: "unprocessed", toValue: ts.status },
+              }));
+            }
+            if (ts.note) {
+              logPromises.push(prisma.activityLog.create({
+                data: { taskId: task.id, patientId, staffId: assigneeId, action: "note_added", toValue: ts.note.substring(0, 100) },
+              }));
+            }
+            await Promise.all(logPromises);
+          })()
+        );
       }
     }
+
+    await Promise.all(taskPromises);
 
     await prisma.auditLog.create({
       data: {
