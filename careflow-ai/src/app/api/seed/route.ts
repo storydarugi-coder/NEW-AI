@@ -641,8 +641,9 @@ export async function POST() {
     });
   } catch (error) {
     console.error("Seed API error:", error);
+    const errMsg = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: "데이터 초기화 중 오류가 발생했습니다." },
+      { error: "데이터 초기화 중 오류가 발생했습니다.", detail: errMsg },
       { status: 500 }
     );
   }
