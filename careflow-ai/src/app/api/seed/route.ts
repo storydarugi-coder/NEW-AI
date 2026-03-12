@@ -977,6 +977,54 @@ export async function POST() {
     ];
     await prisma.syncJob.createMany({ data: syncJobRows });
 
+    // ── ImportBatch 시드 (리포트용) ──
+    await prisma.importBatch.createMany({
+      data: [
+        {
+          id: randomUUID(),
+          fileName: "202603_방문경로_일괄.csv",
+          totalRows: 150,
+          successCount: 142,
+          failCount: 3,
+          unclassifiedCount: 12,
+          reviewNeededCount: 8,
+          status: "completed",
+          importedBy: "데스크 김소연",
+          createdAt: new Date(now.getTime() - 1 * 60 * 60 * 1000),
+        },
+        {
+          id: randomUUID(),
+          fileName: "202603_추가보정.csv",
+          totalRows: 50,
+          successCount: 50,
+          failCount: 0,
+          unclassifiedCount: 2,
+          reviewNeededCount: 2,
+          status: "completed",
+          importedBy: "데스크 김소연",
+          createdAt: new Date(now.getTime() - 30 * 60 * 1000),
+        },
+        {
+          id: randomUUID(),
+          fileName: "202602_CTA_정리.csv",
+          totalRows: 80,
+          successCount: 75,
+          failCount: 2,
+          unclassifiedCount: 5,
+          reviewNeededCount: 3,
+          status: "completed",
+          importedBy: "관리자 홍길동",
+          createdAt: daysAgo(15),
+        },
+      ],
+    });
+
+    // ── 완료된 업무에 completedAt 설정 (리포트용) ──
+    await prisma.workflowTask.updateMany({
+      where: { status: "completed" },
+      data: { completedAt: daysAgo(1) },
+    });
+
     // ── 수신 거부 환자 설정 ──
     const doNotContactCharts = ["CF-0008", "CF-0016"];
     for (const chart of doNotContactCharts) {

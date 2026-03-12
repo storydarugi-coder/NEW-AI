@@ -61,6 +61,7 @@ export const ROLE_NAV_ACCESS: Record<string, string[]> = {
     "/",
     "/patients",
     "/messages",
+    "/reports",
     "/source-review",
     "/source-import",
     "/source-rules",
@@ -70,7 +71,7 @@ export const ROLE_NAV_ACCESS: Record<string, string[]> = {
   ],
   COUNSELOR: ["/", "/patients", "/messages", "/cta", "/about"],
   VIEWER: ["/", "/patients", "/about"],
-  MARKETING: ["/", "/cta", "/source-review", "/about"],
+  MARKETING: ["/", "/cta", "/source-review", "/reports", "/about"],
 };
 
 export function canAccessPath(role: string, path: string): boolean {
@@ -92,6 +93,7 @@ export const ROLE_CAPABILITIES: Record<string, string[]> = {
     "send_message",
     "view_patients",
     "view_sync",
+    "view_reports",
   ],
   COUNSELOR: [
     "review_workflow",
@@ -100,7 +102,7 @@ export const ROLE_CAPABILITIES: Record<string, string[]> = {
     "review_cta",
   ],
   VIEWER: ["view_patients"],
-  MARKETING: ["view_patients", "review_cta", "review_source", "export_data"],
+  MARKETING: ["view_patients", "review_cta", "review_source", "export_data", "view_reports"],
 };
 
 export function hasCapability(role: string, cap: string): boolean {

@@ -16,6 +16,7 @@ import {
   Upload,
   RefreshCw,
   Mail,
+  BarChart3,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ const allNavItems = [
   { label: "CSV Import", href: "/source-import", icon: Upload },
   { label: "분류 사전", href: "/source-rules", icon: BookOpen },
   { label: "메시지 발송", href: "/messages", icon: Mail },
+  { label: "운영 리포트", href: "/reports", icon: BarChart3 },
   { label: "동기화 관리", href: "/sync", icon: RefreshCw },
   { label: "설정", href: "/settings", icon: Settings },
   { label: "제품 소개", href: "/about", icon: Info },

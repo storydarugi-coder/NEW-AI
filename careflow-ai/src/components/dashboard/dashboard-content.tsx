@@ -29,6 +29,7 @@ import {
   ClipboardList,
   Search,
   Mail,
+  BarChart3,
 } from "lucide-react";
 import {
   RULE_TYPE_LABELS,
@@ -552,9 +553,30 @@ export function DashboardContent({
         </CardContent>
       </Card>
 
+      {/* 운영 리포트 바로가기 */}
+      <Card>
+        <CardContent className="p-4">
+          <Link
+            href="/reports"
+            className="flex items-center justify-between group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-indigo-50">
+                <BarChart3 size={18} className="text-indigo-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">운영 리포트</p>
+                <p className="text-xs text-gray-500">KPI, 퍼널, 메시지, 방문경로, 담당자별 성과를 확인하세요</p>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-gray-400 group-hover:text-blue-600 transition-colors" />
+          </Link>
+        </CardContent>
+      </Card>
+
       {/* 의료 면책 고지 */}
       <p className="text-center text-xs text-gray-400 py-2">
-        ⚕️ CareFlow AI는 병원 운영 보조 도구이며, 의료적 판단을 대신하지 않습니다. 모든 추천은 참고용입니다.
+        CareFlow AI는 병원 운영 보조 도구이며, 의료적 판단을 대신하지 않습니다. 모든 추천은 참고용입니다.
       </p>
     </div>
   );

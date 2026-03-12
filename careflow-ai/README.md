@@ -147,7 +147,20 @@ npm run dev       # http://localhost:3000
 - **Provider 추상화**: MockMessageProvider (95% 성공 시뮬), KakaoAlimtalkProvider (stub)
 - **대시보드 연동**: 메시지 발송 현황 카드 (검토 필요/발송 대기/오늘 발송/실패/차단)
 
-### 11. 개인정보 보호 아키텍처 (NEW)
+### 11. 운영 리포트 및 성과 대시보드 (NEW)
+
+- **KPI 카드**: CTA 유입/확정/진료개시/정산대상, 메시지 발송/실패/차단, 방문 수/신규 환자, 업무 생성/완료
+- **기간 필터**: 오늘/이번 주/이번 달/최근 30일/직접 지정(custom range)
+- **운영 퍼널**: CTA 후보 → 검토 → 확정 → 진료개시 → 정산 → 후속조치 → 메시지 → 발송성공 (전환율 표시)
+- **메시지 리포트**: 유형별/승인상태별/발송상태별 분포, 차단 사유(수신거부/중복), 예약 발송 현황
+- **방문경로 리포트**: 상위 소스 TOP15, 카테고리별 분포, CTA 후보→확정 전환율, 미분류 건수, 신뢰도별 분포
+- **담당자 리포트**: 배정/완료/검토중/연락대기/보류 건수, 완료율, 활동 횟수, 미배정 업무 경고
+- **동기화 리포트**: 작업 수/레코드 성공률/실패/미분류, ImportBatch 이력, 데이터 품질(Unknown/LOW 비율)
+- **CSV 내보내기**: 기간 요약, CTA 정산 리스트, 메시지 현황, 미분류 경로 (UTF-8 BOM Excel 호환)
+- **역할 기반**: ADMIN 전체, DESK/MARKETING 접근 가능, COUNSELOR/VIEWER 제한
+- **API 엔드포인트**: `/api/reports/kpi`, `/funnel`, `/messages`, `/sources`, `/staff`, `/sync`, `/export`
+
+### 12. 개인정보 보호 아키텍처 (NEW)
 - **PII 분리**: 이름/전화번호를 별도 `PatientIdentity` 테이블에 분리 저장
 - **UI 마스킹**: 기본 화면에서 이름/전화번호 마스킹 표시 (토글 가능)
 - **LLM 안전성**: AI API에 최소 컨텍스트만 전달 (마스킹된 이름 + 정형 사유)
@@ -201,6 +214,7 @@ careflow-ai/
 │   │   ├── source-rules/      # 분류 사전
 │   │   ├── sync/              # 동기화 관리
 │   │   ├── messages/          # 메시지 발송 운영 화면
+│   │   ├── reports/           # 운영 리포트 및 성과 대시보드
 │   │   ├── settings/          # 설정
 │   │   ├── about/             # 제품 소개
 │   │   └── api/               # API Routes
@@ -213,6 +227,7 @@ careflow-ai/
 │   │       ├── source-import/ # CSV Import API (업로드/이력)
 │   │       ├── auth/          # 인증 API (login/logout/me)
 │   │       ├── sync/          # 동기화 관리 API (목록/상세/재처리)
+│   │       ├── reports/        # 운영 리포트 API (kpi/funnel/messages/sources/staff/sync/export)
 │   │       └── seed/          # 데모 데이터 생성
 │   ├── components/
 │   │   ├── auth/              # 인증 (AuthGate, AuthProvider, LoginPage)
@@ -223,6 +238,7 @@ careflow-ai/
 │   │   ├── source-import/     # CSV Import UI
 │   │   ├── sync/              # 동기화 관리 UI
 │   │   ├── messages/          # 메시지 발송 운영 UI (필터/승인/발송/재시도)
+│   │   ├── reports/           # 운영 리포트 UI (KPI/퍼널/메시지/방문경로/담당자/동기화)
 │   │   ├── layout/            # 사이드바/레이아웃 (역할 기반 메뉴)
 │   │   ├── settings/          # 설정 UI
 │   │   └── ui/                # shadcn/ui 컴포넌트
@@ -246,6 +262,8 @@ careflow-ai/
 │   │   ├── messaging/         # 메시지 발송 프로바이더 + 오케스트레이터
 │   │   │   ├── provider.ts    # MockProvider / KakaoAlimtalkProvider
 │   │   │   └── send.ts        # 발송 오케스트레이터 (안전 체크 + 상태 관리)
+│   │   ├── reports/            # 리포트 기간 필터 유틸리티
+│   │   │   └── period.ts      # parsePeriod, periodLabel
 │   │   ├── privacy.ts         # PII 마스킹/LLM 안전성 유틸리티
 │   │   └── message-generator/
 │   │       └── templates.ts   # 33개 한국어 메시지 템플릿
@@ -441,6 +459,9 @@ ENABLE_LLM_MESSAGE_GENERATION=false  # 또는 변수 미설정
 | 발송 안전 체크 | ✅ 수신거부/중복/전화번호/승인 4단계 | 그대로 사용 |
 | 메시지 운영 화면 | ✅ 필터/통계/인라인 액션 | 그대로 사용 |
 | 카카오 알림톡 | 🔧 Provider stub 준비됨 | API 키 + 템플릿 등록 |
+| 운영 리포트 | ✅ KPI/퍼널/메시지/방문경로/담당자/동기화 6개 리포트 | 그대로 사용 |
+| CSV 리포트 내보내기 | ✅ 4종 CSV Export (정산/메시지/미분류/요약) | 그대로 사용 |
+| 기간 필터 | ✅ 오늘/주/월/30일/직접지정 5종 | 그대로 사용 |
 | 동기화 관리 | ✅ SyncJob 추적 + 관리 화면 | 그대로 사용 |
 | 인증/세션 | ✅ Cookie 기반 HMAC 세션 (6 demo 계정) | 프로덕션: NextAuth/OAuth 확장 |
 | 역할 기반 권한 | ✅ 5역할 + 메뉴/기능 분기 | 그대로 사용 + 세분화 |
