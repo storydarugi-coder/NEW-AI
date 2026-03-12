@@ -18,6 +18,12 @@ import {
   EyeOff,
   Copy,
   TrendingUp,
+  Download,
+  ToggleLeft,
+  ToggleRight,
+  MessageSquare,
+  ListChecks,
+  Ban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -129,6 +135,21 @@ export function CtaContent() {
     fetchData();
   }
 
+  async function handleUpdate(attributionId: string, updates: Record<string, unknown>) {
+    await fetch("/api/cta/update", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attributionId, ...updates }),
+    });
+    fetchData();
+  }
+
+  function handleCsvExport() {
+    const params = new URLSearchParams();
+    if (monthFilter !== "all") params.set("month", monthFilter);
+    window.open(`/api/cta/export?${params.toString()}`, "_blank");
+  }
+
   if (loading || !data) {
     return (
       <div className="p-6 space-y-4">
@@ -155,13 +176,22 @@ export function CtaContent() {
             CTA 광고를 통해 내원한 환자를 검토하고 정산 근거를 관리합니다
           </p>
         </div>
-        <button
-          onClick={() => setShowMasked(!showMasked)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-gray-50"
-        >
-          {showMasked ? <EyeOff size={14} /> : <Eye size={14} />}
-          {showMasked ? "이름 표시" : "이름 숨김"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleCsvExport}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-gray-50 text-emerald-700"
+          >
+            <Download size={14} />
+            CSV 내보내기
+          </button>
+          <button
+            onClick={() => setShowMasked(!showMasked)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-gray-50"
+          >
+            {showMasked ? <EyeOff size={14} /> : <Eye size={14} />}
+            {showMasked ? "이름 표시" : "이름 숨김"}
+          </button>
+        </div>
       </div>
 
       {/* KPI */}
@@ -281,6 +311,7 @@ export function CtaContent() {
                 expanded={expandedLead === lead.id}
                 onToggle={() => setExpandedLead(expandedLead === lead.id ? null : lead.id)}
                 onReview={handleReview}
+                onUpdate={handleUpdate}
               />
             ))
           )}
@@ -296,7 +327,7 @@ export function CtaContent() {
       )}
 
       {activeTab === "settlement" && (
-        <SettlementTab campaignStats={campaignStats} summary={summary} monthFilter={monthFilter} />
+        <SettlementTab campaignStats={campaignStats} summary={summary} monthFilter={monthFilter} onCsvExport={handleCsvExport} />
       )}
     </div>
   );
@@ -343,9 +374,10 @@ function FilterSelect({ label, value, onChange, options }: {
   );
 }
 
-function LeadCard({ lead, displayName, expanded, onToggle, onReview }: {
+function LeadCard({ lead, displayName, expanded, onToggle, onReview, onUpdate }: {
   lead: Lead; displayName: (n: string) => string; expanded: boolean;
   onToggle: () => void; onReview: (id: string, s: "confirmed" | "rejected") => void;
+  onUpdate: (id: string, updates: Record<string, unknown>) => void;
 }) {
   const statusColor = REVIEW_STATUS_COLORS[lead.reviewStatus as keyof typeof REVIEW_STATUS_COLORS] || "bg-gray-100 text-gray-600";
   const channelLabel = CHANNEL_LABELS[lead.channel || "unknown"] || lead.channel || "미분류";
@@ -399,26 +431,59 @@ function LeadCard({ lead, displayName, expanded, onToggle, onReview }: {
           {lead.confidence != null && <DetailRow label="분류 신뢰도" value={`${Math.round(lead.confidence * 100)}%`} />}
           <DetailRow label="캠페인" value={`${lead.campaignName} (${lead.platform})`} />
 
+          {/* 진료 시작 여부 + 토글 */}
           <div className="flex items-start gap-2 text-sm">
             <span className="w-32 shrink-0 text-gray-500">진료 시작 여부</span>
-            <div>
-              {lead.treatmentStarted
-                ? <span className="text-purple-700 font-medium">실제 진료 시작됨</span>
-                : <span className="text-gray-500">상담/검사만 — 진료 미시작</span>
-              }
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                {lead.treatmentStarted
+                  ? <span className="text-purple-700 font-medium">실제 진료 시작됨</span>
+                  : <span className="text-gray-500">상담/검사만 — 진료 미시작</span>
+                }
+                <button
+                  onClick={() => onUpdate(lead.id, { treatmentStarted: !lead.treatmentStarted })}
+                  className={cn(
+                    "ml-2 flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border transition-colors",
+                    lead.treatmentStarted
+                      ? "border-gray-300 text-gray-500 hover:bg-gray-100"
+                      : "border-purple-300 text-purple-700 hover:bg-purple-50"
+                  )}
+                >
+                  {lead.treatmentStarted ? <ToggleRight size={12} /> : <ToggleLeft size={12} />}
+                  {lead.treatmentStarted ? "미시작으로 변경" : "진료 시작으로 변경"}
+                </button>
+              </div>
               {lead.procedures.length > 0 && (
                 <div className="text-xs text-gray-400 mt-0.5">처치: {lead.procedures.map((p) => p.name).join(", ")}</div>
               )}
             </div>
           </div>
 
+          {/* 정산 인정 + 수동 처리 */}
           <div className="flex items-start gap-2 text-sm">
             <span className="w-32 shrink-0 text-gray-500">정산 인정</span>
-            <div>
-              {lead.settlementEligible
-                ? <span className="text-emerald-700 font-medium">정산 대상 인정</span>
-                : <span className="text-red-600">{lead.ineligibleReason || "미인정"}</span>
-              }
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                {lead.settlementEligible
+                  ? <span className="text-emerald-700 font-medium">정산 대상 인정</span>
+                  : <span className="text-red-600">{lead.ineligibleReason || "미인정"}</span>
+                }
+                <button
+                  onClick={() => onUpdate(lead.id, {
+                    settlementEligible: !lead.settlementEligible,
+                    ...(!lead.settlementEligible ? {} : { ineligibleReason: "수동 제외 처리" }),
+                  })}
+                  className={cn(
+                    "ml-2 flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border transition-colors",
+                    lead.settlementEligible
+                      ? "border-red-300 text-red-600 hover:bg-red-50"
+                      : "border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                  )}
+                >
+                  {lead.settlementEligible ? <Ban size={12} /> : <CheckCircle2 size={12} />}
+                  {lead.settlementEligible ? "정산 제외" : "정산 인정"}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -434,9 +499,19 @@ function LeadCard({ lead, displayName, expanded, onToggle, onReview }: {
             <>
               <DetailRow label="검토자" value={lead.reviewer} />
               <DetailRow label="검토 일시" value={lead.reviewedAt ? new Date(lead.reviewedAt).toLocaleString("ko-KR") : "-"} />
-              {lead.reviewMemo && <DetailRow label="검토 메모" value={lead.reviewMemo} />}
             </>
           )}
+
+          {/* 검토 메모 입력/수정 */}
+          <div className="flex items-start gap-2 text-sm">
+            <span className="w-32 shrink-0 text-gray-500 flex items-center gap-1">
+              <MessageSquare size={12} /> 메모
+            </span>
+            <MemoInput
+              value={lead.reviewMemo || ""}
+              onSave={(memo) => onUpdate(lead.id, { reviewMemo: memo })}
+            />
+          </div>
 
           {lead.reviewStatus === "pending" && (
             <div className="flex gap-2 pt-2">
@@ -449,13 +524,49 @@ function LeadCard({ lead, displayName, expanded, onToggle, onReview }: {
             </div>
           )}
 
-          <div className="pt-1">
-            <Link href={`/patients/${lead.patientId}`} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-              환자 상세 보기 →
+          {/* CRM 연결 */}
+          <div className="pt-2 border-t flex items-center gap-3">
+            <Link href={`/patients/${lead.patientId}`} className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1">
+              <ListChecks size={14} /> 환자 상세 / CRM 보기 →
             </Link>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function MemoInput({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(value);
+
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-2 flex-1">
+        <span className="text-gray-700">{value || "(메모 없음)"}</span>
+        <button onClick={() => { setText(value); setEditing(true); }} className="text-blue-600 text-[11px] hover:underline">
+          {value ? "수정" : "작성"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 flex-1">
+      <input
+        type="text"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        className="flex-1 px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        placeholder="메모 입력..."
+        autoFocus
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { onSave(text); setEditing(false); }
+          if (e.key === "Escape") setEditing(false);
+        }}
+      />
+      <button onClick={() => { onSave(text); setEditing(false); }} className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">저장</button>
+      <button onClick={() => setEditing(false)} className="px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded hover:bg-gray-300">취소</button>
     </div>
   );
 }
@@ -521,14 +632,23 @@ function MiniStat({ label, value, color }: { label: string; value: number; color
   );
 }
 
-function SettlementTab({ campaignStats, summary, monthFilter }: { campaignStats: CampaignStat[]; summary: Summary; monthFilter: string }) {
+function SettlementTab({ campaignStats, summary, monthFilter, onCsvExport }: { campaignStats: CampaignStat[]; summary: Summary; monthFilter: string; onCsvExport: () => void }) {
   return (
     <div className="space-y-4">
       <div className="bg-white border rounded-xl p-6">
-        <h3 className="font-bold text-gray-900 flex items-center gap-2 mb-4">
-          <Receipt size={18} className="text-emerald-600" />
-          정산 요약 {monthFilter !== "all" && <span className="text-sm font-normal text-gray-500">({monthFilter})</span>}
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-gray-900 flex items-center gap-2">
+            <Receipt size={18} className="text-emerald-600" />
+            정산 요약 {monthFilter !== "all" && <span className="text-sm font-normal text-gray-500">({monthFilter})</span>}
+          </h3>
+          <button
+            onClick={onCsvExport}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-gray-50 text-emerald-700"
+          >
+            <Download size={14} />
+            정산 데이터 CSV 내보내기
+          </button>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
           <div><div className="text-xs text-gray-500">CTA 전체 유입</div><div className="text-xl font-bold">{summary.totalLeads}명</div></div>
           <div><div className="text-xs text-gray-500">확정</div><div className="text-xl font-bold text-green-700">{summary.confirmed}명</div></div>

@@ -375,6 +375,55 @@ const patients: SeedPatient[] = [
       { visitDate: monthsAgo(2), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [{ code: "K010", name: "매복치", tooth: "18" }], channel: "walk_in" },
     ],
   },
+  // ── 다양한 CTA 시나리오 추가 ──
+  // 반려(rejected) CTA 케이스
+  {
+    chartNumber: "CF-0046", name: "허성민", gender: "M", birthYear: 1989, phone: "010-1234-0046",
+    visits: [{ visitDate: daysAgo(12), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "네이버 블로그 보고 옴", channel: "cta_naver", isCta: true, campaignKey: "naver_implant_mar", hasTreatment: false }],
+  },
+  {
+    chartNumber: "CF-0047", name: "추혜진", gender: "F", birthYear: 1991, phone: "010-1234-0047",
+    visits: [{ visitDate: daysAgo(8), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [{ code: "K029", name: "치아우식증", tooth: "36" }], sourceRaw: "네이버에서 검색했는데 광고 아닌것 같아요 그냥 옴ㅎㅎ", channel: "cta_naver", isCta: true, campaignKey: "naver_implant_mar", hasTreatment: false }],
+  },
+  // 중복 유입 환자 (같은 캠페인에서 2회)
+  {
+    chartNumber: "CF-0048", name: "윤상호", gender: "M", birthYear: 1976, phone: "010-1234-0048",
+    visits: [
+      { visitDate: monthsAgo(2), procedures: [{ code: "U0001", name: "상담" }], diagnoses: [], sourceRaw: "구글에서 스케일링 검색하다 광고 클릭", channel: "cta_google", isCta: true, campaignKey: "google_scaling_q1", hasTreatment: false },
+      { visitDate: daysAgo(15), procedures: [{ code: "U2232", name: "치석제거(전악)" }], diagnoses: [], sourceRaw: "구글 광고 다시 봄", channel: "cta_google", isCta: true, campaignKey: "google_scaling_q1", hasTreatment: true },
+    ],
+  },
+  // 지저분한 원문 텍스트 (소스 정규화 테스트용)
+  {
+    chartNumber: "CF-0049", name: "고나리", gender: "F", birthYear: 1994, phone: "010-1234-0049",
+    visits: [{ visitDate: daysAgo(6), procedures: [{ code: "U4411", name: "발수(전치)", tooth: "11" }], diagnoses: [{ code: "K040", name: "치수염", tooth: "11" }], sourceRaw: "인스타 릴스에서 우리치과 교정광고봤는데 그냥 이아파서옴 ㅠㅠ", channel: "cta_instagram", isCta: true, campaignKey: "insta_ortho_mar", hasTreatment: true }],
+  },
+  {
+    chartNumber: "CF-0050", name: "방세영", gender: "F", birthYear: 1988, phone: "010-1234-0050",
+    visits: [{ visitDate: daysAgo(4), procedures: [{ code: "U2231", name: "치석제거(2/3악)" }], diagnoses: [], sourceRaw: "카톡 플친 추가하고 쿠폰 받아서 예약함 스케일링", channel: "cta_kakao", isCta: true, campaignKey: "kakao_general_feb", hasTreatment: true }],
+  },
+  {
+    chartNumber: "CF-0051", name: "석준혁", gender: "M", birthYear: 1981, phone: "010-1234-0051",
+    visits: [{ visitDate: daysAgo(9), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [{ code: "K029", name: "치아우식증", tooth: "46" }], sourceRaw: "네이벼 검색해서 옴 임플란트 가격 비교하려고 (오타 포함)", channel: "cta_naver", isCta: true, campaignKey: "naver_implant_mar", hasTreatment: false }],
+  },
+  // 다른 월 정산 데이터 (2달 전 / 3달 전)
+  {
+    chartNumber: "CF-0052", name: "오채린", gender: "F", birthYear: 1997, phone: "010-1234-0052",
+    visits: [{ visitDate: monthsAgo(2), procedures: [{ code: "U4451", name: "임플란트 fixture 식립", tooth: "36" }], diagnoses: [{ code: "K081", name: "치아상실", tooth: "36" }], sourceRaw: "네이버 임플란트 광고 보고 예약", channel: "cta_naver", isCta: true, campaignKey: "naver_implant_mar", hasTreatment: true }],
+  },
+  {
+    chartNumber: "CF-0053", name: "임도현", gender: "M", birthYear: 1969, phone: "010-1234-0053",
+    visits: [{ visitDate: monthsAgo(3), procedures: [{ code: "U2232", name: "치석제거(전악)" }], diagnoses: [], sourceRaw: "구글 스케일링 보험 검색 → 광고 클릭", channel: "cta_google", isCta: true, campaignKey: "google_scaling_q1", hasTreatment: true }],
+  },
+  // 상담만 하고 진료 안 시작 (정산 미인정)
+  {
+    chartNumber: "CF-0054", name: "정예은", gender: "F", birthYear: 2001, phone: "010-1234-0054",
+    visits: [{ visitDate: daysAgo(11), procedures: [{ code: "ZZ001", name: "교정 상담" }], diagnoses: [{ code: "K073", name: "치아 위치 이상" }], sourceRaw: "인스타 스토리 광고 교정비용 궁금해서", channel: "cta_instagram", isCta: true, campaignKey: "insta_ortho_mar", hasTreatment: false }],
+  },
+  {
+    chartNumber: "CF-0055", name: "백동우", gender: "M", birthYear: 1974, phone: "010-1234-0055",
+    visits: [{ visitDate: daysAgo(16), procedures: [{ code: "U0001", name: "상담 및 X-ray" }], diagnoses: [{ code: "K081", name: "치아상실", tooth: "46" }], sourceRaw: "카카오 채널에서 임플란트 무료상담 이벤트 보고", channel: "cta_kakao", isCta: true, campaignKey: "kakao_general_feb", hasTreatment: false }],
+  },
 ];
 
 const ruleConfigs = [
@@ -529,18 +578,20 @@ export async function POST() {
           campaignsSeen.add(v.campaignKey || "");
 
           const treatmentStarted = v.hasTreatment ?? true;
-          const isConfirmed = Math.random() > 0.35;
-          const reviewStatus = isConfirmed ? "confirmed" : "pending";
+          const rand = Math.random();
+          const reviewStatus = rand > 0.35 ? "confirmed" : rand > 0.15 ? "pending" : "rejected";
 
           const settlementEligible = reviewStatus === "confirmed" && treatmentStarted && !isDuplicate;
           let ineligibleReason: string | null = null;
           if (!settlementEligible) {
-            if (reviewStatus !== "confirmed") ineligibleReason = "검토 대기 중";
+            if (reviewStatus === "rejected") ineligibleReason = "CTA 유입이 아닌 것으로 판단 (반려)";
+            else if (reviewStatus === "pending") ineligibleReason = "검토 대기 중";
             else if (!treatmentStarted) ineligibleReason = "실제 진료 미시작 (상담/검사만)";
             else if (isDuplicate) ineligibleReason = "동일 환자 중복 유입 (1회만 인정)";
           }
 
           const settlementMonth = `${v.visitDate.getFullYear()}-${String(v.visitDate.getMonth() + 1).padStart(2, "0")}`;
+          const isReviewed = reviewStatus === "confirmed" || reviewStatus === "rejected";
 
           leadRows.push({
             id: randomUUID(),
@@ -549,8 +600,8 @@ export async function POST() {
             reviewStatus,
             autoReason: getAutoReason(v.sourceRaw || "", v.channel || ""),
             confidence: 0.7 + Math.random() * 0.25,
-            reviewer: isConfirmed ? "데스크 김" : null,
-            reviewedAt: isConfirmed ? daysAgo(Math.floor(Math.random() * 7)) : null,
+            reviewer: isReviewed ? "데스크 김" : null,
+            reviewedAt: isReviewed ? daysAgo(Math.floor(Math.random() * 7)) : null,
             treatmentStarted,
             isDuplicate,
             settlementMonth,
@@ -663,13 +714,13 @@ export async function POST() {
         action: "seed_data",
         entityType: "system",
         entityId: "seed",
-        detail: JSON.stringify({ patientCount: patients.length, campaignCount: campaigns.length, taskCount: taskRows.length, staffCount: staffRows.length }),
+        detail: JSON.stringify({ patientCount: patients.length, campaignCount: campaigns.length, taskCount: taskRows.length, staffCount: staffRows.length, ctaLeadCount: leadRows.length }),
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: `${patients.length}명의 환자, ${campaigns.length}개의 캠페인, ${taskRows.length}개의 업무, ${staffRows.length}명의 담당자가 생성되었습니다.`,
+      message: `${patients.length}명의 환자, ${campaigns.length}개의 캠페인, ${leadRows.length}개의 CTA 귀속, ${taskRows.length}개의 업무, ${staffRows.length}명의 담당자가 생성되었습니다.`,
     });
   } catch (error) {
     console.error("Seed API error:", error);
