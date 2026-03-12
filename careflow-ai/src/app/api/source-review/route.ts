@@ -248,6 +248,24 @@ export async function PATCH(request: NextRequest) {
       data,
     });
 
+    // 정규화 변경 이력 기록
+    await prisma.sourceNormalizationHistory.create({
+      data: {
+        visitId,
+        prevNormalizedSource: visit.reviewedSource || visit.normalizedSource,
+        prevCategory: visit.reviewedCategory || visit.sourceCategory,
+        prevCtaCandidate: visit.reviewedCtaFlag ?? visit.ctaCandidate,
+        prevReviewStatus: visit.sourceReviewStatus,
+        newNormalizedSource: (data.reviewedSource as string) || visit.normalizedSource,
+        newCategory: (data.reviewedCategory as string) || visit.sourceCategory,
+        newCtaCandidate: typeof data.reviewedCtaFlag === "boolean" ? data.reviewedCtaFlag : visit.ctaCandidate,
+        newReviewStatus: data.sourceReviewStatus as string,
+        changeType: "individual_review",
+        changedBy: "운영자",
+        changeMemo: sourceReviewMemo || null,
+      },
+    });
+
     // 감사 로그
     await prisma.auditLog.create({
       data: {

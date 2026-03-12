@@ -2,7 +2,8 @@
 
 > ⚕️ **본 시스템은 병원 운영 보조 및 리콜 추천 도구이며, 의료적 판단을 대신하지 않습니다.**
 
-환자 재내원 관리, 치료 중단 탐지, 리콜 자동화, AI 개인화 메시지 생성, **CTA 광고 유입 추적 및 정산 관리**를 통해
+환자 재내원 관리, 치료 중단 탐지, 리콜 자동화, AI 개인화 메시지 생성, **CTA 광고 유입 추적 및 정산 관리**,
+**자유입력 방문경로 대량 처리/CSV Import/검토 큐/정규화 이력 추적**을 통해
 병원의 매출과 환자 관리 품질을 높이는 운영 보조 웹앱입니다.
 
 ### 주요 사용자
@@ -21,7 +22,7 @@
 ```bash
 cp .env.example .env
 npm install
-npm run setup     # Prisma generate + DB push + seed (45명 mock 환자)
+npm run setup     # Prisma generate + DB push + seed (87명 mock 환자)
 npm run dev       # http://localhost:3000
 ```
 
@@ -90,7 +91,19 @@ npm run dev       # http://localhost:3000
 - **정산 요약**: 확정 환자 × CPC 단가 기반 정산 가능 금액 계산
 - **대시보드 연동**: 메인 대시보드에 CTA 요약 카드 표시
 
-### 7. 개인정보 보호 아키텍처 (NEW)
+### 7. 방문경로 대량 처리 및 검토 큐 (NEW)
+- **CSV Import**: 자유입력 방문경로 CSV 업로드 → 자동 파싱/검증/정규화 → 결과 요약
+  - 지원 컬럼: `sourceRaw`(방문경로), `chartNumber`(차트번호), `visitDate`(방문일), `memo`(비고)
+  - 최대 5,000행 / 5MB, 한글 별칭 지원 (유입경로, 차트번호 등)
+- **검토 큐**: 3가지 뷰 모드
+  - **Queue 뷰**: 개별 방문 건별 검토 (검색, 필터: 미검토/미분류/저신뢰/CTA후보)
+  - **원문 묶음 뷰**: 동일 sourceRaw 텍스트 묶어서 한 번에 확정/반려/수정
+  - **추천값별 뷰**: 같은 정규화 결과별 그룹핑 → 일괄 확인
+- **CSV Export**: 검토 결과 Excel 호환 UTF-8 CSV 다운로드
+- **정규화 이력 추적**: 모든 변경(개별/일괄/CSV import/자동)을 `SourceNormalizationHistory`에 기록
+- **대시보드 위젯**: 검토 필요/미분류/저신뢰 건수 + 최근 Import 현황
+
+### 8. 개인정보 보호 아키텍처 (NEW)
 - **PII 분리**: 이름/전화번호를 별도 `PatientIdentity` 테이블에 분리 저장
 - **UI 마스킹**: 기본 화면에서 이름/전화번호 마스킹 표시 (토글 가능)
 - **LLM 안전성**: AI API에 최소 컨텍스트만 전달 (마스킹된 이름 + 정형 사유)
@@ -117,6 +130,8 @@ npm run dev       # http://localhost:3000
 | `MessageDelivery` | 메시지 발송 추적 (프로바이더, 상태, 재시도, 외부ID) |
 | `AuditLog` | 감사 로그 (액션, 엔티티, PII 미포함) |
 | `RuleConfig` | 규칙 설정 (활성/비활성, JSON 파라미터) |
+| `ImportBatch` | CSV 가져오기 배치 (파일명, 행 수, 성공/실패/미분류 수, 상태) |
+| `SourceNormalizationHistory` | 방문경로 정규화 이력 (변경 전/후 값, 변경 유형, 변경자, 메모) |
 
 ---
 
@@ -126,7 +141,7 @@ npm run dev       # http://localhost:3000
 careflow-ai/
 ├── prisma/
 │   ├── schema.prisma          # 데이터 모델 (PII 분리 구조)
-│   └── seed.ts                # 45명 mock 환자 + CTA 캠페인 데이터
+│   └── seed.ts                # 87명 mock 환자 + CTA 캠페인 + 중복 방문경로 데이터
 ├── docs/
 │   └── DATA-ARCHITECTURE.md   # 데이터 아키텍처/보안 설계 문서
 ├── src/
@@ -134,6 +149,9 @@ careflow-ai/
 │   │   ├── page.tsx           # 대시보드
 │   │   ├── patients/          # 환자 목록 + 상세
 │   │   ├── cta/               # CTA 광고 귀속 관리
+│   │   ├── source-review/     # 방문경로 검토 큐
+│   │   ├── source-import/     # CSV Import
+│   │   ├── source-rules/      # 분류 사전
 │   │   ├── settings/          # 설정
 │   │   ├── about/             # 제품 소개
 │   │   └── api/               # API Routes
@@ -141,12 +159,16 @@ careflow-ai/
 │   │       ├── patients/      # 환자 CRUD
 │   │       ├── messages/      # AI 문자 생성
 │   │       ├── cta/           # CTA 유입 조회 + 검토 + 정산
+│   │       ├── source-review/ # 검토 큐 API (개별/일괄/통계/내보내기)
+│   │       ├── source-import/ # CSV Import API (업로드/이력)
 │   │       ├── messages/      # 메시지 발송 (queue/send/cancel)
 │   │       └── seed/          # 데모 데이터 생성
 │   ├── components/
 │   │   ├── dashboard/         # 대시보드 UI
 │   │   ├── patients/          # 환자 목록/상세 UI
 │   │   ├── cta/               # CTA 광고 관리 UI
+│   │   ├── source-review/     # 방문경로 검토 큐 UI (3뷰 모드)
+│   │   ├── source-import/     # CSV Import UI
 │   │   ├── layout/            # 사이드바/레이아웃
 │   │   ├── settings/          # 설정 UI
 │   │   └── ui/                # shadcn/ui 컴포넌트
@@ -335,7 +357,12 @@ ENABLE_LLM_MESSAGE_GENERATION=false  # 또는 변수 미설정
 
 | 기능 | 현재 상태 | 실제 연동 시 |
 |------|-----------|-------------|
-| 환자 데이터 | ✅ Mock 45명 seed | EMR ETL 파이프라인 연동 |
+| 환자 데이터 | ✅ Mock 87명 seed (중복 방문경로 포함) | EMR ETL 파이프라인 연동 |
+| CSV Import | ✅ 업로드/파싱/검증/정규화/이력 | EMR 직접 연동 시 불필요 |
+| 검토 큐 | ✅ 3뷰 모드 (개별/원문묶음/추천값별) | 그대로 사용 |
+| 일괄 검토 | ✅ 확정/반려/수정 묶음 처리 | 그대로 사용 |
+| 정규화 이력 | ✅ 모든 변경 추적 (누가/언제/무엇을/왜) | 그대로 사용 |
+| CSV Export | ✅ UTF-8 BOM (Excel 호환) | 그대로 사용 |
 | PII 분리 | ✅ PatientIdentity 테이블 분리 | 그대로 사용 + 암호화 추가 |
 | UI 마스킹 | ✅ 이름/전화번호 마스킹 토글 | 그대로 사용 + 권한 연동 |
 | 규칙 엔진 | ✅ 실제 작동 (규칙 기반) | 그대로 사용 + ML 확장 |

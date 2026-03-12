@@ -1163,6 +1163,8 @@ async function main() {
   console.log("🌱 Seeding database...");
 
   // 기존 데이터 삭제 (FK 의존성 순서)
+  await prisma.sourceNormalizationHistory.deleteMany();
+  await prisma.importBatch.deleteMany();
   await prisma.activityLog.deleteMany();
   await prisma.workflowTask.deleteMany();
   await prisma.staff.deleteMany();

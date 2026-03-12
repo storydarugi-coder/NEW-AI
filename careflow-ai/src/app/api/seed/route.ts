@@ -493,6 +493,79 @@ const patients: SeedPatient[] = [
     chartNumber: "CF-0070", name: "배소연", gender: "F", birthYear: 2001, phone: "010-1234-0070",
     visits: [{ visitDate: daysAgo(2), procedures: [{ code: "ZZ001", name: "교정 상담" }], diagnoses: [], sourceRaw: "유튜브 교정 영상 광고에서 봤어요" }],
   },
+  // ── 4차: 같은 sourceRaw 반복 (묶음 검토 데모용) ──
+  {
+    chartNumber: "CF-0071", name: "정하린", gender: "F", birthYear: 1996, phone: "010-1234-0071",
+    visits: [{ visitDate: daysAgo(3), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "인스타 광고 보고 왔어요" }],
+  },
+  {
+    chartNumber: "CF-0072", name: "김태윤", gender: "M", birthYear: 1991, phone: "010-1234-0072",
+    visits: [{ visitDate: daysAgo(5), procedures: [{ code: "U2230", name: "치석제거(1/3악)" }], diagnoses: [], sourceRaw: "인스타 광고 보고 왔어요" }],
+  },
+  {
+    chartNumber: "CF-0073", name: "이서영", gender: "F", birthYear: 1988, phone: "010-1234-0073",
+    visits: [{ visitDate: daysAgo(7), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "인스타 광고 보고 왔어요" }],
+  },
+  {
+    chartNumber: "CF-0074", name: "박현서", gender: "M", birthYear: 1993, phone: "010-1234-0074",
+    visits: [{ visitDate: daysAgo(2), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "인스타 광고 보고 왔어요" }],
+  },
+  {
+    chartNumber: "CF-0075", name: "한소미", gender: "F", birthYear: 1995, phone: "010-1234-0075",
+    visits: [{ visitDate: daysAgo(4), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "인스타 광고 보고 왔어요" }],
+  },
+  // 같은 네이버 원문 반복
+  {
+    chartNumber: "CF-0076", name: "조민혁", gender: "M", birthYear: 1987, phone: "010-1234-0076",
+    visits: [{ visitDate: daysAgo(6), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "네이버에서 검색해서 옴" }],
+  },
+  {
+    chartNumber: "CF-0077", name: "윤서현", gender: "F", birthYear: 1990, phone: "010-1234-0077",
+    visits: [{ visitDate: daysAgo(1), procedures: [{ code: "U2232", name: "치석제거(전악)" }], diagnoses: [], sourceRaw: "네이버에서 검색해서 옴" }],
+  },
+  {
+    chartNumber: "CF-0078", name: "강재윤", gender: "M", birthYear: 1984, phone: "010-1234-0078",
+    visits: [{ visitDate: daysAgo(8), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "네이버에서 검색해서 옴" }],
+  },
+  // 같은 지인소개 원문 반복
+  {
+    chartNumber: "CF-0079", name: "임수아", gender: "F", birthYear: 1999, phone: "010-1234-0079",
+    visits: [{ visitDate: daysAgo(4), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "지인 소개로 왔습니다" }],
+  },
+  {
+    chartNumber: "CF-0080", name: "최우성", gender: "M", birthYear: 1977, phone: "010-1234-0080",
+    visits: [{ visitDate: daysAgo(9), procedures: [{ code: "U2230", name: "치석제거(1/3악)" }], diagnoses: [], sourceRaw: "지인 소개로 왔습니다" }],
+  },
+  {
+    chartNumber: "CF-0081", name: "남지아", gender: "F", birthYear: 1994, phone: "010-1234-0081",
+    visits: [{ visitDate: daysAgo(2), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "지인 소개로 왔습니다" }],
+  },
+  {
+    chartNumber: "CF-0082", name: "문재영", gender: "M", birthYear: 1982, phone: "010-1234-0082",
+    visits: [{ visitDate: daysAgo(11), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "지인 소개로 왔습니다" }],
+  },
+  // 미분류 원문 (Unknown 결과) 여러 건
+  {
+    chartNumber: "CF-0083", name: "배시연", gender: "F", birthYear: 2000, phone: "010-1234-0083",
+    visits: [{ visitDate: daysAgo(1), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "기억 안나요" }],
+  },
+  {
+    chartNumber: "CF-0084", name: "고현우", gender: "M", birthYear: 1986, phone: "010-1234-0084",
+    visits: [{ visitDate: daysAgo(3), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "기억 안나요" }],
+  },
+  {
+    chartNumber: "CF-0085", name: "장예진", gender: "F", birthYear: 1992, phone: "010-1234-0085",
+    visits: [{ visitDate: daysAgo(5), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "잘 모르겠어요" }],
+  },
+  // 저신뢰 원문 (광고+비광고 혼합)
+  {
+    chartNumber: "CF-0086", name: "서동규", gender: "M", birthYear: 1980, phone: "010-1234-0086",
+    visits: [{ visitDate: daysAgo(6), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "소개받고 왔는데 광고도 봤어요" }],
+  },
+  {
+    chartNumber: "CF-0087", name: "유채원", gender: "F", birthYear: 1997, phone: "010-1234-0087",
+    visits: [{ visitDate: daysAgo(4), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [], sourceRaw: "소개받고 왔는데 광고도 봤어요" }],
+  },
 ];
 
 const ruleConfigs = [
@@ -531,6 +604,8 @@ export async function POST() {
       prisma.leadAttribution.deleteMany(),
       prisma.messageDraft.deleteMany(),
       prisma.recallRecommendation.deleteMany(),
+      prisma.sourceNormalizationHistory.deleteMany(),
+      prisma.importBatch.deleteMany(),
     ]);
     await Promise.all([
       prisma.workflowTask.deleteMany(),

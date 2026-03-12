@@ -137,6 +137,27 @@ export default async function DashboardPage() {
       settlementEligible: ctaAttributions.filter((a) => a.settlementEligible).length,
     };
 
+    // 방문경로 검토 통계
+    const [srTotal, srUnreviewed, srLowConf, srUnclassified, srRecentImport] = await Promise.all([
+      prisma.visit.count({ where: { sourceRaw: { not: null } } }),
+      prisma.visit.count({ where: { sourceRaw: { not: null }, sourceReviewStatus: "unreviewed" } }),
+      prisma.visit.count({ where: { sourceRaw: { not: null }, matchConfidence: "LOW" } }),
+      prisma.visit.count({ where: { normalizedSource: "Unknown" } }),
+      prisma.importBatch.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true, fileName: true, successCount: true } }).catch(() => null),
+    ]);
+
+    const sourceReviewStats = {
+      totalWithSource: srTotal,
+      unreviewedCount: srUnreviewed,
+      lowConfidenceCount: srLowConf,
+      unclassifiedCount: srUnclassified,
+      recentImport: srRecentImport ? {
+        fileName: srRecentImport.fileName,
+        importedAt: srRecentImport.createdAt.toISOString(),
+        count: srRecentImport.successCount,
+      } : null,
+    };
+
     return (
       <DashboardContent
         stats={{
@@ -150,6 +171,7 @@ export default async function DashboardPage() {
         priorityPatients={priorityPatients.slice(0, 20)}
         ctaStats={ctaStats}
         workflowSummary={workflowSummary}
+        sourceReviewStats={sourceReviewStats}
       />
     );
   } catch (error) {

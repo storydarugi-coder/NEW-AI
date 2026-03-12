@@ -364,3 +364,56 @@ model RuleConfig {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+// ──────────────────────────────────────────────
+// CSV Import 배치 추적
+// ──────────────────────────────────────────────
+
+model ImportBatch {
+  id              String   @id @default(cuid())
+  fileName        String   // 업로드 파일명
+  totalRows       Int      // CSV 전체 행 수
+  successCount    Int      @default(0)
+  failCount       Int      @default(0)
+  unclassifiedCount Int    @default(0) // 미분류 건수
+  reviewNeededCount Int    @default(0) // 검토 필요 건수
+  status          String   @default("processing") // processing, completed, failed
+  errorDetail     String?  // 실패 시 에러 메시지
+  importedBy      String   @default("운영자") // 향후 인증 연동
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ──────────────────────────────────────────────
+// 방문경로 정규화 변경 이력
+// 분류 결과가 정산 근거에 영향을 줄 수 있으므로 이력 추적 필수
+// ──────────────────────────────────────────────
+
+model SourceNormalizationHistory {
+  id              String   @id @default(cuid())
+  visitId         String   // 대상 Visit.id
+  batchKey        String?  // 묶음 처리 시 그룹 키 (sourceRaw 값 등)
+  // 이전 값
+  prevNormalizedSource  String?
+  prevCategory          String?
+  prevCtaCandidate      Boolean?
+  prevReviewStatus      String?
+  // 변경 후 값
+  newNormalizedSource   String?
+  newCategory           String?
+  newCtaCandidate       Boolean?
+  newReviewStatus       String?
+  // 변경 메타
+  changeType      String   // individual_review, batch_confirm, batch_reject, batch_modify, csv_import, auto_normalize
+  changedBy       String   @default("운영자")
+  changeMemo      String?  // 변경 사유
+  createdAt       DateTime @default(now())
+
+  @@index([visitId])
+  @@index([batchKey])
+  @@index([changeType])
+  @@index([createdAt])
+}

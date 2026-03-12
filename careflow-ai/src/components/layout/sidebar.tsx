@@ -13,6 +13,7 @@ import {
   Megaphone,
   BookOpen,
   Search,
+  Upload,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,11 @@ const navItems = [
     label: "경로 검토 큐",
     href: "/source-review",
     icon: Search,
+  },
+  {
+    label: "CSV Import",
+    href: "/source-import",
+    icon: Upload,
   },
   {
     label: "분류 사전",

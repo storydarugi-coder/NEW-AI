@@ -27,6 +27,7 @@ import {
   Info,
   Megaphone,
   ClipboardList,
+  Search,
 } from "lucide-react";
 import {
   RULE_TYPE_LABELS,
@@ -72,6 +73,18 @@ interface WorkflowSummary {
   overdueFollowUps: number;
 }
 
+interface SourceReviewStats {
+  unreviewedCount: number;
+  unclassifiedCount: number;
+  lowConfidenceCount: number;
+  totalWithSource: number;
+  recentImport?: {
+    fileName: string;
+    importedAt: string;
+    count: number;
+  } | null;
+}
+
 interface DashboardContentProps {
   stats: {
     todayActionCount: number;
@@ -94,6 +107,7 @@ interface DashboardContentProps {
     settlementEligible: number;
   };
   workflowSummary?: WorkflowSummary;
+  sourceReviewStats?: SourceReviewStats;
 }
 
 const statCards = [
@@ -173,6 +187,7 @@ export function DashboardContent({
   priorityPatients,
   ctaStats,
   workflowSummary,
+  sourceReviewStats,
 }: DashboardContentProps) {
   return (
     <div className="space-y-6">
@@ -275,6 +290,42 @@ export function DashboardContent({
                 className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium"
               >
                 관리 <ChevronRight size={14} />
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 방문경로 검토 현황 */}
+      {sourceReviewStats && sourceReviewStats.totalWithSource > 0 && (
+        <Card className="border-0 shadow-sm border-l-4 border-l-purple-400">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-purple-50">
+                  <Search size={18} className="text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">방문경로 분류 현황</p>
+                  <p className="text-xs text-gray-500">
+                    검토 필요 <span className="font-medium text-amber-600">{sourceReviewStats.unreviewedCount}건</span>
+                    {sourceReviewStats.unclassifiedCount > 0 && (
+                      <> · 미분류 <span className="font-medium text-orange-600">{sourceReviewStats.unclassifiedCount}건</span></>
+                    )}
+                    {sourceReviewStats.lowConfidenceCount > 0 && (
+                      <> · 저신뢰 <span className="font-medium text-red-600">{sourceReviewStats.lowConfidenceCount}건</span></>
+                    )}
+                    {sourceReviewStats.recentImport && (
+                      <> · 최근 import: {sourceReviewStats.recentImport.fileName} ({sourceReviewStats.recentImport.count}건)</>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/source-review"
+                className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1 font-medium"
+              >
+                검토 <ChevronRight size={14} />
               </Link>
             </div>
           </CardContent>
