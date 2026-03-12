@@ -14,56 +14,39 @@ import {
   BookOpen,
   Search,
   Upload,
+  RefreshCw,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { canAccessPath } from "@/lib/auth";
 
-const navItems = [
-  {
-    label: "대시보드",
-    href: "/",
-    icon: LayoutDashboard,
-  },
-  {
-    label: "환자 관리",
-    href: "/patients",
-    icon: Users,
-  },
-  {
-    label: "CTA 광고 관리",
-    href: "/cta",
-    icon: Megaphone,
-  },
-  {
-    label: "경로 검토 큐",
-    href: "/source-review",
-    icon: Search,
-  },
-  {
-    label: "CSV Import",
-    href: "/source-import",
-    icon: Upload,
-  },
-  {
-    label: "분류 사전",
-    href: "/source-rules",
-    icon: BookOpen,
-  },
-  {
-    label: "설정",
-    href: "/settings",
-    icon: Settings,
-  },
-  {
-    label: "제품 소개",
-    href: "/about",
-    icon: Info,
-  },
+const allNavItems = [
+  { label: "대시보드", href: "/", icon: LayoutDashboard },
+  { label: "환자 관리", href: "/patients", icon: Users },
+  { label: "CTA 광고 관리", href: "/cta", icon: Megaphone },
+  { label: "경로 검토 큐", href: "/source-review", icon: Search },
+  { label: "CSV Import", href: "/source-import", icon: Upload },
+  { label: "분류 사전", href: "/source-rules", icon: BookOpen },
+  { label: "동기화 관리", href: "/sync", icon: RefreshCw },
+  { label: "설정", href: "/settings", icon: Settings },
+  { label: "제품 소개", href: "/about", icon: Info },
 ];
 
-export function Sidebar() {
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: "관리자",
+  DESK: "데스크",
+  COUNSELOR: "상담실장",
+  VIEWER: "조회전용",
+  MARKETING: "마케팅",
+};
+
+export function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const navItems = allNavItems.filter((item) =>
+    canAccessPath(userRole, item.href)
+  );
 
   return (
     <>
@@ -131,10 +114,20 @@ export function Sidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-100">
+        <div className="absolute bottom-0 left-0 right-0 p-4 space-y-3">
+          {/* 역할 배지 */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-lg">
+            <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-[10px] font-bold">
+              {ROLE_LABELS[userRole]?.[0] || "?"}
+            </div>
+            <span className="text-xs font-medium text-blue-700">
+              {ROLE_LABELS[userRole] || userRole}
+            </span>
+          </div>
+
           <div className="bg-amber-50 rounded-lg p-3 border border-amber-100">
             <p className="text-[11px] text-amber-700 font-medium">
-              ⚕️ 운영 보조 도구
+              운영 보조 도구
             </p>
             <p className="text-[10px] text-amber-600 mt-1">
               본 시스템은 병원 운영 보조 및 리콜 추천 도구이며, 의료적 판단을 대신하지 않습니다.

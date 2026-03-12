@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { normalizeSource, dbRuleToDefinition } from "@/lib/attribution/normalizer";
 import { randomUUID } from "crypto";
+import { verifySession } from "@/lib/auth";
+import { startSyncJob, completeSyncJob, failSyncJob } from "@/lib/sync/pipeline";
 
 /**
  * CSV Import API
@@ -154,6 +156,10 @@ export async function POST(request: NextRequest) {
       defaultPatientId = firstPatient?.id || null;
     }
 
+    // 세션 사용자
+    const sessionUser = verifySession(request.cookies.get("session")?.value);
+    const userName = sessionUser?.name || "운영자";
+
     // Import 배치 생성
     const batchId = randomUUID();
     await prisma.importBatch.create({
@@ -162,7 +168,17 @@ export async function POST(request: NextRequest) {
         fileName,
         totalRows: rows.length,
         status: "processing",
+        importedBy: userName,
       },
+    });
+
+    // SyncJob 생성
+    const syncJob = await startSyncJob({
+      syncType: "CSV_IMPORT",
+      sourceSystem: "csv",
+      triggeredBy: userName,
+      notes: `CSV 파일: ${fileName} (${rows.length}행)`,
+      importBatchId: batchId,
     });
 
     // 정규화 실행 + Visit 생성
@@ -260,12 +276,23 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // SyncJob 완료 처리
+    await completeSyncJob(syncJob.id, {
+      totalRecords: rows.length,
+      successCount,
+      failedCount: failCount,
+      skippedCount: 0,
+      duplicateCount: 0,
+      unclassifiedCount,
+    });
+
     // 감사 로그
     await prisma.auditLog.create({
       data: {
         action: "csv_import",
         entityType: "import_batch",
         entityId: batchId,
+        userId: sessionUser?.id,
         detail: JSON.stringify({ fileName, totalRows: rows.length, successCount, failCount, unclassifiedCount, reviewNeededCount }),
       },
     });
@@ -273,6 +300,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       batchId,
+      syncJobId: syncJob.id,
       summary: {
         totalRows: rows.length,
         successCount,

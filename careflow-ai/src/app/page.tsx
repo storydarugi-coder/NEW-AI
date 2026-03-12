@@ -158,6 +158,20 @@ export default async function DashboardPage() {
       } : null,
     };
 
+    // 동기화 통계
+    const syncJobs = await prisma.syncJob.findMany({
+      select: { status: true, startedAt: true },
+      orderBy: { startedAt: "desc" },
+      take: 50,
+    }).catch(() => [] as { status: string; startedAt: Date }[]);
+
+    const syncStats = {
+      lastSync: syncJobs[0]?.startedAt?.toISOString() || null,
+      lastSyncStatus: syncJobs[0]?.status || null,
+      failedCount: syncJobs.filter((j) => j.status === "FAILED").length,
+      runningCount: syncJobs.filter((j) => j.status === "RUNNING").length,
+    };
+
     return (
       <DashboardContent
         stats={{
@@ -172,6 +186,7 @@ export default async function DashboardPage() {
         ctaStats={ctaStats}
         workflowSummary={workflowSummary}
         sourceReviewStats={sourceReviewStats}
+        syncStats={syncStats}
       />
     );
   } catch (error) {

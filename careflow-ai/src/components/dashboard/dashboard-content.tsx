@@ -85,6 +85,13 @@ interface SourceReviewStats {
   } | null;
 }
 
+interface SyncStats {
+  lastSync: string | null;
+  lastSyncStatus: string | null;
+  failedCount: number;
+  runningCount: number;
+}
+
 interface DashboardContentProps {
   stats: {
     todayActionCount: number;
@@ -108,6 +115,7 @@ interface DashboardContentProps {
   };
   workflowSummary?: WorkflowSummary;
   sourceReviewStats?: SourceReviewStats;
+  syncStats?: SyncStats;
 }
 
 const statCards = [
@@ -188,6 +196,7 @@ export function DashboardContent({
   ctaStats,
   workflowSummary,
   sourceReviewStats,
+  syncStats,
 }: DashboardContentProps) {
   return (
     <div className="space-y-6">
@@ -326,6 +335,47 @@ export function DashboardContent({
                 className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1 font-medium"
               >
                 검토 <ChevronRight size={14} />
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 동기화 상태 위젯 */}
+      {syncStats && (
+        <Card className={`border-0 shadow-sm border-l-4 ${syncStats.failedCount > 0 ? "border-l-red-400" : "border-l-cyan-400"}`}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${syncStats.failedCount > 0 ? "bg-red-50" : "bg-cyan-50"}`}>
+                  <ClipboardList size={18} className={syncStats.failedCount > 0 ? "text-red-600" : "text-cyan-600"} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">동기화 상태</p>
+                  <p className="text-xs text-gray-500">
+                    {syncStats.lastSync
+                      ? `마지막 동기화: ${new Date(syncStats.lastSync).toLocaleString("ko-KR")}`
+                      : "동기화 이력 없음"}
+                    {syncStats.lastSyncStatus && (
+                      <span className={`ml-1 px-1 py-0.5 rounded text-[10px] font-medium ${
+                        syncStats.lastSyncStatus === "SUCCESS" ? "bg-green-50 text-green-600" :
+                        syncStats.lastSyncStatus === "FAILED" ? "bg-red-50 text-red-600" :
+                        "bg-amber-50 text-amber-600"
+                      }`}>
+                        {syncStats.lastSyncStatus === "SUCCESS" ? "성공" : syncStats.lastSyncStatus === "FAILED" ? "실패" : "부분성공"}
+                      </span>
+                    )}
+                    {syncStats.failedCount > 0 && (
+                      <span className="ml-2 font-medium text-red-600">실패 {syncStats.failedCount}건</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/sync"
+                className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center gap-1 font-medium"
+              >
+                관리 <ChevronRight size={14} />
               </Link>
             </div>
           </CardContent>

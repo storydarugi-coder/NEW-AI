@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
+import { verifySession } from "@/lib/auth";
 
 /**
  * 묶음 검토 API
@@ -65,7 +66,8 @@ export async function POST(request: NextRequest) {
 
     const batchKey = sourceRaw || `batch_${Date.now()}`;
     const now = new Date();
-    const changedBy = "운영자";
+    const sessionUser = verifySession(request.cookies.get("session")?.value);
+    const changedBy = sessionUser?.name || "운영자";
 
     // 이력 데이터 준비
     const historyRows: {

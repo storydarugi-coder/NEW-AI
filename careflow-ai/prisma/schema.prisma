@@ -366,6 +366,56 @@ model RuleConfig {
 }
 
 // ──────────────────────────────────────────────
+// 사용자 / 인증
+// ──────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("DESK") // ADMIN, DESK, COUNSELOR, VIEWER, MARKETING
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([role])
+  @@index([isActive])
+}
+
+// ──────────────────────────────────────────────
+// 동기화 작업 (Sync Job)
+// 모든 데이터 유입을 추적하는 상위 개념
+// CSV Import, EMR Pull, Seed 등 모든 데이터 유입 이벤트
+// ──────────────────────────────────────────────
+
+model SyncJob {
+  id               String    @id @default(cuid())
+  syncType         String    // CSV_IMPORT, EMR_PULL, MANUAL_REPROCESS, SEED
+  sourceSystem     String    // csv, mock-emr, api, seed
+  status           String    @default("PENDING") // PENDING, RUNNING, SUCCESS, PARTIAL_SUCCESS, FAILED
+  startedAt        DateTime  @default(now())
+  finishedAt       DateTime?
+  totalRecords     Int       @default(0)
+  successCount     Int       @default(0)
+  failedCount      Int       @default(0)
+  skippedCount     Int       @default(0)
+  duplicateCount   Int       @default(0)
+  unclassifiedCount Int      @default(0)
+  errorSummary     String?
+  triggeredBy      String    // 실행자 이름 (User.name 또는 "system")
+  notes            String?
+  importBatchId    String?   // ImportBatch 연결 (CSV_IMPORT인 경우)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([syncType])
+  @@index([status])
+  @@index([startedAt])
+  @@index([createdAt])
+}
+
+// ──────────────────────────────────────────────
 // CSV Import 배치 추적
 // ──────────────────────────────────────────────
 

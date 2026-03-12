@@ -3,6 +3,7 @@ import { prisma, isDatabaseAvailable } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { DEFAULT_SOURCE_RULES } from "@/lib/attribution/rules";
 import { normalizeSource, type NormalizationResult } from "@/lib/attribution/normalizer";
+import { hashPassword } from "@/lib/auth";
 
 function daysAgo(days: number): Date {
   const d = new Date();
@@ -606,6 +607,8 @@ export async function POST() {
       prisma.recallRecommendation.deleteMany(),
       prisma.sourceNormalizationHistory.deleteMany(),
       prisma.importBatch.deleteMany(),
+      prisma.syncJob.deleteMany(),
+      prisma.user.deleteMany(),
     ]);
     await Promise.all([
       prisma.workflowTask.deleteMany(),
@@ -891,18 +894,100 @@ export async function POST() {
     await prisma.workflowTask.createMany({ data: taskRows });
     await prisma.activityLog.createMany({ data: activityRows });
 
+    // ── 사용자 계정 생성 ──
+    const userRows = [
+      { id: randomUUID(), username: "admin", passwordHash: hashPassword("admin123"), name: "관리자 홍길동", role: "ADMIN" },
+      { id: randomUUID(), username: "desk01", passwordHash: hashPassword("desk123"), name: "데스크 김소연", role: "DESK" },
+      { id: randomUUID(), username: "desk02", passwordHash: hashPassword("desk123"), name: "데스크 이지은", role: "DESK" },
+      { id: randomUUID(), username: "counsel01", passwordHash: hashPassword("counsel123"), name: "상담실장 박미영", role: "COUNSELOR" },
+      { id: randomUUID(), username: "viewer01", passwordHash: hashPassword("view123"), name: "원장 최진수", role: "VIEWER" },
+      { id: randomUUID(), username: "mkt01", passwordHash: hashPassword("mkt123"), name: "마케팅 정하늘", role: "MARKETING" },
+    ];
+    await prisma.user.createMany({ data: userRows });
+
+    // ── 동기화 작업(SyncJob) 시드 ──
+    const now = new Date();
+    const syncJobRows = [
+      {
+        id: randomUUID(),
+        syncType: "SEED",
+        sourceSystem: "seed",
+        status: "SUCCESS",
+        startedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+        finishedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000 + 5000),
+        totalRecords: patients.length,
+        successCount: patients.length,
+        failedCount: 0,
+        skippedCount: 0,
+        duplicateCount: 0,
+        unclassifiedCount: 0,
+        triggeredBy: "관리자 홍길동",
+        notes: "초기 시드 데이터 생성",
+      },
+      {
+        id: randomUUID(),
+        syncType: "CSV_IMPORT",
+        sourceSystem: "csv",
+        status: "PARTIAL_SUCCESS",
+        startedAt: new Date(now.getTime() - 1 * 60 * 60 * 1000),
+        finishedAt: new Date(now.getTime() - 1 * 60 * 60 * 1000 + 8000),
+        totalRecords: 150,
+        successCount: 142,
+        failedCount: 3,
+        skippedCount: 2,
+        duplicateCount: 3,
+        unclassifiedCount: 12,
+        triggeredBy: "데스크 김소연",
+        notes: "3월 방문경로 CSV 가져오기 — 일부 차트번호 매칭 실패",
+      },
+      {
+        id: randomUUID(),
+        syncType: "CSV_IMPORT",
+        sourceSystem: "csv",
+        status: "SUCCESS",
+        startedAt: new Date(now.getTime() - 30 * 60 * 1000),
+        finishedAt: new Date(now.getTime() - 30 * 60 * 1000 + 3000),
+        totalRecords: 50,
+        successCount: 50,
+        failedCount: 0,
+        skippedCount: 0,
+        duplicateCount: 0,
+        unclassifiedCount: 2,
+        triggeredBy: "데스크 김소연",
+        notes: "추가 방문경로 보정 import",
+      },
+      {
+        id: randomUUID(),
+        syncType: "EMR_PULL",
+        sourceSystem: "mock-emr",
+        status: "FAILED",
+        startedAt: new Date(now.getTime() - 4 * 60 * 60 * 1000),
+        finishedAt: new Date(now.getTime() - 4 * 60 * 60 * 1000 + 1500),
+        totalRecords: 0,
+        successCount: 0,
+        failedCount: 0,
+        skippedCount: 0,
+        duplicateCount: 0,
+        unclassifiedCount: 0,
+        triggeredBy: "system",
+        notes: "EMR 연동 테스트 (mock)",
+        errorSummary: "EMR API 연결 실패: ECONNREFUSED 127.0.0.1:8080 — mock EMR 서버가 실행 중이 아닙니다",
+      },
+    ];
+    await prisma.syncJob.createMany({ data: syncJobRows });
+
     await prisma.auditLog.create({
       data: {
         action: "seed_data",
         entityType: "system",
         entityId: "seed",
-        detail: JSON.stringify({ patientCount: patients.length, campaignCount: campaigns.length, taskCount: taskRows.length, staffCount: staffRows.length, ctaLeadCount: leadRows.length, sourceRuleCount: sourceRuleRows.length }),
+        detail: JSON.stringify({ patientCount: patients.length, campaignCount: campaigns.length, taskCount: taskRows.length, staffCount: staffRows.length, ctaLeadCount: leadRows.length, sourceRuleCount: sourceRuleRows.length, userCount: userRows.length, syncJobCount: syncJobRows.length }),
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: `${patients.length}명의 환자, ${campaigns.length}개의 캠페인, ${leadRows.length}개의 CTA 귀속, ${sourceRuleRows.length}개의 분류 규칙, ${taskRows.length}개의 업무, ${staffRows.length}명의 담당자가 생성되었습니다.`,
+      message: `${patients.length}명의 환자, ${campaigns.length}개의 캠페인, ${leadRows.length}개의 CTA 귀속, ${sourceRuleRows.length}개의 분류 규칙, ${taskRows.length}개의 업무, ${staffRows.length}명의 담당자, ${userRows.length}명의 사용자, ${syncJobRows.length}개의 동기화 작업이 생성되었습니다.`,
     });
   } catch (error) {
     console.error("Seed API error:", error);

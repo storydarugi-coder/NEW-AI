@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { normalizeSource, dbRuleToDefinition } from "@/lib/attribution/normalizer";
+import { verifySession } from "@/lib/auth";
 
 /**
  * 방문경로 검토 API
@@ -222,7 +223,7 @@ export async function PATCH(request: NextRequest) {
 
     const data: Record<string, unknown> = {
       sourceReviewedAt: new Date(),
-      sourceReviewedBy: "운영자", // 향후 인증 연동
+      sourceReviewedBy: verifySession(request.cookies.get("session")?.value)?.name || "운영자",
     };
 
     if (action === "confirm_recommended") {
@@ -261,7 +262,7 @@ export async function PATCH(request: NextRequest) {
         newCtaCandidate: typeof data.reviewedCtaFlag === "boolean" ? data.reviewedCtaFlag : visit.ctaCandidate,
         newReviewStatus: data.sourceReviewStatus as string,
         changeType: "individual_review",
-        changedBy: "운영자",
+        changedBy: verifySession(request.cookies.get("session")?.value)?.name || "운영자",
         changeMemo: sourceReviewMemo || null,
       },
     });

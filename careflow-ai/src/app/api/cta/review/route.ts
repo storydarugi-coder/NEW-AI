@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { evaluateSettlementEligibility } from "@/lib/cta/classify";
+import { verifySession } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const sessionUser = verifySession(request.cookies.get("session")?.value);
     const { attributionId, reviewStatus, reviewer, memo } = body as {
       attributionId: string;
       reviewStatus: "confirmed" | "rejected";
@@ -49,7 +51,7 @@ export async function POST(request: NextRequest) {
       where: { id: attributionId },
       data: {
         reviewStatus,
-        reviewer: reviewer || "운영자",
+        reviewer: reviewer || sessionUser?.name || "운영자",
         reviewedAt: new Date(),
         reviewMemo: memo || null,
         settlementEligible: eligible,
@@ -65,7 +67,7 @@ export async function POST(request: NextRequest) {
         entityId: attributionId,
         detail: JSON.stringify({
           reviewStatus,
-          reviewer: reviewer || "운영자",
+          reviewer: reviewer || sessionUser?.name || "운영자",
           settlementEligible: eligible,
         }),
       },

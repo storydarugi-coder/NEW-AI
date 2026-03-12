@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Sidebar } from "@/components/layout/sidebar";
-import { Header } from "@/components/layout/header";
+import { AuthGate } from "@/components/auth/auth-gate";
 
 export const metadata: Metadata = {
   title: "CareFlow AI - 치과 리콜 관리 시스템",
@@ -16,11 +15,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className="font-sans antialiased bg-gray-50">
-        <Sidebar />
-        <div className="md:ml-64 min-h-screen flex flex-col">
-          <Header />
-          <main className="flex-1 p-4 md:p-6">{children}</main>
-        </div>
+        <AuthGate>{children}</AuthGate>
       </body>
     </html>
   );

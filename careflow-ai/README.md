@@ -103,7 +103,36 @@ npm run dev       # http://localhost:3000
 - **정규화 이력 추적**: 모든 변경(개별/일괄/CSV import/자동)을 `SourceNormalizationHistory`에 기록
 - **대시보드 위젯**: 검토 필요/미분류/저신뢰 건수 + 최근 Import 현황
 
-### 8. 개인정보 보호 아키텍처 (NEW)
+### 8. 동기화 관리 및 EMR 연동 준비 (NEW)
+- **SyncJob 모델**: 모든 데이터 유입(CSV Import, EMR Pull, Seed, 수동 재처리)을 추적
+  - 상태: PENDING → RUNNING → SUCCESS / PARTIAL_SUCCESS / FAILED
+  - 성공/실패/중복/미분류 건수, 에러 요약, 실행자 기록
+  - ImportBatch와 연결 (`importBatchId`) — CSV Import 시 상위 추적 개념
+- **동기화 관리 화면** (`/sync`): 운영 신뢰도 화면
+  - 마지막 동기화 시각 + 최근 이력 목록
+  - 상태별 요약 (성공/부분성공/실패/실행중)
+  - 작업별 상세 보기 (에러, 건수, 비고)
+  - 검토 큐/Import 이력 바로가기
+  - 미분류/실패 건 재처리 버튼 (ADMIN 전용)
+- **EMR 파이프라인 구조** (`lib/sync/pipeline.ts`): EMR 원본 → 정제/정규화 → 운영 DB
+  - 향후 EMR API 직접 연동 시 동일 SyncJob 파이프라인 사용
+- **대시보드 위젯**: 마지막 동기화 시각, 상태, 실패 건수 표시
+
+### 9. 기본 인증 및 역할 기반 권한 (NEW)
+- **Cookie 기반 세션**: HMAC-SHA256 서명 토큰, httpOnly 쿠키 (7일 유효)
+- **로그인/로그아웃**: `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`
+- **역할(Role)**: ADMIN, DESK, COUNSELOR, VIEWER, MARKETING
+  - ADMIN: 전체 기능 (설정, 분류 사전, Export, Sync 관리, 재처리)
+  - DESK: 환자 처리, 검토 큐, CSV Import, 메시지 검토, 동기화 조회
+  - COUNSELOR: 환자 관리, CTA 검토, 워크플로우
+  - VIEWER: 조회 전용 (대시보드, 환자 목록)
+  - MARKETING: CTA/정산 관련 조회, 검토 큐
+- **역할별 메뉴 제한**: 사이드바에 권한별로 접근 가능한 메뉴만 표시
+- **사용자 추적**: `changedBy`, `reviewedBy`, `triggeredBy` 등에 실제 로그인 사용자 이름 반영
+- **데모 계정**: admin/admin123, desk01/desk123, counsel01/counsel123, viewer01/view123, mkt01/mkt123
+- **헤더 표시**: 현재 사용자명 + 역할 배지 + 로그아웃 버튼
+
+### 10. 개인정보 보호 아키텍처 (NEW)
 - **PII 분리**: 이름/전화번호를 별도 `PatientIdentity` 테이블에 분리 저장
 - **UI 마스킹**: 기본 화면에서 이름/전화번호 마스킹 표시 (토글 가능)
 - **LLM 안전성**: AI API에 최소 컨텍스트만 전달 (마스킹된 이름 + 정형 사유)
@@ -130,6 +159,8 @@ npm run dev       # http://localhost:3000
 | `MessageDelivery` | 메시지 발송 추적 (프로바이더, 상태, 재시도, 외부ID) |
 | `AuditLog` | 감사 로그 (액션, 엔티티, PII 미포함) |
 | `RuleConfig` | 규칙 설정 (활성/비활성, JSON 파라미터) |
+| `User` | 사용자 계정 (username, passwordHash, name, role: ADMIN/DESK/COUNSELOR/VIEWER/MARKETING) |
+| `SyncJob` | 동기화 작업 추적 (syncType, sourceSystem, 상태, 건수 요약, triggeredBy, importBatchId) |
 | `ImportBatch` | CSV 가져오기 배치 (파일명, 행 수, 성공/실패/미분류 수, 상태) |
 | `SourceNormalizationHistory` | 방문경로 정규화 이력 (변경 전/후 값, 변경 유형, 변경자, 메모) |
 
@@ -152,6 +183,7 @@ careflow-ai/
 │   │   ├── source-review/     # 방문경로 검토 큐
 │   │   ├── source-import/     # CSV Import
 │   │   ├── source-rules/      # 분류 사전
+│   │   ├── sync/              # 동기화 관리
 │   │   ├── settings/          # 설정
 │   │   ├── about/             # 제품 소개
 │   │   └── api/               # API Routes
@@ -161,18 +193,25 @@ careflow-ai/
 │   │       ├── cta/           # CTA 유입 조회 + 검토 + 정산
 │   │       ├── source-review/ # 검토 큐 API (개별/일괄/통계/내보내기)
 │   │       ├── source-import/ # CSV Import API (업로드/이력)
+│   │       ├── auth/          # 인증 API (login/logout/me)
+│   │       ├── sync/          # 동기화 관리 API (목록/상세/재처리)
 │   │       ├── messages/      # 메시지 발송 (queue/send/cancel)
 │   │       └── seed/          # 데모 데이터 생성
 │   ├── components/
+│   │   ├── auth/              # 인증 (AuthGate, AuthProvider, LoginPage)
 │   │   ├── dashboard/         # 대시보드 UI
 │   │   ├── patients/          # 환자 목록/상세 UI
 │   │   ├── cta/               # CTA 광고 관리 UI
 │   │   ├── source-review/     # 방문경로 검토 큐 UI (3뷰 모드)
 │   │   ├── source-import/     # CSV Import UI
-│   │   ├── layout/            # 사이드바/레이아웃
+│   │   ├── sync/              # 동기화 관리 UI
+│   │   ├── layout/            # 사이드바/레이아웃 (역할 기반 메뉴)
 │   │   ├── settings/          # 설정 UI
 │   │   └── ui/                # shadcn/ui 컴포넌트
 │   ├── lib/
+│   │   ├── auth.ts            # 인증 (세션, 비밀번호, 역할/권한)
+│   │   ├── sync/              # 동기화 파이프라인
+│   │   │   └── pipeline.ts    # SyncJob 생성/완료/실패 추상화
 │   │   ├── engine/            # 규칙 기반 탐지 엔진
 │   │   │   ├── index.ts       # 오케스트레이터
 │   │   │   ├── types.ts       # Rule 인터페이스
@@ -347,6 +386,7 @@ ENABLE_LLM_MESSAGE_GENERATION=false  # 또는 변수 미설정
 | `GOOGLE_CLOUD_LOCATION` | X | `us-central1` | Vertex AI 리전 |
 | `VERTEX_MODEL` | X | `gemini-2.0-flash` | Vertex AI 모델 |
 | `GOOGLE_APPLICATION_CREDENTIALS` | X | - | 서비스 계정 키 경로 |
+| `AUTH_SECRET` | X | (dev fallback) | 세션 쿠키 서명 키 (프로덕션 필수) |
 | `MESSAGE_PROVIDER` | X | `mock` | 메시지 발송 프로바이더 (mock/kakao) |
 | `KAKAO_API_KEY` | X | - | 카카오 알림톡 API 키 |
 | `KAKAO_SENDER_KEY` | X | - | 카카오 발신 프로필 키 |
@@ -379,7 +419,10 @@ ENABLE_LLM_MESSAGE_GENERATION=false  # 또는 변수 미설정
 | 메시지 발송 | ✅ MockProvider (95% 시뮬) | MESSAGE_PROVIDER=kakao 전환 |
 | 메시지 발송 추적 | ✅ MessageDelivery 상태 관리 | 그대로 사용 |
 | 카카오 알림톡 | 🔧 Provider stub 준비됨 | API 키 + 템플릿 등록 |
-| 인증/권한 | ❌ 없음 | NextAuth 등 추가 |
+| 동기화 관리 | ✅ SyncJob 추적 + 관리 화면 | 그대로 사용 |
+| 인증/세션 | ✅ Cookie 기반 HMAC 세션 (6 demo 계정) | 프로덕션: NextAuth/OAuth 확장 |
+| 역할 기반 권한 | ✅ 5역할 + 메뉴/기능 분기 | 그대로 사용 + 세분화 |
+| 사용자 추적 | ✅ changedBy/triggeredBy에 실제 사용자 반영 | 그대로 사용 |
 | 전주 대비 변화 | 🔧 결정적 Mock | 실제 날짜 기반 비교 |
 
 ---
