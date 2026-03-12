@@ -393,10 +393,10 @@ function getAutoReason(sourceRaw: string, channel: string): string {
 
 export async function POST() {
   try {
-    const dbAvailable = await isDatabaseAvailable();
-    if (!dbAvailable) {
+    const dbCheck = await isDatabaseAvailable();
+    if (!dbCheck.available) {
       return NextResponse.json(
-        { error: "데이터베이스에 연결할 수 없습니다. DATABASE_URL 환경변수를 확인해 주세요." },
+        { error: "데이터베이스에 연결할 수 없습니다. DATABASE_URL 환경변수를 확인해 주세요.", detail: dbCheck.error },
         { status: 503 }
       );
     }
@@ -555,9 +555,9 @@ export async function POST() {
 
 export async function GET() {
   try {
-    const dbAvailable = await isDatabaseAvailable();
-    if (!dbAvailable) {
-      return NextResponse.json({ status: "db_unavailable", patientCount: 0 });
+    const dbCheck = await isDatabaseAvailable();
+    if (!dbCheck.available) {
+      return NextResponse.json({ status: "db_unavailable", patientCount: 0, error: dbCheck.error });
     }
     const count = await prisma.patient.count();
     return NextResponse.json({ status: "ok", patientCount: count });

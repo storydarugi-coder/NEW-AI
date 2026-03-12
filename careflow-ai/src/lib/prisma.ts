@@ -12,11 +12,12 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
  * DB 연결 가능 여부를 확인합니다.
  * Vercel serverless 등에서 SQLite 파일이 없으면 false를 반환합니다.
  */
-export async function isDatabaseAvailable(): Promise<boolean> {
+export async function isDatabaseAvailable(): Promise<{ available: boolean; error?: string }> {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    return true;
-  } catch {
-    return false;
+    return { available: true };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return { available: false, error: message };
   }
 }
