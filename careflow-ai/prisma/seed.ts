@@ -979,10 +979,193 @@ const ruleConfigs = [
   },
 ];
 
+// ============================================================
+// 담당자 mock 데이터
+// ============================================================
+const staffMembers = [
+  { name: "김수진", role: "desk" },
+  { name: "박미영", role: "counselor" },
+  { name: "이원장", role: "doctor" },
+  { name: "정관리", role: "manager" },
+];
+
+// 워크플로우 태스크 시드 설정
+// chartNumber → 태스크 정보 매핑
+interface TaskSeed {
+  actionType: string;
+  status: string;
+  staffIndex: number; // staffMembers 인덱스 (-1이면 미지정)
+  note: string | null;
+  reason: string | null;
+  nextFollowUpDays: number | null; // 오늘 기준 N일 후 (-N이면 N일 전)
+}
+
+const taskSeeds: Record<string, TaskSeed[]> = {
+  // 김민수: 치료 중단 복귀 - 미처리 (데스크 담당)
+  "CF-0001": [
+    {
+      actionType: "CHURN_REENGAGE",
+      status: "unprocessed",
+      staffIndex: 0,
+      note: null,
+      reason: null,
+      nextFollowUpDays: null,
+    },
+  ],
+  // 이영희: 치료 중단 - 검토 중
+  "CF-0002": [
+    {
+      actionType: "CHURN_REENGAGE",
+      status: "reviewing",
+      staffIndex: 1,
+      note: "통증 사라져서 안 올 가능성 높음, 전화 시도 예정",
+      reason: null,
+      nextFollowUpDays: 0, // 오늘 확인
+    },
+  ],
+  // 박준호: 치료 중단 - 연락 대기
+  "CF-0003": [
+    {
+      actionType: "CHURN_REENGAGE",
+      status: "waiting_contact",
+      staffIndex: 0,
+      note: "전화 연결 안 됨, 오후 재시도 예정",
+      reason: null,
+      nextFollowUpDays: 0, // 오늘
+    },
+  ],
+  // 정태영 VIP: 치료 중단 - 보류
+  "CF-0005": [
+    {
+      actionType: "CHURN_REENGAGE",
+      status: "on_hold",
+      staffIndex: 1,
+      note: "보호자와 상의 후 다음 주 확인 요청",
+      reason: "VIP 환자 — 원장 직접 연락 필요",
+      nextFollowUpDays: 3,
+    },
+  ],
+  // 한지은: 보철 중단 - 미처리
+  "CF-0006": [
+    {
+      actionType: "CHURN_REENGAGE",
+      status: "unprocessed",
+      staffIndex: -1,
+      note: null,
+      reason: null,
+      nextFollowUpDays: null,
+    },
+  ],
+  // 남궁석 VIP: 치주 리콜 - 재확인 예정
+  "CF-0013": [
+    {
+      actionType: "PERIO_RECALL",
+      status: "recheck_scheduled",
+      staffIndex: 1,
+      note: "치근활택 후 5개월 경과, 이번 주 내 연락 필요",
+      reason: null,
+      nextFollowUpDays: 1, // 내일
+    },
+    {
+      actionType: "RECALL",
+      status: "unprocessed",
+      staffIndex: 0,
+      note: null,
+      reason: null,
+      nextFollowUpDays: null,
+    },
+  ],
+  // 문정훈 VIP: 임플란트 점검 - 완료
+  "CF-0018": [
+    {
+      actionType: "IMPLANT_FOLLOWUP",
+      status: "completed",
+      staffIndex: 0,
+      note: "카카오톡 발송 및 상담 완료",
+      reason: "1개월 점검 안내 완료, 내원 약속 잡음",
+      nextFollowUpDays: null,
+    },
+  ],
+  // 류태완 VIP: 임플란트 점검 - 연락 대기
+  "CF-0022": [
+    {
+      actionType: "IMPLANT_FOLLOWUP",
+      status: "waiting_contact",
+      staffIndex: 0,
+      note: "3개월 점검 시기, 고령 환자 보호자 연락처로 시도 필요",
+      reason: null,
+      nextFollowUpDays: -1, // 기한 초과 (어제)
+    },
+  ],
+  // 하은채: 메시지 발송 검토 - 제외
+  "CF-0028": [
+    {
+      actionType: "MESSAGE_REVIEW",
+      status: "excluded",
+      staffIndex: 1,
+      note: null,
+      reason: "사랑니 발치 시기 미결정 — 본인이 연락하겠다고 함",
+      nextFollowUpDays: null,
+    },
+  ],
+  // 민경호 VIP: 복합 케이스 - 여러 태스크
+  "CF-0043": [
+    {
+      actionType: "CHURN_REENGAGE",
+      status: "reviewing",
+      staffIndex: 2,
+      note: "47번 신경치료 중단 4개월 경과, 원장 직접 연락 예정",
+      reason: null,
+      nextFollowUpDays: 2,
+    },
+    {
+      actionType: "IMPLANT_FOLLOWUP",
+      status: "unprocessed",
+      staffIndex: -1,
+      note: null,
+      reason: null,
+      nextFollowUpDays: null,
+    },
+    {
+      actionType: "RECALL",
+      status: "unprocessed",
+      staffIndex: 0,
+      note: null,
+      reason: null,
+      nextFollowUpDays: null,
+    },
+  ],
+  // 진소라: 치주 리콜
+  "CF-0044": [
+    {
+      actionType: "PERIO_RECALL",
+      status: "waiting_contact",
+      staffIndex: 1,
+      note: "치주 안정 여부 확인 후 교정 재상담 권유 예정",
+      reason: null,
+      nextFollowUpDays: 5,
+    },
+  ],
+  // 채영수 VIP: 리콜
+  "CF-0045": [
+    {
+      actionType: "RECALL",
+      status: "on_hold",
+      staffIndex: 0,
+      note: "장기 VIP 최근 미내원, 스케일링 시기 지남",
+      reason: "진료 시작 여부 확인 필요",
+      nextFollowUpDays: -2, // 기한 초과 (2일 전)
+    },
+  ],
+};
+
 async function main() {
   console.log("🌱 Seeding database...");
 
   // 기존 데이터 삭제 (FK 의존성 순서)
+  await prisma.activityLog.deleteMany();
+  await prisma.workflowTask.deleteMany();
+  await prisma.staff.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.messageDelivery.deleteMany();
   await prisma.leadAttribution.deleteMany();
@@ -1047,6 +1230,95 @@ async function main() {
     await prisma.ruleConfig.create({ data: rc });
   }
 
+  // 담당자 생성
+  const createdStaff = [];
+  for (const sm of staffMembers) {
+    const s = await prisma.staff.create({ data: sm });
+    createdStaff.push(s);
+  }
+  console.log(`✅ Seeded ${createdStaff.length} staff members`);
+
+  // 환자 chartNumber → id 매핑
+  const allPatients = await prisma.patient.findMany({ select: { id: true, chartNumber: true } });
+  const chartToId: Record<string, string> = {};
+  for (const p of allPatients) {
+    chartToId[p.chartNumber] = p.id;
+  }
+
+  // 워크플로우 태스크 생성
+  let taskCount = 0;
+  for (const [chartNumber, tasks] of Object.entries(taskSeeds)) {
+    const patientId = chartToId[chartNumber];
+    if (!patientId) continue;
+
+    for (const ts of tasks) {
+      const assigneeId = ts.staffIndex >= 0 ? createdStaff[ts.staffIndex].id : null;
+      const nextFollowUpAt = ts.nextFollowUpDays !== null
+        ? (() => {
+            const d = new Date();
+            d.setDate(d.getDate() + ts.nextFollowUpDays);
+            d.setHours(9, 0, 0, 0);
+            return d;
+          })()
+        : null;
+
+      const task = await prisma.workflowTask.create({
+        data: {
+          patientId,
+          actionType: ts.actionType,
+          status: ts.status,
+          assigneeId,
+          note: ts.note,
+          reason: ts.reason,
+          nextFollowUpAt,
+          completedAt: ts.status === "completed" ? daysAgo(3) : null,
+        },
+      });
+
+      // 활동 로그 (생성 기록)
+      await prisma.activityLog.create({
+        data: {
+          taskId: task.id,
+          patientId,
+          staffId: assigneeId,
+          action: "task_created",
+          toValue: ts.actionType,
+          detail: JSON.stringify({ actionType: ts.actionType }),
+        },
+      });
+
+      // 상태가 unprocessed가 아닌 경우 상태 변경 로그 추가
+      if (ts.status !== "unprocessed") {
+        await prisma.activityLog.create({
+          data: {
+            taskId: task.id,
+            patientId,
+            staffId: assigneeId,
+            action: "status_change",
+            fromValue: "unprocessed",
+            toValue: ts.status,
+          },
+        });
+      }
+
+      // 메모가 있는 경우 메모 로그 추가
+      if (ts.note) {
+        await prisma.activityLog.create({
+          data: {
+            taskId: task.id,
+            patientId,
+            staffId: assigneeId,
+            action: "note_added",
+            toValue: ts.note.substring(0, 100),
+          },
+        });
+      }
+
+      taskCount++;
+    }
+  }
+
+  console.log(`✅ Seeded ${taskCount} workflow tasks with activity logs`);
   console.log(`✅ Seeded ${patients.length} patients and ${ruleConfigs.length} rule configs`);
   console.log("   (PII separated into PatientIdentity table)");
 }

@@ -27,6 +27,8 @@ model Patient {
   visits                Visit[]
   recallRecommendations RecallRecommendation[]
   messageDrafts         MessageDraft[]
+  workflowTasks         WorkflowTask[]
+  activityLogs          ActivityLog[]
 }
 
 // PII 계층: 직접 식별정보 분리 저장
@@ -235,6 +237,75 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([action])
+  @@index([createdAt])
+}
+
+// ──────────────────────────────────────────────
+// 업무 처리 흐름 (Workflow)
+// ──────────────────────────────────────────────
+
+// 담당자 (mock 기반, 추후 인증 시스템 연동)
+model Staff {
+  id        String   @id @default(cuid())
+  name      String   // 표시명: "데스크 김OO", "상담실장 박OO"
+  role      String   @default("desk") // desk, counselor, doctor, manager
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks      WorkflowTask[]
+  activities ActivityLog[]
+
+  @@index([role])
+  @@index([isActive])
+}
+
+// 환자별 업무 액션 아이템
+model WorkflowTask {
+  id            String    @id @default(cuid())
+  patientId     String
+  // 액션 유형: CTA_REVIEW, RECALL, CHURN_REENGAGE, MESSAGE_REVIEW, PERIO_RECALL, IMPLANT_FOLLOWUP, GENERAL
+  actionType    String
+  // 처리 상태: unprocessed, reviewing, waiting_contact, on_hold, excluded, completed, recheck_scheduled
+  status        String    @default("unprocessed")
+  assigneeId    String?   // 담당자 (Staff.id)
+  note          String?   // 최신 처리 메모
+  reason        String?   // 보류/제외/완료 사유
+  nextFollowUpAt DateTime? // 다음 확인일
+  completedAt   DateTime? // 완료 처리 시각
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  patient    Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  assignee   Staff?        @relation(fields: [assigneeId], references: [id])
+  activities ActivityLog[]
+
+  @@index([patientId])
+  @@index([status])
+  @@index([actionType])
+  @@index([assigneeId])
+  @@index([nextFollowUpAt])
+  @@index([createdAt])
+}
+
+// 변경 이력 (감사 로그 경량 버전)
+model ActivityLog {
+  id          String   @id @default(cuid())
+  taskId      String?  // WorkflowTask.id
+  patientId   String?  // 환자 직접 참조 (task 없이도 기록 가능)
+  staffId     String?  // 변경한 담당자
+  action      String   // status_change, assignee_change, note_added, followup_set, task_created
+  fromValue   String?  // 이전 값
+  toValue     String?  // 변경 후 값
+  detail      String?  // JSON 메타데이터
+  createdAt   DateTime @default(now())
+
+  task    WorkflowTask? @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  patient Patient?      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  staff   Staff?        @relation(fields: [staffId], references: [id])
+
+  @@index([taskId])
+  @@index([patientId])
   @@index([createdAt])
 }
 

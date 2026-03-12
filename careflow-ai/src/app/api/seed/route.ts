@@ -402,6 +402,9 @@ export async function POST() {
     }
 
     // 기존 데이터 삭제 (FK 의존성 순서)
+    await prisma.activityLog.deleteMany();
+    await prisma.workflowTask.deleteMany();
+    await prisma.staff.deleteMany();
     await prisma.auditLog.deleteMany();
     await prisma.messageDelivery.deleteMany();
     await prisma.leadAttribution.deleteMany();
@@ -531,18 +534,110 @@ export async function POST() {
       await prisma.ruleConfig.create({ data: rc });
     }
 
+    // ── 담당자 생성 ──
+    const staffMembers = [
+      { name: "김수진", role: "desk" },
+      { name: "박미영", role: "counselor" },
+      { name: "이원장", role: "doctor" },
+      { name: "정관리", role: "manager" },
+    ];
+    const createdStaff = [];
+    for (const sm of staffMembers) {
+      const s = await prisma.staff.create({ data: sm });
+      createdStaff.push(s);
+    }
+
+    // ── 워크플로우 태스크 생성 ──
+    const allPatients = await prisma.patient.findMany({ select: { id: true, chartNumber: true } });
+    const chartToId: Record<string, string> = {};
+    for (const p of allPatients) {
+      chartToId[p.chartNumber] = p.id;
+    }
+
+    interface TaskSeedItem {
+      actionType: string;
+      status: string;
+      staffIndex: number;
+      note: string | null;
+      reason: string | null;
+      nextFollowUpDays: number | null;
+    }
+
+    const taskSeedMap: Record<string, TaskSeedItem[]> = {
+      "CF-0001": [{ actionType: "CHURN_REENGAGE", status: "unprocessed", staffIndex: 0, note: null, reason: null, nextFollowUpDays: null }],
+      "CF-0002": [{ actionType: "CHURN_REENGAGE", status: "reviewing", staffIndex: 1, note: "통증 사라져서 안 올 가능성 높음, 전화 시도 예정", reason: null, nextFollowUpDays: 0 }],
+      "CF-0003": [{ actionType: "CHURN_REENGAGE", status: "waiting_contact", staffIndex: 0, note: "전화 연결 안 됨, 오후 재시도 예정", reason: null, nextFollowUpDays: 0 }],
+      "CF-0005": [{ actionType: "CHURN_REENGAGE", status: "on_hold", staffIndex: 1, note: "보호자와 상의 후 다음 주 확인 요청", reason: "VIP 환자 — 원장 직접 연락 필요", nextFollowUpDays: 3 }],
+      "CF-0006": [{ actionType: "CHURN_REENGAGE", status: "unprocessed", staffIndex: -1, note: null, reason: null, nextFollowUpDays: null }],
+      "CF-0013": [
+        { actionType: "PERIO_RECALL", status: "recheck_scheduled", staffIndex: 1, note: "치근활택 후 5개월 경과, 이번 주 내 연락 필요", reason: null, nextFollowUpDays: 1 },
+        { actionType: "RECALL", status: "unprocessed", staffIndex: 0, note: null, reason: null, nextFollowUpDays: null },
+      ],
+      "CF-0018": [{ actionType: "IMPLANT_FOLLOWUP", status: "completed", staffIndex: 0, note: "카카오톡 발송 및 상담 완료", reason: "1개월 점검 안내 완료, 내원 약속 잡음", nextFollowUpDays: null }],
+      "CF-0022": [{ actionType: "IMPLANT_FOLLOWUP", status: "waiting_contact", staffIndex: 0, note: "3개월 점검 시기, 고령 환자 보호자 연락처로 시도 필요", reason: null, nextFollowUpDays: -1 }],
+      "CF-0028": [{ actionType: "MESSAGE_REVIEW", status: "excluded", staffIndex: 1, note: null, reason: "사랑니 발치 시기 미결정 — 본인이 연락하겠다고 함", nextFollowUpDays: null }],
+      "CF-0043": [
+        { actionType: "CHURN_REENGAGE", status: "reviewing", staffIndex: 2, note: "47번 신경치료 중단 4개월 경과, 원장 직접 연락 예정", reason: null, nextFollowUpDays: 2 },
+        { actionType: "IMPLANT_FOLLOWUP", status: "unprocessed", staffIndex: -1, note: null, reason: null, nextFollowUpDays: null },
+        { actionType: "RECALL", status: "unprocessed", staffIndex: 0, note: null, reason: null, nextFollowUpDays: null },
+      ],
+      "CF-0044": [{ actionType: "PERIO_RECALL", status: "waiting_contact", staffIndex: 1, note: "치주 안정 여부 확인 후 교정 재상담 권유 예정", reason: null, nextFollowUpDays: 5 }],
+      "CF-0045": [{ actionType: "RECALL", status: "on_hold", staffIndex: 0, note: "장기 VIP 최근 미내원, 스케일링 시기 지남", reason: "진료 시작 여부 확인 필요", nextFollowUpDays: -2 }],
+    };
+
+    let taskCount = 0;
+    for (const [chartNumber, taskItems] of Object.entries(taskSeedMap)) {
+      const patientId = chartToId[chartNumber];
+      if (!patientId) continue;
+
+      for (const ts of taskItems) {
+        const assigneeId = ts.staffIndex >= 0 ? createdStaff[ts.staffIndex].id : null;
+        const nextFollowUpAt = ts.nextFollowUpDays !== null
+          ? (() => { const d = new Date(); d.setDate(d.getDate() + ts.nextFollowUpDays); d.setHours(9, 0, 0, 0); return d; })()
+          : null;
+
+        const task = await prisma.workflowTask.create({
+          data: {
+            patientId,
+            actionType: ts.actionType,
+            status: ts.status,
+            assigneeId,
+            note: ts.note,
+            reason: ts.reason,
+            nextFollowUpAt,
+            completedAt: ts.status === "completed" ? daysAgo(3) : null,
+          },
+        });
+
+        await prisma.activityLog.create({
+          data: { taskId: task.id, patientId, staffId: assigneeId, action: "task_created", toValue: ts.actionType },
+        });
+        if (ts.status !== "unprocessed") {
+          await prisma.activityLog.create({
+            data: { taskId: task.id, patientId, staffId: assigneeId, action: "status_change", fromValue: "unprocessed", toValue: ts.status },
+          });
+        }
+        if (ts.note) {
+          await prisma.activityLog.create({
+            data: { taskId: task.id, patientId, staffId: assigneeId, action: "note_added", toValue: ts.note.substring(0, 100) },
+          });
+        }
+        taskCount++;
+      }
+    }
+
     await prisma.auditLog.create({
       data: {
         action: "seed_data",
         entityType: "system",
         entityId: "seed",
-        detail: JSON.stringify({ patientCount: patients.length, campaignCount: campaigns.length }),
+        detail: JSON.stringify({ patientCount: patients.length, campaignCount: campaigns.length, taskCount, staffCount: createdStaff.length }),
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: `${patients.length}명의 환자, ${campaigns.length}개의 캠페인, 규칙 설정이 생성되었습니다.`,
+      message: `${patients.length}명의 환자, ${campaigns.length}개의 캠페인, ${taskCount}개의 업무, ${createdStaff.length}명의 담당자가 생성되었습니다.`,
     });
   } catch (error) {
     console.error("Seed API error:", error);

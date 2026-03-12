@@ -26,6 +26,7 @@ import {
   PhoneCall,
   Info,
   Megaphone,
+  ClipboardList,
 } from "lucide-react";
 import {
   RULE_TYPE_LABELS,
@@ -64,6 +65,13 @@ interface WeeklyChange {
   label: string;
 }
 
+interface WorkflowSummary {
+  totalActive: number;
+  unprocessed: number;
+  todayFollowUps: number;
+  overdueFollowUps: number;
+}
+
 interface DashboardContentProps {
   stats: {
     todayActionCount: number;
@@ -85,6 +93,7 @@ interface DashboardContentProps {
     confirmed: number;
     settlementEligible: number;
   };
+  workflowSummary?: WorkflowSummary;
 }
 
 const statCards = [
@@ -163,6 +172,7 @@ export function DashboardContent({
   urgentPatients,
   priorityPatients,
   ctaStats,
+  workflowSummary,
 }: DashboardContentProps) {
   return (
     <div className="space-y-6">
@@ -176,6 +186,9 @@ export function DashboardContent({
             </p>
           </div>
           <div className="flex gap-2 shrink-0">
+            <Link href="/workflow" className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors">
+              업무 처리
+            </Link>
             <Link href="/patients" className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors">
               환자 목록
             </Link>
@@ -227,6 +240,39 @@ export function DashboardContent({
               <Link
                 href="/cta"
                 className="text-sm text-green-600 hover:text-green-700 flex items-center gap-1 font-medium"
+              >
+                관리 <ChevronRight size={14} />
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 업무 처리 현황 요약 */}
+      {workflowSummary && workflowSummary.totalActive > 0 && (
+        <Card className="border-0 shadow-sm border-l-4 border-l-blue-400">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-50">
+                  <ClipboardList size={18} className="text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">업무 처리 현황</p>
+                  <p className="text-xs text-gray-500">
+                    미처리 {workflowSummary.unprocessed}건 · 진행 중 {workflowSummary.totalActive - workflowSummary.unprocessed}건
+                    {workflowSummary.overdueFollowUps > 0 && (
+                      <span className="text-red-500 font-medium"> · 기한 초과 {workflowSummary.overdueFollowUps}건</span>
+                    )}
+                    {workflowSummary.todayFollowUps > 0 && (
+                      <span className="text-purple-500"> · 오늘 확인 {workflowSummary.todayFollowUps}건</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/workflow"
+                className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium"
               >
                 관리 <ChevronRight size={14} />
               </Link>

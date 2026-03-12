@@ -25,7 +25,9 @@ import {
   Bot,
   Send,
   Megaphone,
+  ClipboardList,
 } from "lucide-react";
+import { TaskPanel } from "@/components/workflow/task-panel";
 import {
   RULE_TYPE_LABELS,
   SUB_TYPE_LABELS,
@@ -93,12 +95,36 @@ interface PatientInfo {
   tags: string | null;
 }
 
+interface WorkflowTaskItem {
+  id: string;
+  actionType: string;
+  status: string;
+  assigneeId: string | null;
+  note: string | null;
+  reason: string | null;
+  nextFollowUpAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  assignee: { id: string; name: string; role: string } | null;
+  activities: {
+    id: string;
+    action: string;
+    fromValue: string | null;
+    toValue: string | null;
+    detail: string | null;
+    createdAt: string;
+    staff?: { name: string } | null;
+  }[];
+}
+
 interface Props {
   data: {
     patient: PatientInfo;
     visits: Visit[];
     detections: Detection[];
     messageDrafts: MessageDraft[];
+    workflowTasks: WorkflowTaskItem[];
   };
 }
 
@@ -131,7 +157,7 @@ const statusActions = [
 ];
 
 export function PatientDetailContent({ data }: Props) {
-  const { patient, visits, detections, messageDrafts: initialDrafts } = data;
+  const { patient, visits, detections, messageDrafts: initialDrafts, workflowTasks } = data;
   const currentYear = new Date().getFullYear();
   const age = currentYear - patient.birthYear;
 
@@ -323,12 +349,18 @@ export function PatientDetailContent({ data }: Props) {
         </Card>
       )}
 
-      <Tabs defaultValue="detections" className="space-y-4">
+      <Tabs defaultValue="workflow" className="space-y-4">
         <TabsList className="bg-white border">
+          <TabsTrigger value="workflow" className="gap-1.5"><ClipboardList size={14} />업무 처리 ({workflowTasks.length})</TabsTrigger>
           <TabsTrigger value="detections" className="gap-1.5"><AlertTriangle size={14} />리콜 추천 ({detections.length})</TabsTrigger>
           <TabsTrigger value="timeline" className="gap-1.5"><Calendar size={14} />타임라인</TabsTrigger>
           <TabsTrigger value="messages" className="gap-1.5"><MessageSquare size={14} />문자 초안 ({drafts.length})</TabsTrigger>
         </TabsList>
+
+        {/* Workflow Tab */}
+        <TabsContent value="workflow">
+          <TaskPanel patientId={patient.id} patientName={patient.name} initialTasks={workflowTasks} />
+        </TabsContent>
 
         {/* Detections Tab */}
         <TabsContent value="detections" className="space-y-3">

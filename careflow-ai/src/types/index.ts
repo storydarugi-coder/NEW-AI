@@ -179,3 +179,84 @@ export const DELIVERY_STATUS_COLORS: Record<MessageDeliveryStatus, string> = {
   failed: "bg-red-100 text-red-700",
   cancelled: "bg-gray-100 text-gray-500",
 };
+
+// ──────────────────────────────────────────────
+// 업무 처리 흐름 (Workflow) 타입
+// ──────────────────────────────────────────────
+
+export type TaskStatus =
+  | "unprocessed"
+  | "reviewing"
+  | "waiting_contact"
+  | "on_hold"
+  | "excluded"
+  | "completed"
+  | "recheck_scheduled";
+
+export type ActionType =
+  | "CTA_REVIEW"
+  | "RECALL"
+  | "CHURN_REENGAGE"
+  | "MESSAGE_REVIEW"
+  | "PERIO_RECALL"
+  | "IMPLANT_FOLLOWUP"
+  | "GENERAL";
+
+export type StaffRole = "desk" | "counselor" | "doctor" | "manager";
+
+export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  unprocessed: "미처리",
+  reviewing: "검토중",
+  waiting_contact: "연락 대기",
+  on_hold: "보류",
+  excluded: "제외",
+  completed: "완료",
+  recheck_scheduled: "재확인 예정",
+};
+
+export const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
+  unprocessed: "bg-gray-100 text-gray-700 border-gray-200",
+  reviewing: "bg-blue-100 text-blue-700 border-blue-200",
+  waiting_contact: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  on_hold: "bg-orange-100 text-orange-700 border-orange-200",
+  excluded: "bg-gray-100 text-gray-400 border-gray-200",
+  completed: "bg-green-100 text-green-700 border-green-200",
+  recheck_scheduled: "bg-purple-100 text-purple-700 border-purple-200",
+};
+
+export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
+  CTA_REVIEW: "CTA 유입 검토",
+  RECALL: "리콜 연락",
+  CHURN_REENGAGE: "치료 중단 복귀",
+  MESSAGE_REVIEW: "메시지 발송 검토",
+  PERIO_RECALL: "치주 정기 리콜",
+  IMPLANT_FOLLOWUP: "임플란트 점검",
+  GENERAL: "일반 업무",
+};
+
+export const ACTION_TYPE_COLORS: Record<ActionType, string> = {
+  CTA_REVIEW: "bg-green-100 text-green-700 border-green-200",
+  RECALL: "bg-amber-100 text-amber-700 border-amber-200",
+  CHURN_REENGAGE: "bg-red-100 text-red-700 border-red-200",
+  MESSAGE_REVIEW: "bg-blue-100 text-blue-700 border-blue-200",
+  PERIO_RECALL: "bg-orange-100 text-orange-700 border-orange-200",
+  IMPLANT_FOLLOWUP: "bg-indigo-100 text-indigo-700 border-indigo-200",
+  GENERAL: "bg-gray-100 text-gray-700 border-gray-200",
+};
+
+export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
+  desk: "데스크",
+  counselor: "상담실장",
+  doctor: "원장",
+  manager: "관리자",
+};
+
+export const VALID_TASK_STATUSES: TaskStatus[] = [
+  "unprocessed", "reviewing", "waiting_contact", "on_hold",
+  "excluded", "completed", "recheck_scheduled",
+];
+
+export const VALID_ACTION_TYPES: ActionType[] = [
+  "CTA_REVIEW", "RECALL", "CHURN_REENGAGE", "MESSAGE_REVIEW",
+  "PERIO_RECALL", "IMPLANT_FOLLOWUP", "GENERAL",
+];

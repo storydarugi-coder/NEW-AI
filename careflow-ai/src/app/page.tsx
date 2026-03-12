@@ -105,6 +105,29 @@ export default async function DashboardPage() {
       .filter((p) => p.topPriority <= 2)
       .slice(0, 5);
 
+    // 업무 처리 현황 요약
+    const now = new Date();
+    const wfTodayStart = new Date(now);
+    wfTodayStart.setHours(0, 0, 0, 0);
+    const wfTodayEnd = new Date(now);
+    wfTodayEnd.setHours(23, 59, 59, 999);
+
+    const workflowTasks = await prisma.workflowTask.findMany({
+      where: { status: { notIn: ["completed", "excluded"] } },
+      select: { status: true, nextFollowUpAt: true },
+    });
+
+    const workflowSummary = {
+      totalActive: workflowTasks.length,
+      unprocessed: workflowTasks.filter((t) => t.status === "unprocessed").length,
+      todayFollowUps: workflowTasks.filter((t) =>
+        t.nextFollowUpAt && t.nextFollowUpAt >= wfTodayStart && t.nextFollowUpAt <= wfTodayEnd
+      ).length,
+      overdueFollowUps: workflowTasks.filter((t) =>
+        t.nextFollowUpAt && t.nextFollowUpAt < wfTodayStart
+      ).length,
+    };
+
     // CTA 요약 통계
     const ctaAttributions = await prisma.leadAttribution.findMany();
     const ctaStats = {
@@ -126,6 +149,7 @@ export default async function DashboardPage() {
         urgentPatients={urgentPatients}
         priorityPatients={priorityPatients.slice(0, 20)}
         ctaStats={ctaStats}
+        workflowSummary={workflowSummary}
       />
     );
   } catch (error) {

@@ -39,6 +39,20 @@ export default async function PatientDetailPage({ params }: PageProps) {
       notFound();
     }
 
+    // 업무 처리 항목 조회
+    const workflowTasks = await prisma.workflowTask.findMany({
+      where: { patientId: id },
+      include: {
+        assignee: true,
+        activities: {
+          orderBy: { createdAt: "desc" },
+          take: 5,
+          include: { staff: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
     const ruleConfigs = await prisma.ruleConfig.findMany();
     const engineConfig = buildEngineConfig(ruleConfigs);
     const detections = evaluatePatient(patient, engineConfig);
@@ -94,6 +108,32 @@ export default async function PatientDetailPage({ params }: PageProps) {
         content: m.content,
         status: m.status,
         createdAt: m.createdAt.toISOString(),
+      })),
+      workflowTasks: workflowTasks.map((t) => ({
+        id: t.id,
+        actionType: t.actionType,
+        status: t.status,
+        assigneeId: t.assigneeId,
+        note: t.note,
+        reason: t.reason,
+        nextFollowUpAt: t.nextFollowUpAt?.toISOString() || null,
+        completedAt: t.completedAt?.toISOString() || null,
+        createdAt: t.createdAt.toISOString(),
+        updatedAt: t.updatedAt.toISOString(),
+        assignee: t.assignee ? {
+          id: t.assignee.id,
+          name: t.assignee.name,
+          role: t.assignee.role,
+        } : null,
+        activities: t.activities.map((a) => ({
+          id: a.id,
+          action: a.action,
+          fromValue: a.fromValue,
+          toValue: a.toValue,
+          detail: a.detail,
+          createdAt: a.createdAt.toISOString(),
+          staff: a.staff ? { name: a.staff.name } : null,
+        })),
       })),
     };
 
