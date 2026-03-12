@@ -132,7 +132,22 @@ npm run dev       # http://localhost:3000
 - **데모 계정**: admin/admin123, desk01/desk123, counsel01/counsel123, viewer01/view123, mkt01/mkt123
 - **헤더 표시**: 현재 사용자명 + 역할 배지 + 로그아웃 버튼
 
-### 10. 개인정보 보호 아키텍처 (NEW)
+### 10. 카카오톡 발송 운영 흐름 (NEW)
+- **OutboundMessage 모델**: 메시지 전체 라이프사이클 관리
+  - 상태 흐름: DRAFT → REVIEW_NEEDED → APPROVED → PENDING/SCHEDULED → SENDING → SENT/FAILED/RETRY_NEEDED
+  - 승인 워크플로우: `approvalStatus` (DRAFT/REVIEW_NEEDED/APPROVED/REJECTED)
+  - 발송 추적: `sendStatus` (PENDING/SCHEDULED/SENDING/SENT/FAILED/RETRY_NEEDED/CANCELLED/BLOCKED)
+- **4단계 발송 안전 체크** (`lib/messaging/send.ts`):
+  1. 승인 상태 확인 (APPROVED만 발송)
+  2. 수신 거부(doNotContact) 차단
+  3. 전화번호 유효성 검증
+  4. 7일 이내 동일 환자·유형 중복 차단
+- **메시지 운영 화면** (`/messages`): 필터 탭, 통계 카드, 인라인 승인/발송/재시도/취소 액션
+- **API**: `GET/POST /api/outbound`, `:id/approve`, `:id/send`, `:id/retry`, `:id/cancel`, `/stats`
+- **Provider 추상화**: MockMessageProvider (95% 성공 시뮬), KakaoAlimtalkProvider (stub)
+- **대시보드 연동**: 메시지 발송 현황 카드 (검토 필요/발송 대기/오늘 발송/실패/차단)
+
+### 11. 개인정보 보호 아키텍처 (NEW)
 - **PII 분리**: 이름/전화번호를 별도 `PatientIdentity` 테이블에 분리 저장
 - **UI 마스킹**: 기본 화면에서 이름/전화번호 마스킹 표시 (토글 가능)
 - **LLM 안전성**: AI API에 최소 컨텍스트만 전달 (마스킹된 이름 + 정형 사유)
@@ -157,6 +172,7 @@ npm run dev       # http://localhost:3000
 | `RecallRecommendation` | 리콜 추천 기록 |
 | `MessageDraft` | 문자 초안 (톤, 길이, 내용, 상태: draft→reviewed→queued→sent/failed) |
 | `MessageDelivery` | 메시지 발송 추적 (프로바이더, 상태, 재시도, 외부ID) |
+| `OutboundMessage` | 아웃바운드 메시지 (승인/발송/재시도/차단 전체 라이프사이클) |
 | `AuditLog` | 감사 로그 (액션, 엔티티, PII 미포함) |
 | `RuleConfig` | 규칙 설정 (활성/비활성, JSON 파라미터) |
 | `User` | 사용자 계정 (username, passwordHash, name, role: ADMIN/DESK/COUNSELOR/VIEWER/MARKETING) |
@@ -184,18 +200,19 @@ careflow-ai/
 │   │   ├── source-import/     # CSV Import
 │   │   ├── source-rules/      # 분류 사전
 │   │   ├── sync/              # 동기화 관리
+│   │   ├── messages/          # 메시지 발송 운영 화면
 │   │   ├── settings/          # 설정
 │   │   ├── about/             # 제품 소개
 │   │   └── api/               # API Routes
 │   │       ├── dashboard/     # 대시보드 데이터
 │   │       ├── patients/      # 환자 CRUD
 │   │       ├── messages/      # AI 문자 생성
+│   │       ├── outbound/      # 아웃바운드 메시지 API (생성/승인/발송/재시도/취소/통계)
 │   │       ├── cta/           # CTA 유입 조회 + 검토 + 정산
 │   │       ├── source-review/ # 검토 큐 API (개별/일괄/통계/내보내기)
 │   │       ├── source-import/ # CSV Import API (업로드/이력)
 │   │       ├── auth/          # 인증 API (login/logout/me)
 │   │       ├── sync/          # 동기화 관리 API (목록/상세/재처리)
-│   │       ├── messages/      # 메시지 발송 (queue/send/cancel)
 │   │       └── seed/          # 데모 데이터 생성
 │   ├── components/
 │   │   ├── auth/              # 인증 (AuthGate, AuthProvider, LoginPage)
@@ -205,6 +222,7 @@ careflow-ai/
 │   │   ├── source-review/     # 방문경로 검토 큐 UI (3뷰 모드)
 │   │   ├── source-import/     # CSV Import UI
 │   │   ├── sync/              # 동기화 관리 UI
+│   │   ├── messages/          # 메시지 발송 운영 UI (필터/승인/발송/재시도)
 │   │   ├── layout/            # 사이드바/레이아웃 (역할 기반 메뉴)
 │   │   ├── settings/          # 설정 UI
 │   │   └── ui/                # shadcn/ui 컴포넌트
@@ -225,8 +243,9 @@ careflow-ai/
 │   │   │   └── prompts.ts     # 프롬프트 설계
 │   │   ├── cta/               # CTA 광고 유입 분류/정산
 │   │   │   └── classify.ts    # 자유입력→채널 분류, 정산 적격 판정
-│   │   ├── messaging/         # 메시지 발송 프로바이더
-│   │   │   └── provider.ts    # MockProvider / KakaoAlimtalkProvider
+│   │   ├── messaging/         # 메시지 발송 프로바이더 + 오케스트레이터
+│   │   │   ├── provider.ts    # MockProvider / KakaoAlimtalkProvider
+│   │   │   └── send.ts        # 발송 오케스트레이터 (안전 체크 + 상태 관리)
 │   │   ├── privacy.ts         # PII 마스킹/LLM 안전성 유틸리티
 │   │   └── message-generator/
 │   │       └── templates.ts   # 33개 한국어 메시지 템플릿
@@ -418,6 +437,9 @@ ENABLE_LLM_MESSAGE_GENERATION=false  # 또는 변수 미설정
 | CTA 자유입력 분류 | ✅ 키워드 기반 자동 분류 | 그대로 사용 + ML 보강 |
 | 메시지 발송 | ✅ MockProvider (95% 시뮬) | MESSAGE_PROVIDER=kakao 전환 |
 | 메시지 발송 추적 | ✅ MessageDelivery 상태 관리 | 그대로 사용 |
+| 아웃바운드 운영 | ✅ 승인/발송/재시도/차단 전체 흐름 | 그대로 사용 |
+| 발송 안전 체크 | ✅ 수신거부/중복/전화번호/승인 4단계 | 그대로 사용 |
+| 메시지 운영 화면 | ✅ 필터/통계/인라인 액션 | 그대로 사용 |
 | 카카오 알림톡 | 🔧 Provider stub 준비됨 | API 키 + 템플릿 등록 |
 | 동기화 관리 | ✅ SyncJob 추적 + 관리 화면 | 그대로 사용 |
 | 인증/세션 | ✅ Cookie 기반 HMAC 세션 (6 demo 계정) | 프로덕션: NextAuth/OAuth 확장 |
@@ -538,13 +560,15 @@ CareFlow AI가 정상 작동하기 위해 EMR에서 가져와야 하는 최소 �
 
 ## 카카오톡 채널 연동 구조
 
-### 아키텍처
+### 아키텍처 (OutboundMessage 기반)
 ```
-MessageDraft (초안)
-  → 운영자 검토 (reviewed)
-    → 발송 대기열 (queued) → MessageDelivery 생성
-      → Provider.send() → 성공(sent) / 실패(failed)
-        → 실패 시 retryCount 증가, 재시도 가능
+OutboundMessage 생성 (DRAFT)
+  → 검토 요청 (REVIEW_NEEDED)
+    → 승인 (APPROVED) / 반려 (REJECTED → CANCELLED)
+      → 발송 안전 체크 (수신거부/중복/전화번호/승인 확인)
+        → Provider.send() → 성공(SENT) / 실패(FAILED)
+          → 실패 시 sendAttemptCount++, 최대 3회 재시도
+          → 수신 거부/중복 → BLOCKED (자동 차단)
 ```
 
 ### Provider 추상화 (`src/lib/messaging/provider.ts`)
@@ -571,11 +595,13 @@ KAKAO_SENDER_KEY=...
 4. `KAKAO_API_KEY`, `KAKAO_SENDER_KEY` 환경변수 설정
 5. `KakaoAlimtalkProvider`의 TODO 부분 구현
 
-### MessageDelivery 상태 흐름
+### OutboundMessage 상태 흐름
 ```
-queued → sending → sent ✅
-                 → failed ❌ (retryCount++, 재시도 가능)
-queued → cancelled 🚫 (운영자 취소)
+승인 흐름: DRAFT → REVIEW_NEEDED → APPROVED / REJECTED
+발송 흐름: PENDING → SENDING → SENT ✅ / FAILED ❌ (최대 3회 재시도)
+차단 흐름: → BLOCKED 🚫 (수신거부 / 7일 내 중복)
+취소 흐름: → CANCELLED 🚫 (운영자 취소 / 반려)
+예약 흐름: SCHEDULED → SENDING → SENT ✅
 ```
 
 ---

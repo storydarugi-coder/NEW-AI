@@ -602,6 +602,7 @@ export async function POST() {
       prisma.activityLog.deleteMany(),
       prisma.auditLog.deleteMany(),
       prisma.messageDelivery.deleteMany(),
+      prisma.outboundMessage.deleteMany(),
       prisma.leadAttribution.deleteMany(),
       prisma.messageDraft.deleteMany(),
       prisma.recallRecommendation.deleteMany(),
@@ -976,18 +977,186 @@ export async function POST() {
     ];
     await prisma.syncJob.createMany({ data: syncJobRows });
 
+    // ── 수신 거부 환자 설정 ──
+    const doNotContactCharts = ["CF-0008", "CF-0016"];
+    for (const chart of doNotContactCharts) {
+      const pid = chartToPatientId.get(chart);
+      if (pid) {
+        await prisma.patient.update({
+          where: { id: pid },
+          data: {
+            doNotContact: true,
+            doNotContactAt: daysAgo(10),
+            doNotContactReason: "환자 본인 요청 — 문자 수신 거부",
+          },
+        });
+      }
+    }
+
+    // ── 아웃바운드 메시지 시드 ──
+    const outboundRows: {
+      id: string; patientId: string; messageType: string; channel: string;
+      draftMessage: string; finalMessage: string | null;
+      approvalStatus: string; approvedBy: string | null; approvedAt: Date | null;
+      sendStatus: string; sentAt: Date | null; failedAt: Date | null; failureReason: string | null;
+      sendAttemptCount: number; provider: string | null;
+      duplicateBlocked: boolean; duplicateReason: string | null;
+      doNotContactBlocked: boolean;
+      createdBy: string; sentBy: string | null;
+      scheduledAt: Date | null;
+    }[] = [];
+
+    // 1) 검토 필요 메시지 (REVIEW_NEEDED)
+    const pid1 = chartToPatientId.get("CF-0001");
+    if (pid1) outboundRows.push({
+      id: randomUUID(), patientId: pid1, messageType: "TREATMENT_RESUME", channel: "KAKAO",
+      draftMessage: "김민수님, 안녕하세요. OO치과입니다. 치료 중이시던 46번 치아 근관충전이 아직 완료되지 않았습니다. 빠른 시일 내 내원 부탁드립니다.",
+      finalMessage: null,
+      approvalStatus: "REVIEW_NEEDED", approvedBy: null, approvedAt: null,
+      sendStatus: "PENDING", sentAt: null, failedAt: null, failureReason: null,
+      sendAttemptCount: 0, provider: null,
+      duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: false,
+      createdBy: "데스크 김소연", sentBy: null, scheduledAt: null,
+    });
+
+    // 2) 검토 필요 메시지 2 (REVIEW_NEEDED)
+    const pid2 = chartToPatientId.get("CF-0005");
+    if (pid2) outboundRows.push({
+      id: randomUUID(), patientId: pid2, messageType: "TREATMENT_RESUME", channel: "KAKAO",
+      draftMessage: "정태영님, 안녕하세요. OO치과 원장입니다. VIP 고객님의 16번 치아 근관충전이 대기 중입니다. 편하신 시간에 연락 주시면 감사하겠습니다.",
+      finalMessage: null,
+      approvalStatus: "REVIEW_NEEDED", approvedBy: null, approvedAt: null,
+      sendStatus: "PENDING", sentAt: null, failedAt: null, failureReason: null,
+      sendAttemptCount: 0, provider: null,
+      duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: false,
+      createdBy: "상담실장 박미영", sentBy: null, scheduledAt: null,
+    });
+
+    // 3) 승인 완료 → 발송 대기 (APPROVED + PENDING)
+    const pid3 = chartToPatientId.get("CF-0006");
+    if (pid3) outboundRows.push({
+      id: randomUUID(), patientId: pid3, messageType: "TREATMENT_RESUME", channel: "KAKAO",
+      draftMessage: "한지은님, 크라운 제작이 완료되었습니다. 빠른 시일 내 내원하여 세팅 받으시길 권합니다.",
+      finalMessage: "한지은님, 안녕하세요. OO치과입니다. 크라운 제작이 완료되었습니다. 편하신 시간에 내원하여 세팅 받으시길 권합니다. (☎ 02-1234-5678)",
+      approvalStatus: "APPROVED", approvedBy: "관리자 홍길동", approvedAt: daysAgo(1),
+      sendStatus: "PENDING", sentAt: null, failedAt: null, failureReason: null,
+      sendAttemptCount: 0, provider: null,
+      duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: false,
+      createdBy: "데스크 김소연", sentBy: null, scheduledAt: null,
+    });
+
+    // 4) 예약 발송 (APPROVED + SCHEDULED)
+    const pid4 = chartToPatientId.get("CF-0013");
+    if (pid4) {
+      const scheduledTime = new Date();
+      scheduledTime.setDate(scheduledTime.getDate() + 1);
+      scheduledTime.setHours(10, 0, 0, 0);
+      outboundRows.push({
+        id: randomUUID(), patientId: pid4, messageType: "SCALING_REMINDER", channel: "KAKAO",
+        draftMessage: "남궁석님, 보험 스케일링 수진 시기가 지났습니다. 치주 건강을 위해 내원 부탁드립니다.",
+        finalMessage: "남궁석님, 안녕하세요. OO치과입니다. 보험 스케일링 수진 시기가 도래하였습니다. 치주 건강 관리를 위해 빠른 내원 부탁드립니다.",
+        approvalStatus: "APPROVED", approvedBy: "관리자 홍길동", approvedAt: daysAgo(2),
+        sendStatus: "SCHEDULED", sentAt: null, failedAt: null, failureReason: null,
+        sendAttemptCount: 0, provider: null,
+        duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: false,
+        createdBy: "데스크 김소연", sentBy: null, scheduledAt: scheduledTime,
+      });
+    }
+
+    // 5) 발송 완료 (SENT)
+    const pid5 = chartToPatientId.get("CF-0018");
+    if (pid5) outboundRows.push({
+      id: randomUUID(), patientId: pid5, messageType: "RECALL", channel: "KAKAO",
+      draftMessage: "문정훈님, 임플란트 정기 점검 시기입니다.",
+      finalMessage: "문정훈님, 안녕하세요. OO치과입니다. 임플란트(#36) 정기 점검 시기가 되었습니다. 편하신 시간에 내원 부탁드립니다.",
+      approvalStatus: "APPROVED", approvedBy: "관리자 홍길동", approvedAt: daysAgo(5),
+      sendStatus: "SENT", sentAt: daysAgo(4), failedAt: null, failureReason: null,
+      sendAttemptCount: 1, provider: "mock",
+      duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: false,
+      createdBy: "데스크 김소연", sentBy: "데스크 김소연", scheduledAt: null,
+    });
+
+    // 6) 발송 완료 2
+    const pid6 = chartToPatientId.get("CF-0022");
+    if (pid6) outboundRows.push({
+      id: randomUUID(), patientId: pid6, messageType: "RECALL", channel: "KAKAO",
+      draftMessage: "류태완님, 임플란트 3개월 점검 안내입니다.",
+      finalMessage: "류태완님, 안녕하세요. OO치과입니다. 임플란트(#35) 3개월 정기 점검일이 지났습니다. 보호자님께서 예약 연락 주시면 감사하겠습니다.",
+      approvalStatus: "APPROVED", approvedBy: "관리자 홍길동", approvedAt: daysAgo(7),
+      sendStatus: "SENT", sentAt: daysAgo(6), failedAt: null, failureReason: null,
+      sendAttemptCount: 1, provider: "mock",
+      duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: false,
+      createdBy: "데스크 김소연", sentBy: "데스크 김소연", scheduledAt: null,
+    });
+
+    // 7) 발송 실패 (FAILED)
+    const pid7 = chartToPatientId.get("CF-0003");
+    if (pid7) outboundRows.push({
+      id: randomUUID(), patientId: pid7, messageType: "TREATMENT_RESUME", channel: "KAKAO",
+      draftMessage: "박준호님, 치료 중이시던 46번 치아 신경치료가 아직 완료되지 않았습니다.",
+      finalMessage: "박준호님, 안녕하세요. OO치과입니다. 46번 치아 신경치료가 진행 중입니다. 빠른 시일 내 내원하여 치료를 완료하시길 권합니다.",
+      approvalStatus: "APPROVED", approvedBy: "관리자 홍길동", approvedAt: daysAgo(3),
+      sendStatus: "FAILED", sentAt: null, failedAt: daysAgo(2), failureReason: "카카오 알림톡 발송 실패: 유효하지 않은 수신번호",
+      sendAttemptCount: 2, provider: "mock",
+      duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: false,
+      createdBy: "데스크 김소연", sentBy: "데스크 김소연", scheduledAt: null,
+    });
+
+    // 8) 수신 거부로 차단 (BLOCKED + doNotContactBlocked)
+    const pid8 = chartToPatientId.get("CF-0008");
+    if (pid8) outboundRows.push({
+      id: randomUUID(), patientId: pid8, messageType: "TREATMENT_RESUME", channel: "KAKAO",
+      draftMessage: "윤다혜님, 보철 치료가 대기 중입니다.",
+      finalMessage: null,
+      approvalStatus: "APPROVED", approvedBy: "관리자 홍길동", approvedAt: daysAgo(4),
+      sendStatus: "BLOCKED", sentAt: null, failedAt: null, failureReason: "수신 거부 환자",
+      sendAttemptCount: 0, provider: null,
+      duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: true,
+      createdBy: "데스크 김소연", sentBy: null, scheduledAt: null,
+    });
+
+    // 9) 중복 차단 (BLOCKED + duplicateBlocked)
+    const pid9 = chartToPatientId.get("CF-0018");
+    if (pid9) outboundRows.push({
+      id: randomUUID(), patientId: pid9, messageType: "RECALL", channel: "KAKAO",
+      draftMessage: "문정훈님, 임플란트 점검 시기 재안내입니다.",
+      finalMessage: null,
+      approvalStatus: "APPROVED", approvedBy: "관리자 홍길동", approvedAt: daysAgo(2),
+      sendStatus: "BLOCKED", sentAt: null, failedAt: null, failureReason: "7일 이내 동일 환자 동일 유형 발송 이력 있음",
+      sendAttemptCount: 0, provider: null,
+      duplicateBlocked: true, duplicateReason: "7일 이내 RECALL 유형 메시지 발송 이력 존재", doNotContactBlocked: false,
+      createdBy: "상담실장 박미영", sentBy: null, scheduledAt: null,
+    });
+
+    // 10) 반려된 메시지 (REJECTED + CANCELLED)
+    const pid10 = chartToPatientId.get("CF-0002");
+    if (pid10) outboundRows.push({
+      id: randomUUID(), patientId: pid10, messageType: "TREATMENT_RESUME", channel: "KAKAO",
+      draftMessage: "이영희님, 치료 중단된 36번 치아 신경치료를 완료해 주세요.",
+      finalMessage: null,
+      approvalStatus: "REJECTED", approvedBy: null, approvedAt: null,
+      sendStatus: "CANCELLED", sentAt: null, failedAt: null, failureReason: null,
+      sendAttemptCount: 0, provider: null,
+      duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: false,
+      createdBy: "데스크 이지은", sentBy: null, scheduledAt: null,
+    });
+
+    if (outboundRows.length > 0) {
+      await prisma.outboundMessage.createMany({ data: outboundRows });
+    }
+
     await prisma.auditLog.create({
       data: {
         action: "seed_data",
         entityType: "system",
         entityId: "seed",
-        detail: JSON.stringify({ patientCount: patients.length, campaignCount: campaigns.length, taskCount: taskRows.length, staffCount: staffRows.length, ctaLeadCount: leadRows.length, sourceRuleCount: sourceRuleRows.length, userCount: userRows.length, syncJobCount: syncJobRows.length }),
+        detail: JSON.stringify({ patientCount: patients.length, campaignCount: campaigns.length, taskCount: taskRows.length, staffCount: staffRows.length, ctaLeadCount: leadRows.length, sourceRuleCount: sourceRuleRows.length, userCount: userRows.length, syncJobCount: syncJobRows.length, outboundMessageCount: outboundRows.length }),
       },
     });
 
     return NextResponse.json({
       success: true,
-      message: `${patients.length}명의 환자, ${campaigns.length}개의 캠페인, ${leadRows.length}개의 CTA 귀속, ${sourceRuleRows.length}개의 분류 규칙, ${taskRows.length}개의 업무, ${staffRows.length}명의 담당자, ${userRows.length}명의 사용자, ${syncJobRows.length}개의 동기화 작업이 생성되었습니다.`,
+      message: `${patients.length}명의 환자, ${campaigns.length}개의 캠페인, ${leadRows.length}개의 CTA 귀속, ${sourceRuleRows.length}개의 분류 규칙, ${taskRows.length}개의 업무, ${staffRows.length}명의 담당자, ${userRows.length}명의 사용자, ${syncJobRows.length}개의 동기화 작업, ${outboundRows.length}개의 발송 메시지가 생성되었습니다.`,
     });
   } catch (error) {
     console.error("Seed API error:", error);

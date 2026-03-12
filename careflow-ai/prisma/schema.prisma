@@ -20,6 +20,10 @@ model Patient {
   birthYear   Int      // 연령대 계산용 - 운영에 필요
   isVip       Boolean  @default(false)
   tags        String?  // 운영 태그 (자유 텍스트 메모 아님, 정형화된 태그만)
+  // 수신 거부 / 연락 금지
+  doNotContact       Boolean   @default(false)
+  doNotContactAt     DateTime?
+  doNotContactReason String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -27,6 +31,7 @@ model Patient {
   visits                Visit[]
   recallRecommendations RecallRecommendation[]
   messageDrafts         MessageDraft[]
+  outboundMessages      OutboundMessage[]
   workflowTasks         WorkflowTask[]
   activityLogs          ActivityLog[]
 }
@@ -465,5 +470,56 @@ model SourceNormalizationHistory {
   @@index([visitId])
   @@index([batchKey])
   @@index([changeType])
+  @@index([createdAt])
+}
+
+// ──────────────────────────────────────────────
+// 발송 메시지 (운영 전체 라이프사이클)
+// 초안 → 검토 → 승인 → 발송 → 성공/실패/재시도
+// ──────────────────────────────────────────────
+
+model OutboundMessage {
+  id              String    @id @default(cuid())
+  patientId       String
+  // 컨텍스트
+  messageType     String    // RECALL, CTA_FOLLOWUP, TREATMENT_RESUME, COUNSELING_FOLLOWUP, SCALING_REMINDER, GENERAL
+  relatedTaskId   String?   // WorkflowTask 참조
+  channel         String    @default("KAKAO") // KAKAO, SMS
+  // 콘텐츠
+  templateType    String?   // 사용된 템플릿 식별자
+  draftMessage    String    // AI/템플릿 초안
+  finalMessage    String?   // 최종 승인 메시지 (수정 가능)
+  // 승인 흐름
+  approvalStatus  String    @default("DRAFT") // DRAFT, REVIEW_NEEDED, APPROVED, REJECTED
+  approvalMemo    String?
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectedReason  String?
+  // 발송 흐름
+  sendStatus      String    @default("PENDING") // PENDING, SCHEDULED, SENDING, SENT, FAILED, RETRY_NEEDED, CANCELLED, BLOCKED
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+  failedAt        DateTime?
+  failureReason   String?
+  sendAttemptCount Int      @default(0)
+  externalId      String?   // provider 발송 ID
+  provider        String?   // 발송 provider (mock, kakao_alimtalk)
+  // 안전장치
+  duplicateBlocked    Boolean @default(false)
+  duplicateReason     String?
+  doNotContactBlocked Boolean @default(false)
+  // 감사
+  createdBy       String
+  sentBy          String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([approvalStatus])
+  @@index([sendStatus])
+  @@index([messageType])
+  @@index([scheduledAt])
   @@index([createdAt])
 }

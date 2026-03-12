@@ -158,6 +158,25 @@ export default async function DashboardPage() {
       } : null,
     };
 
+    // 메시지 발송 통계
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const [msgReviewNeeded, msgApproved, msgSentToday, msgFailed, msgBlocked] = await Promise.all([
+      prisma.outboundMessage.count({ where: { approvalStatus: "REVIEW_NEEDED" } }).catch(() => 0),
+      prisma.outboundMessage.count({ where: { approvalStatus: "APPROVED", sendStatus: "PENDING" } }).catch(() => 0),
+      prisma.outboundMessage.count({ where: { sendStatus: "SENT", sentAt: { gte: todayStart } } }).catch(() => 0),
+      prisma.outboundMessage.count({ where: { sendStatus: { in: ["FAILED", "RETRY_NEEDED"] } } }).catch(() => 0),
+      prisma.outboundMessage.count({ where: { OR: [{ doNotContactBlocked: true }, { duplicateBlocked: true }] } }).catch(() => 0),
+    ]);
+
+    const messageStats = {
+      reviewNeeded: msgReviewNeeded,
+      approved: msgApproved,
+      sentToday: msgSentToday,
+      failed: msgFailed,
+      blocked: msgBlocked,
+    };
+
     // 동기화 통계
     const syncJobs = await prisma.syncJob.findMany({
       select: { status: true, startedAt: true },
@@ -187,6 +206,7 @@ export default async function DashboardPage() {
         workflowSummary={workflowSummary}
         sourceReviewStats={sourceReviewStats}
         syncStats={syncStats}
+        messageStats={messageStats}
       />
     );
   } catch (error) {

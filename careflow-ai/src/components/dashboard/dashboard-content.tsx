@@ -28,6 +28,7 @@ import {
   Megaphone,
   ClipboardList,
   Search,
+  Mail,
 } from "lucide-react";
 import {
   RULE_TYPE_LABELS,
@@ -92,6 +93,14 @@ interface SyncStats {
   runningCount: number;
 }
 
+interface MessageStats {
+  reviewNeeded: number;
+  approved: number;
+  sentToday: number;
+  failed: number;
+  blocked: number;
+}
+
 interface DashboardContentProps {
   stats: {
     todayActionCount: number;
@@ -116,6 +125,7 @@ interface DashboardContentProps {
   workflowSummary?: WorkflowSummary;
   sourceReviewStats?: SourceReviewStats;
   syncStats?: SyncStats;
+  messageStats?: MessageStats;
 }
 
 const statCards = [
@@ -197,6 +207,7 @@ export function DashboardContent({
   workflowSummary,
   sourceReviewStats,
   syncStats,
+  messageStats,
 }: DashboardContentProps) {
   return (
     <div className="space-y-6">
@@ -374,6 +385,47 @@ export function DashboardContent({
               <Link
                 href="/sync"
                 className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center gap-1 font-medium"
+              >
+                관리 <ChevronRight size={14} />
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 메시지 발송 현황 */}
+      {messageStats && (messageStats.reviewNeeded > 0 || messageStats.failed > 0 || messageStats.sentToday > 0) && (
+        <Card className={`border-0 shadow-sm border-l-4 ${messageStats.failed > 0 ? "border-l-red-400" : messageStats.reviewNeeded > 0 ? "border-l-amber-400" : "border-l-green-400"}`}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${messageStats.failed > 0 ? "bg-red-50" : messageStats.reviewNeeded > 0 ? "bg-amber-50" : "bg-green-50"}`}>
+                  <Mail size={18} className={messageStats.failed > 0 ? "text-red-600" : messageStats.reviewNeeded > 0 ? "text-amber-600" : "text-green-600"} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">메시지 발송 현황</p>
+                  <p className="text-xs text-gray-500">
+                    {messageStats.reviewNeeded > 0 && (
+                      <span className="font-medium text-amber-600">검토 필요 {messageStats.reviewNeeded}건</span>
+                    )}
+                    {messageStats.approved > 0 && (
+                      <>{messageStats.reviewNeeded > 0 && " · "}발송 대기 {messageStats.approved}건</>
+                    )}
+                    {messageStats.sentToday > 0 && (
+                      <>{(messageStats.reviewNeeded > 0 || messageStats.approved > 0) && " · "}<span className="text-green-600">오늘 발송 {messageStats.sentToday}건</span></>
+                    )}
+                    {messageStats.failed > 0 && (
+                      <> · <span className="font-medium text-red-600">실패 {messageStats.failed}건</span></>
+                    )}
+                    {messageStats.blocked > 0 && (
+                      <> · 차단 {messageStats.blocked}건</>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/messages"
+                className={`text-sm flex items-center gap-1 font-medium ${messageStats.failed > 0 ? "text-red-600 hover:text-red-700" : messageStats.reviewNeeded > 0 ? "text-amber-600 hover:text-amber-700" : "text-green-600 hover:text-green-700"}`}
               >
                 관리 <ChevronRight size={14} />
               </Link>
