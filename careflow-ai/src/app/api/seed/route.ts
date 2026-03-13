@@ -598,11 +598,16 @@ export async function POST(request: NextRequest) {
     }
 
     // ── 보안: DB에 데이터가 이미 있으면 ADMIN 인증 필요 ──
-    // 최초 설정(DB 비어있음)에는 인증 없이 허용
+    // 최초 설정(DB 비어있음) 또는 User 계정이 없으면 인증 없이 허용
+    // (User가 없으면 로그인 자체가 불가능하므로 인증을 요구할 수 없음)
     let isFirstSetup = false;
     try {
-      const patientCount = await prisma.patient.count();
-      isFirstSetup = patientCount === 0;
+      const [patientCount, userCount] = await Promise.all([
+        prisma.patient.count(),
+        prisma.user.count(),
+      ]);
+      // 환자 데이터가 없거나, 로그인 가능한 계정이 없으면 초기 설정으로 간주
+      isFirstSetup = patientCount === 0 || userCount === 0;
     } catch {
       // 테이블 자체가 없으면 최초 설정으로 간주
       isFirstSetup = true;
