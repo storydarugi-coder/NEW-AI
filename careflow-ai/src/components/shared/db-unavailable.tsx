@@ -87,10 +87,9 @@ export function DbUnavailable({ reason }: DbUnavailableProps) {
             </div>
             <div className="space-y-1">
               <p><span className="font-medium">Vercel 배포:</span></p>
-              <p>1. PostgreSQL DB 생성 (Neon, Supabase 등 무료 제공)</p>
-              <p>2. Vercel 환경변수에 <code className="bg-gray-200 px-1 rounded">DATABASE_URL</code> 설정</p>
-              <p>3. <code className="bg-gray-200 px-1 rounded">prisma/schema.prisma</code>의 provider를 <code className="bg-gray-200 px-1 rounded">postgresql</code>로 변경</p>
-              <p>4. 재배포 후 이 페이지에서 &quot;데모 데이터 생성&quot; 클릭</p>
+              <p>1. Vercel 환경변수에 <code className="bg-gray-200 px-1 rounded">DATABASE_URL</code>, <code className="bg-gray-200 px-1 rounded">DIRECT_URL</code>, <code className="bg-gray-200 px-1 rounded">AUTH_SECRET</code> 설정</p>
+              <p>2. 로컬에서 <code className="bg-gray-200 px-1 rounded">npx prisma db push</code> 실행 (테이블 생성)</p>
+              <p>3. 이 페이지에서 &quot;데모 데이터 생성&quot; 클릭</p>
             </div>
           </div>
         </CardContent>

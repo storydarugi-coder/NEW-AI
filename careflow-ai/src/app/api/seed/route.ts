@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma, isDatabaseAvailable } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { DEFAULT_SOURCE_RULES } from "@/lib/attribution/rules";
 import { normalizeSource, type NormalizationResult } from "@/lib/attribution/normalizer";
-import { hashPassword } from "@/lib/auth";
+import { hashPassword, verifySession } from "@/lib/auth";
 
 function daysAgo(days: number): Date {
   const d = new Date();
@@ -587,7 +587,7 @@ function getAutoReason(sourceRaw: string, channel: string): string {
 // Vercel 함수 타임아웃 확장 (Hobby: 최대 60초)
 export const maxDuration = 60;
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     const dbCheck = await isDatabaseAvailable();
     if (!dbCheck.available) {
@@ -595,6 +595,28 @@ export async function POST() {
         { error: "데이터베이스에 연결할 수 없습니다. DATABASE_URL 환경변수를 확인해 주세요.", detail: dbCheck.error },
         { status: 503 }
       );
+    }
+
+    // ── 보안: DB에 데이터가 이미 있으면 ADMIN 인증 필요 ──
+    // 최초 설정(DB 비어있음)에는 인증 없이 허용
+    let isFirstSetup = false;
+    try {
+      const patientCount = await prisma.patient.count();
+      isFirstSetup = patientCount === 0;
+    } catch {
+      // 테이블 자체가 없으면 최초 설정으로 간주
+      isFirstSetup = true;
+    }
+
+    if (!isFirstSetup) {
+      const sessionToken = request.cookies.get("session")?.value;
+      const user = verifySession(sessionToken);
+      if (!user || user.role !== "ADMIN") {
+        return NextResponse.json(
+          { error: "시드 실행은 ADMIN 권한이 필요합니다. 관리자로 로그인 후 다시 시도해주세요." },
+          { status: 403 }
+        );
+      }
     }
 
     // ── 1단계: 기존 데이터 삭제 (leaf → root, 독립 테이블 병렬) ──
