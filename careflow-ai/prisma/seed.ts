@@ -1342,8 +1342,14 @@ async function main() {
     { username: "mkt01", password: "mkt123", name: "마케팅 정하늘", role: "MARKETING" },
   ];
   for (const u of demoUsers) {
-    await prisma.user.create({
-      data: {
+    await prisma.user.upsert({
+      where: { username: u.username },
+      update: {
+        passwordHash: hashPassword(u.password),
+        name: u.name,
+        role: u.role,
+      },
+      create: {
         username: u.username,
         passwordHash: hashPassword(u.password),
         name: u.name,

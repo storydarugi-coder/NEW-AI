@@ -310,25 +310,41 @@ npm run test:watch # 감시 모드
 
 ## 배포 가이드
 
-### Vercel (권장)
+### Vercel + Supabase (권장)
 
-> **중요**: SQLite 파일은 Vercel serverless 환경에서 사용할 수 없습니다.
-> 반드시 PostgreSQL (Neon, Supabase 등 무료 제공)로 전환해야 합니다.
+**사전 준비: 로컬에서 DB 스키마 생성** (1회만)
 
-**단계별 설정:**
+```bash
+cp .env.example .env
+# .env 파일에 DATABASE_URL, DIRECT_URL 입력
+npm install
+npx prisma generate
+npx prisma db push          # Supabase에 테이블 생성
+npx tsx prisma/seed.ts      # 데모 데이터 + 사용자 계정 입력 (선택)
+```
 
-1. `prisma/schema.prisma`에서 provider를 `postgresql`로 변경
-2. GitHub 레포지토리를 Vercel에 연결
-3. Vercel 프로젝트 Settings:
-   - **Root Directory**: `careflow-ai` (모노레포인 경우)
+> `prisma db push`는 **로컬에서만** 실행합니다. Vercel 빌드에서는 실행하지 않습니다.
+
+**Vercel 설정:**
+
+1. GitHub 레포지토리를 Vercel에 연결
+2. Vercel 프로젝트 Settings:
+   - **Root Directory**: `careflow-ai`
    - **Framework**: Next.js (자동 감지)
-4. Environment Variables 설정:
-   - `DATABASE_URL`: PostgreSQL 연결 URL (예: Neon 무료 제공)
-5. 배포 후 `https://your-app.vercel.app/api/seed` 에 POST 요청을 보내 데모 데이터 생성
+3. Environment Variables 설정:
+
+   | 변수 | 설명 |
+   |------|------|
+   | `DATABASE_URL` | Supabase Pooler URL (6543 포트, `?pgbouncer=true`) |
+   | `DIRECT_URL` | Supabase Direct URL (5432 포트) |
+   | `AUTH_SECRET` | 세션 서명 키 (랜덤 문자열, 프로덕션 필수) |
+
+4. 배포 (빌드 커맨드: `npx prisma generate && next build` — 자동)
+5. 배포 후 Seed 데이터 입력:
    ```bash
    curl -X POST https://your-app.vercel.app/api/seed
    ```
-6. 또는 앱 접속 시 나타나는 "데모 데이터 생성" 버튼 클릭
+   또는 앱 접속 시 나타나는 "데모 데이터 생성" 버튼 클릭
 
 **DB 연결 없이 배포한 경우:**
 - 앱이 크래시되지 않고, 데이터베이스 연결 안내 페이지가 표시됩니다.
@@ -360,28 +376,21 @@ CMD ["npm", "start"]
 
 ---
 
-## SQLite → PostgreSQL 마이그레이션
+## DB 연결 구조 (Supabase)
 
-프로덕션 배포 시 SQLite에서 Postgres로 전환하는 방법:
+현재 `prisma/schema.prisma`는 PostgreSQL + Supabase Pooler 구조입니다:
 
-1. `prisma/schema.prisma`에서 provider 변경:
 ```prisma
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")    // Pooler (6543) — 런타임 쿼리
+  directUrl = env("DIRECT_URL")      // Direct (5432) — 마이그레이션 전용
 }
 ```
 
-2. `.env` 업데이트:
-```env
-DATABASE_URL="postgresql://user:password@host:5432/careflow"
-```
-
-3. 마이그레이션 실행:
-```bash
-npx prisma db push
-npx tsx prisma/seed.ts
-```
+- **`DATABASE_URL`**: PgBouncer 풀러 경유 (serverless 호환, Vercel 런타임용)
+- **`DIRECT_URL`**: 직접 연결 (로컬에서 `prisma db push` 실행 시 사용)
+- Vercel 빌드 시에는 `prisma generate`만 실행하므로 DB 연결 불필요
 
 ---
 
