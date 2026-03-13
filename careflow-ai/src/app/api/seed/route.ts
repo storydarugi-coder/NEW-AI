@@ -588,6 +588,7 @@ function getAutoReason(sourceRaw: string, channel: string): string {
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
+  let currentStep = "초기화";
   try {
     const dbCheck = await isDatabaseAvailable();
     if (!dbCheck.available) {
@@ -624,36 +625,47 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── 1단계: 기존 데이터 삭제 (leaf → root, 독립 테이블 병렬) ──
-    await Promise.all([
-      prisma.activityLog.deleteMany(),
-      prisma.auditLog.deleteMany(),
-      prisma.messageDelivery.deleteMany(),
-      prisma.outboundMessage.deleteMany(),
-      prisma.leadAttribution.deleteMany(),
-      prisma.messageDraft.deleteMany(),
-      prisma.recallRecommendation.deleteMany(),
-      prisma.sourceNormalizationHistory.deleteMany(),
-      prisma.importBatch.deleteMany(),
-      prisma.syncJob.deleteMany(),
-      prisma.user.deleteMany(),
-    ]);
-    await Promise.all([
-      prisma.workflowTask.deleteMany(),
-      prisma.staff.deleteMany(),
-    ]);
-    await Promise.all([
-      prisma.diagnosis.deleteMany(),
-      prisma.procedure.deleteMany(),
-    ]);
-    await prisma.visit.deleteMany();
-    await Promise.all([
-      prisma.patientIdentity.deleteMany(),
-      prisma.campaign.deleteMany(),
-      prisma.ruleConfig.deleteMany(),
-      prisma.sourceRule.deleteMany(),
-    ]);
-    await prisma.patient.deleteMany();
+    const now = new Date();
+
+    // ── 1단계: 기존 데이터 삭제 (leaf → root) ──
+    currentStep = "기존 데이터 삭제";
+    try {
+      await Promise.all([
+        prisma.activityLog.deleteMany(),
+        prisma.auditLog.deleteMany(),
+        prisma.messageDelivery.deleteMany(),
+        prisma.outboundMessage.deleteMany(),
+        prisma.leadAttribution.deleteMany(),
+        prisma.messageDraft.deleteMany(),
+        prisma.recallRecommendation.deleteMany(),
+        prisma.sourceNormalizationHistory.deleteMany(),
+        prisma.importBatch.deleteMany(),
+        prisma.syncJob.deleteMany(),
+        prisma.user.deleteMany(),
+      ]);
+      await Promise.all([
+        prisma.workflowTask.deleteMany(),
+        prisma.staff.deleteMany(),
+      ]);
+      await Promise.all([
+        prisma.diagnosis.deleteMany(),
+        prisma.procedure.deleteMany(),
+      ]);
+      await prisma.visit.deleteMany();
+      await Promise.all([
+        prisma.patientIdentity.deleteMany(),
+        prisma.campaign.deleteMany(),
+        prisma.ruleConfig.deleteMany(),
+        prisma.sourceRule.deleteMany(),
+      ]);
+      await prisma.patient.deleteMany();
+    } catch (deleteErr) {
+      console.error("[Seed] 기존 데이터 삭제 실패:", deleteErr);
+      return NextResponse.json(
+        { error: "기존 데이터 삭제 중 오류가 발생했습니다.", step: currentStep, detail: deleteErr instanceof Error ? deleteErr.message : String(deleteErr) },
+        { status: 500 }
+      );
+    }
 
     // ── 2단계: 사전 ID 생성 + createMany 로 벌크 INSERT ──
     // 캠페인
@@ -667,20 +679,21 @@ export async function POST(request: NextRequest) {
         startDate: c.startDate, endDate: c.endDate || null,
         budgetWon: c.budgetWon || null, costPerClick: c.costPerClick || null,
         status: c.status,
+        updatedAt: now,
       };
     });
 
     // 담당자
     const staffIds = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
     const staffRows = [
-      { id: staffIds[0], name: "김수진", role: "desk" },
-      { id: staffIds[1], name: "박미영", role: "counselor" },
-      { id: staffIds[2], name: "이원장", role: "doctor" },
-      { id: staffIds[3], name: "정관리", role: "manager" },
+      { id: staffIds[0], name: "김수진", role: "desk", updatedAt: now },
+      { id: staffIds[1], name: "박미영", role: "counselor", updatedAt: now },
+      { id: staffIds[2], name: "이원장", role: "doctor", updatedAt: now },
+      { id: staffIds[3], name: "정관리", role: "manager", updatedAt: now },
     ];
 
     // 룰 설정
-    const ruleRows = ruleConfigs.map((rc) => ({ id: randomUUID(), ...rc }));
+    const ruleRows = ruleConfigs.map((rc) => ({ id: randomUUID(), ...rc, updatedAt: now }));
 
     // 방문경로 분류 사전 (SourceRule)
     const sourceRuleMap = new Map<string, string>();
@@ -697,16 +710,17 @@ export async function POST(request: NextRequest) {
         priority: r.priority,
         isActive: r.isActive,
         description: r.description,
+        updatedAt: now,
       };
     });
 
     // 환자 + identity + visit + procedure + diagnosis + leadAttribution
-    const patientRows: { id: string; chartNumber: string; gender: string; birthYear: number; isVip: boolean; tags: string | null }[] = [];
-    const identityRows: { id: string; patientId: string; name: string; phone: string }[] = [];
+    const patientRows: { id: string; chartNumber: string; gender: string; birthYear: number; isVip: boolean; tags: string | null; updatedAt: Date }[] = [];
+    const identityRows: { id: string; patientId: string; name: string; phone: string; updatedAt: Date }[] = [];
     const visitRows: { id: string; patientId: string; visitDate: Date; memo: string | null; sourceRaw: string | null; channel: string | null; isCta: boolean; campaignId: string | null; normalizedSource: string | null; sourceCategory: string | null; ctaCandidate: boolean | null; matchConfidence: string | null; matchReason: string | null; matchedRuleId: string | null; reviewedSource: string | null; reviewedCategory: string | null; reviewedCtaFlag: boolean | null; sourceReviewStatus: string }[] = [];
     const procedureRows: { id: string; visitId: string; code: string; name: string; tooth: string | null }[] = [];
     const diagnosisRows: { id: string; visitId: string; code: string; name: string; tooth: string | null }[] = [];
-    const leadRows: { id: string; visitId: string; campaignId: string; reviewStatus: string; autoReason: string; confidence: number; reviewer: string | null; reviewedAt: Date | null; treatmentStarted: boolean; isDuplicate: boolean; settlementMonth: string; settlementEligible: boolean; ineligibleReason: string | null }[] = [];
+    const leadRows: { id: string; visitId: string; campaignId: string; reviewStatus: string; autoReason: string; confidence: number; reviewer: string | null; reviewedAt: Date | null; treatmentStarted: boolean; isDuplicate: boolean; settlementMonth: string; settlementEligible: boolean; ineligibleReason: string | null; updatedAt: Date }[] = [];
 
     const chartToPatientId = new Map<string, string>();
 
@@ -721,6 +735,7 @@ export async function POST(request: NextRequest) {
         birthYear: p.birthYear,
         isVip: p.isVip || false,
         tags: p.tags || null,
+        updatedAt: now,
       });
 
       identityRows.push({
@@ -728,6 +743,7 @@ export async function POST(request: NextRequest) {
         patientId,
         name: p.name,
         phone: p.phone,
+        updatedAt: now,
       });
 
       const campaignsSeen = new Set<string>();
@@ -819,6 +835,7 @@ export async function POST(request: NextRequest) {
             settlementMonth,
             settlementEligible,
             ineligibleReason,
+            updatedAt: now,
           });
         }
       }
@@ -856,7 +873,7 @@ export async function POST(request: NextRequest) {
       "CF-0045": [{ actionType: "RECALL", status: "on_hold", staffIndex: 0, note: "장기 VIP 최근 미내원, 스케일링 시기 지남", reason: "진료 시작 여부 확인 필요", nextFollowUpDays: -2 }],
     };
 
-    const taskRows: { id: string; patientId: string; actionType: string; status: string; assigneeId: string | null; note: string | null; reason: string | null; nextFollowUpAt: Date | null; completedAt: Date | null }[] = [];
+    const taskRows: { id: string; patientId: string; actionType: string; status: string; assigneeId: string | null; note: string | null; reason: string | null; nextFollowUpAt: Date | null; completedAt: Date | null; updatedAt: Date }[] = [];
     const activityRows: { id: string; taskId: string; patientId: string; staffId: string | null; action: string; fromValue: string | null; toValue: string | null }[] = [];
 
     for (const [chartNumber, taskItems] of Object.entries(taskSeedMap)) {
@@ -874,6 +891,7 @@ export async function POST(request: NextRequest) {
           id: taskId, patientId, actionType: ts.actionType, status: ts.status,
           assigneeId, note: ts.note, reason: ts.reason, nextFollowUpAt,
           completedAt: ts.status === "completed" ? daysAgo(3) : null,
+          updatedAt: now,
         });
 
         activityRows.push({
@@ -895,46 +913,87 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── 3단계: 벌크 INSERT (의존 순서) ──
-    // 독립 테이블 동시
-    await Promise.all([
-      prisma.campaign.createMany({ data: campaignRows }),
-      prisma.staff.createMany({ data: staffRows }),
-      prisma.ruleConfig.createMany({ data: ruleRows }),
-      prisma.sourceRule.createMany({ data: sourceRuleRows }),
-      prisma.patient.createMany({ data: patientRows }),
-    ]);
+    // ── 3단계: 벌크 INSERT (의존 순서, 단계별 에러 추적) ──
+    try {
+      currentStep = "기본 데이터 생성 (캠페인/담당자/규칙/환자)";
+      await Promise.all([
+        prisma.campaign.createMany({ data: campaignRows }),
+        prisma.staff.createMany({ data: staffRows }),
+        prisma.ruleConfig.createMany({ data: ruleRows }),
+        prisma.sourceRule.createMany({ data: sourceRuleRows }),
+        prisma.patient.createMany({ data: patientRows }),
+      ]);
+    } catch (err) {
+      console.error("[Seed] 기본 데이터 생성 실패:", err);
+      return NextResponse.json(
+        { error: "기본 데이터 생성 중 오류 (캠페인/담당자/규칙/환자)", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
+        { status: 500 }
+      );
+    }
 
-    // patient 의존
-    await Promise.all([
-      prisma.patientIdentity.createMany({ data: identityRows }),
-      prisma.visit.createMany({ data: visitRows }),
-    ]);
+    try {
+      currentStep = "환자 상세정보 생성 (신원/방문)";
+      await Promise.all([
+        prisma.patientIdentity.createMany({ data: identityRows }),
+        prisma.visit.createMany({ data: visitRows }),
+      ]);
+    } catch (err) {
+      console.error("[Seed] 환자 상세정보 생성 실패:", err);
+      return NextResponse.json(
+        { error: "환자 상세정보 생성 중 오류 (신원/방문 기록)", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
+        { status: 500 }
+      );
+    }
 
-    // visit 의존
-    await Promise.all([
-      prisma.procedure.createMany({ data: procedureRows }),
-      prisma.diagnosis.createMany({ data: diagnosisRows }),
-      prisma.leadAttribution.createMany({ data: leadRows }),
-    ]);
+    try {
+      currentStep = "진료 데이터 생성 (처치/진단/CTA 귀속)";
+      await Promise.all([
+        prisma.procedure.createMany({ data: procedureRows }),
+        prisma.diagnosis.createMany({ data: diagnosisRows }),
+        prisma.leadAttribution.createMany({ data: leadRows }),
+      ]);
+    } catch (err) {
+      console.error("[Seed] 진료 데이터 생성 실패:", err);
+      return NextResponse.json(
+        { error: "진료 데이터 생성 중 오류 (처치/진단/CTA)", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
+        { status: 500 }
+      );
+    }
 
-    // patient + staff 의존
-    await prisma.workflowTask.createMany({ data: taskRows });
-    await prisma.activityLog.createMany({ data: activityRows });
+    try {
+      currentStep = "업무 데이터 생성 (워크플로우/활동 로그)";
+      await prisma.workflowTask.createMany({ data: taskRows });
+      await prisma.activityLog.createMany({ data: activityRows });
+    } catch (err) {
+      console.error("[Seed] 업무 데이터 생성 실패:", err);
+      return NextResponse.json(
+        { error: "업무 데이터 생성 중 오류 (워크플로우/활동 로그)", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
+        { status: 500 }
+      );
+    }
 
     // ── 사용자 계정 생성 ──
+    currentStep = "사용자 계정 생성";
     const userRows = [
-      { id: randomUUID(), username: "admin", passwordHash: hashPassword("admin123"), name: "관리자 홍길동", role: "ADMIN" },
-      { id: randomUUID(), username: "desk01", passwordHash: hashPassword("desk123"), name: "데스크 김소연", role: "DESK" },
-      { id: randomUUID(), username: "desk02", passwordHash: hashPassword("desk123"), name: "데스크 이지은", role: "DESK" },
-      { id: randomUUID(), username: "counsel01", passwordHash: hashPassword("counsel123"), name: "상담실장 박미영", role: "COUNSELOR" },
-      { id: randomUUID(), username: "viewer01", passwordHash: hashPassword("view123"), name: "원장 최진수", role: "VIEWER" },
-      { id: randomUUID(), username: "mkt01", passwordHash: hashPassword("mkt123"), name: "마케팅 정하늘", role: "MARKETING" },
+      { id: randomUUID(), username: "admin", passwordHash: hashPassword("admin123"), name: "관리자 홍길동", role: "ADMIN", updatedAt: now },
+      { id: randomUUID(), username: "desk01", passwordHash: hashPassword("desk123"), name: "데스크 김소연", role: "DESK", updatedAt: now },
+      { id: randomUUID(), username: "desk02", passwordHash: hashPassword("desk123"), name: "데스크 이지은", role: "DESK", updatedAt: now },
+      { id: randomUUID(), username: "counsel01", passwordHash: hashPassword("counsel123"), name: "상담실장 박미영", role: "COUNSELOR", updatedAt: now },
+      { id: randomUUID(), username: "viewer01", passwordHash: hashPassword("view123"), name: "원장 최진수", role: "VIEWER", updatedAt: now },
+      { id: randomUUID(), username: "mkt01", passwordHash: hashPassword("mkt123"), name: "마케팅 정하늘", role: "MARKETING", updatedAt: now },
     ];
-    await prisma.user.createMany({ data: userRows });
+    try {
+      await prisma.user.createMany({ data: userRows });
+    } catch (err) {
+      console.error("[Seed] 사용자 계정 생성 실패:", err);
+      return NextResponse.json(
+        { error: "사용자 계정 생성 중 오류", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
+        { status: 500 }
+      );
+    }
 
     // ── 동기화 작업(SyncJob) 시드 ──
-    const now = new Date();
+    currentStep = "동기화/가져오기 데이터 생성";
     const syncJobRows = [
       {
         id: randomUUID(),
@@ -951,6 +1010,7 @@ export async function POST(request: NextRequest) {
         unclassifiedCount: 0,
         triggeredBy: "관리자 홍길동",
         notes: "초기 시드 데이터 생성",
+        updatedAt: now,
       },
       {
         id: randomUUID(),
@@ -967,6 +1027,7 @@ export async function POST(request: NextRequest) {
         unclassifiedCount: 12,
         triggeredBy: "데스크 김소연",
         notes: "3월 방문경로 CSV 가져오기 — 일부 차트번호 매칭 실패",
+        updatedAt: now,
       },
       {
         id: randomUUID(),
@@ -983,6 +1044,7 @@ export async function POST(request: NextRequest) {
         unclassifiedCount: 2,
         triggeredBy: "데스크 김소연",
         notes: "추가 방문경로 보정 import",
+        updatedAt: now,
       },
       {
         id: randomUUID(),
@@ -1000,75 +1062,105 @@ export async function POST(request: NextRequest) {
         triggeredBy: "system",
         notes: "EMR 연동 테스트 (mock)",
         errorSummary: "EMR API 연결 실패: ECONNREFUSED 127.0.0.1:8080 — mock EMR 서버가 실행 중이 아닙니다",
+        updatedAt: now,
       },
     ];
-    await prisma.syncJob.createMany({ data: syncJobRows });
+    try {
+      await prisma.syncJob.createMany({ data: syncJobRows });
+    } catch (err) {
+      console.error("[Seed] 동기화 작업 생성 실패:", err);
+      return NextResponse.json(
+        { error: "동기화 작업 데이터 생성 중 오류", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
+        { status: 500 }
+      );
+    }
 
     // ── ImportBatch 시드 (리포트용) ──
-    await prisma.importBatch.createMany({
-      data: [
-        {
-          id: randomUUID(),
-          fileName: "202603_방문경로_일괄.csv",
-          totalRows: 150,
-          successCount: 142,
-          failCount: 3,
-          unclassifiedCount: 12,
-          reviewNeededCount: 8,
-          status: "completed",
-          importedBy: "데스크 김소연",
-          createdAt: new Date(now.getTime() - 1 * 60 * 60 * 1000),
-        },
-        {
-          id: randomUUID(),
-          fileName: "202603_추가보정.csv",
-          totalRows: 50,
-          successCount: 50,
-          failCount: 0,
-          unclassifiedCount: 2,
-          reviewNeededCount: 2,
-          status: "completed",
-          importedBy: "데스크 김소연",
-          createdAt: new Date(now.getTime() - 30 * 60 * 1000),
-        },
-        {
-          id: randomUUID(),
-          fileName: "202602_CTA_정리.csv",
-          totalRows: 80,
-          successCount: 75,
-          failCount: 2,
-          unclassifiedCount: 5,
-          reviewNeededCount: 3,
-          status: "completed",
-          importedBy: "관리자 홍길동",
-          createdAt: daysAgo(15),
-        },
-      ],
-    });
+    try {
+      await prisma.importBatch.createMany({
+        data: [
+          {
+            id: randomUUID(),
+            fileName: "202603_방문경로_일괄.csv",
+            totalRows: 150,
+            successCount: 142,
+            failCount: 3,
+            unclassifiedCount: 12,
+            reviewNeededCount: 8,
+            status: "completed",
+            importedBy: "데스크 김소연",
+            createdAt: new Date(now.getTime() - 1 * 60 * 60 * 1000),
+            updatedAt: now,
+          },
+          {
+            id: randomUUID(),
+            fileName: "202603_추가보정.csv",
+            totalRows: 50,
+            successCount: 50,
+            failCount: 0,
+            unclassifiedCount: 2,
+            reviewNeededCount: 2,
+            status: "completed",
+            importedBy: "데스크 김소연",
+            createdAt: new Date(now.getTime() - 30 * 60 * 1000),
+            updatedAt: now,
+          },
+          {
+            id: randomUUID(),
+            fileName: "202602_CTA_정리.csv",
+            totalRows: 80,
+            successCount: 75,
+            failCount: 2,
+            unclassifiedCount: 5,
+            reviewNeededCount: 3,
+            status: "completed",
+            importedBy: "관리자 홍길동",
+            createdAt: daysAgo(15),
+            updatedAt: now,
+          },
+        ],
+      });
+    } catch (err) {
+      console.error("[Seed] ImportBatch 생성 실패:", err);
+      return NextResponse.json(
+        { error: "가져오기 이력 데이터 생성 중 오류", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
+        { status: 500 }
+      );
+    }
 
     // ── 완료된 업무에 completedAt 설정 (리포트용) ──
-    await prisma.workflowTask.updateMany({
-      where: { status: "completed" },
-      data: { completedAt: daysAgo(1) },
-    });
+    currentStep = "후처리 (업무완료/수신거부 설정)";
+    try {
+      await prisma.workflowTask.updateMany({
+        where: { status: "completed" },
+        data: { completedAt: daysAgo(1) },
+      });
 
-    // ── 수신 거부 환자 설정 ──
-    const doNotContactCharts = ["CF-0008", "CF-0016"];
-    for (const chart of doNotContactCharts) {
-      const pid = chartToPatientId.get(chart);
-      if (pid) {
-        await prisma.patient.update({
-          where: { id: pid },
-          data: {
-            doNotContact: true,
-            doNotContactAt: daysAgo(10),
-            doNotContactReason: "환자 본인 요청 — 문자 수신 거부",
-          },
-        });
+      // ── 수신 거부 환자 설정 ──
+      const doNotContactCharts = ["CF-0008", "CF-0016"];
+      for (const chart of doNotContactCharts) {
+        const pid = chartToPatientId.get(chart);
+        if (pid) {
+          await prisma.patient.update({
+            where: { id: pid },
+            data: {
+              doNotContact: true,
+              doNotContactAt: daysAgo(10),
+              doNotContactReason: "환자 본인 요청 — 문자 수신 거부",
+            },
+          });
+        }
       }
+    } catch (err) {
+      console.error("[Seed] 후처리 실패:", err);
+      return NextResponse.json(
+        { error: "후처리 중 오류 (업무완료/수신거부 설정)", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
+        { status: 500 }
+      );
     }
 
     // ── 아웃바운드 메시지 시드 ──
+    currentStep = "발송 메시지 데이터 생성";
     const outboundRows: {
       id: string; patientId: string; messageType: string; channel: string;
       draftMessage: string; finalMessage: string | null;
@@ -1079,6 +1171,7 @@ export async function POST(request: NextRequest) {
       doNotContactBlocked: boolean;
       createdBy: string; sentBy: string | null;
       scheduledAt: Date | null;
+      updatedAt: Date;
     }[] = [];
 
     // 1) 검토 필요 메시지 (REVIEW_NEEDED)
@@ -1091,7 +1184,7 @@ export async function POST(request: NextRequest) {
       sendStatus: "PENDING", sentAt: null, failedAt: null, failureReason: null,
       sendAttemptCount: 0, provider: null,
       duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: false,
-      createdBy: "데스크 김소연", sentBy: null, scheduledAt: null,
+      createdBy: "데스크 김소연", sentBy: null, scheduledAt: null, updatedAt: now,
     });
 
     // 2) 검토 필요 메시지 2 (REVIEW_NEEDED)
@@ -1104,7 +1197,7 @@ export async function POST(request: NextRequest) {
       sendStatus: "PENDING", sentAt: null, failedAt: null, failureReason: null,
       sendAttemptCount: 0, provider: null,
       duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: false,
-      createdBy: "상담실장 박미영", sentBy: null, scheduledAt: null,
+      createdBy: "상담실장 박미영", sentBy: null, scheduledAt: null, updatedAt: now,
     });
 
     // 3) 승인 완료 → 발송 대기 (APPROVED + PENDING)
@@ -1117,7 +1210,7 @@ export async function POST(request: NextRequest) {
       sendStatus: "PENDING", sentAt: null, failedAt: null, failureReason: null,
       sendAttemptCount: 0, provider: null,
       duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: false,
-      createdBy: "데스크 김소연", sentBy: null, scheduledAt: null,
+      createdBy: "데스크 김소연", sentBy: null, scheduledAt: null, updatedAt: now,
     });
 
     // 4) 예약 발송 (APPROVED + SCHEDULED)
@@ -1134,7 +1227,7 @@ export async function POST(request: NextRequest) {
         sendStatus: "SCHEDULED", sentAt: null, failedAt: null, failureReason: null,
         sendAttemptCount: 0, provider: null,
         duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: false,
-        createdBy: "데스크 김소연", sentBy: null, scheduledAt: scheduledTime,
+        createdBy: "데스크 김소연", sentBy: null, scheduledAt: scheduledTime, updatedAt: now,
       });
     }
 
@@ -1148,7 +1241,7 @@ export async function POST(request: NextRequest) {
       sendStatus: "SENT", sentAt: daysAgo(4), failedAt: null, failureReason: null,
       sendAttemptCount: 1, provider: "mock",
       duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: false,
-      createdBy: "데스크 김소연", sentBy: "데스크 김소연", scheduledAt: null,
+      createdBy: "데스크 김소연", sentBy: "데스크 김소연", scheduledAt: null, updatedAt: now,
     });
 
     // 6) 발송 완료 2
@@ -1161,7 +1254,7 @@ export async function POST(request: NextRequest) {
       sendStatus: "SENT", sentAt: daysAgo(6), failedAt: null, failureReason: null,
       sendAttemptCount: 1, provider: "mock",
       duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: false,
-      createdBy: "데스크 김소연", sentBy: "데스크 김소연", scheduledAt: null,
+      createdBy: "데스크 김소연", sentBy: "데스크 김소연", scheduledAt: null, updatedAt: now,
     });
 
     // 7) 발송 실패 (FAILED)
@@ -1174,7 +1267,7 @@ export async function POST(request: NextRequest) {
       sendStatus: "FAILED", sentAt: null, failedAt: daysAgo(2), failureReason: "카카오 알림톡 발송 실패: 유효하지 않은 수신번호",
       sendAttemptCount: 2, provider: "mock",
       duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: false,
-      createdBy: "데스크 김소연", sentBy: "데스크 김소연", scheduledAt: null,
+      createdBy: "데스크 김소연", sentBy: "데스크 김소연", scheduledAt: null, updatedAt: now,
     });
 
     // 8) 수신 거부로 차단 (BLOCKED + doNotContactBlocked)
@@ -1187,7 +1280,7 @@ export async function POST(request: NextRequest) {
       sendStatus: "BLOCKED", sentAt: null, failedAt: null, failureReason: "수신 거부 환자",
       sendAttemptCount: 0, provider: null,
       duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: true,
-      createdBy: "데스크 김소연", sentBy: null, scheduledAt: null,
+      createdBy: "데스크 김소연", sentBy: null, scheduledAt: null, updatedAt: now,
     });
 
     // 9) 중복 차단 (BLOCKED + duplicateBlocked)
@@ -1200,7 +1293,7 @@ export async function POST(request: NextRequest) {
       sendStatus: "BLOCKED", sentAt: null, failedAt: null, failureReason: "7일 이내 동일 환자 동일 유형 발송 이력 있음",
       sendAttemptCount: 0, provider: null,
       duplicateBlocked: true, duplicateReason: "7일 이내 RECALL 유형 메시지 발송 이력 존재", doNotContactBlocked: false,
-      createdBy: "상담실장 박미영", sentBy: null, scheduledAt: null,
+      createdBy: "상담실장 박미영", sentBy: null, scheduledAt: null, updatedAt: now,
     });
 
     // 10) 반려된 메시지 (REJECTED + CANCELLED)
@@ -1213,31 +1306,46 @@ export async function POST(request: NextRequest) {
       sendStatus: "CANCELLED", sentAt: null, failedAt: null, failureReason: null,
       sendAttemptCount: 0, provider: null,
       duplicateBlocked: false, duplicateReason: null, doNotContactBlocked: false,
-      createdBy: "데스크 이지은", sentBy: null, scheduledAt: null,
+      createdBy: "데스크 이지은", sentBy: null, scheduledAt: null, updatedAt: now,
     });
 
-    if (outboundRows.length > 0) {
-      await prisma.outboundMessage.createMany({ data: outboundRows });
+    try {
+      if (outboundRows.length > 0) {
+        await prisma.outboundMessage.createMany({ data: outboundRows });
+      }
+    } catch (err) {
+      console.error("[Seed] 발송 메시지 생성 실패:", err);
+      return NextResponse.json(
+        { error: "발송 메시지 데이터 생성 중 오류", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
+        { status: 500 }
+      );
     }
 
-    await prisma.auditLog.create({
-      data: {
-        action: "seed_data",
-        entityType: "system",
-        entityId: "seed",
-        detail: JSON.stringify({ patientCount: patients.length, campaignCount: campaigns.length, taskCount: taskRows.length, staffCount: staffRows.length, ctaLeadCount: leadRows.length, sourceRuleCount: sourceRuleRows.length, userCount: userRows.length, syncJobCount: syncJobRows.length, outboundMessageCount: outboundRows.length }),
-      },
-    });
+    // ── 감사 로그 ──
+    currentStep = "완료 기록";
+    try {
+      await prisma.auditLog.create({
+        data: {
+          action: "seed_data",
+          entityType: "system",
+          entityId: "seed",
+          detail: JSON.stringify({ patientCount: patients.length, campaignCount: campaigns.length, taskCount: taskRows.length, staffCount: staffRows.length, ctaLeadCount: leadRows.length, sourceRuleCount: sourceRuleRows.length, userCount: userRows.length, syncJobCount: syncJobRows.length, outboundMessageCount: outboundRows.length }),
+        },
+      });
+    } catch (err) {
+      // 감사 로그 실패는 치명적이지 않으므로 경고만
+      console.warn("[Seed] 감사 로그 기록 실패 (무시):", err);
+    }
 
     return NextResponse.json({
       success: true,
       message: `${patients.length}명의 환자, ${campaigns.length}개의 캠페인, ${leadRows.length}개의 CTA 귀속, ${sourceRuleRows.length}개의 분류 규칙, ${taskRows.length}개의 업무, ${staffRows.length}명의 담당자, ${userRows.length}명의 사용자, ${syncJobRows.length}개의 동기화 작업, ${outboundRows.length}개의 발송 메시지가 생성되었습니다.`,
     });
   } catch (error) {
-    console.error("Seed API error:", error);
+    console.error("[Seed] 예상치 못한 오류:", error);
     const errMsg = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: "데이터 초기화 중 오류가 발생했습니다.", detail: errMsg },
+      { error: `데이터 초기화 중 오류가 발생했습니다 (${currentStep}).`, step: currentStep, detail: errMsg },
       { status: 500 }
     );
   }

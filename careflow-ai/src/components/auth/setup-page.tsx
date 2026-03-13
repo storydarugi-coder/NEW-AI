@@ -24,7 +24,8 @@ export function SetupPage({ reason, detail }: SetupPageProps) {
         setTimeout(() => window.location.reload(), 2000);
       } else {
         const data = await res.json().catch(() => ({ error: "알 수 없는 오류" }));
-        setErrorMsg(data.error || "시드 실행에 실패했습니다.");
+        const stepInfo = data.step ? ` [${data.step}]` : "";
+        setErrorMsg((data.error || "시드 실행에 실패했습니다.") + stepInfo);
         setResult("error");
       }
     } catch {
