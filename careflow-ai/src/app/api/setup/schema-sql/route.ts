@@ -337,6 +337,26 @@ CREATE TABLE IF NOT EXISTS "OutboundMessage" (
     CONSTRAINT "OutboundMessage_pkey" PRIMARY KEY ("id")
 );
 
+-- ============================================================
+-- Migration: Add missing columns to existing tables
+-- (safe to re-run: ADD COLUMN IF NOT EXISTS)
+-- ============================================================
+
+-- Visit table: source normalization & review columns
+ALTER TABLE "Visit" ADD COLUMN IF NOT EXISTS "normalizedSource" TEXT;
+ALTER TABLE "Visit" ADD COLUMN IF NOT EXISTS "sourceCategory" TEXT;
+ALTER TABLE "Visit" ADD COLUMN IF NOT EXISTS "ctaCandidate" BOOLEAN;
+ALTER TABLE "Visit" ADD COLUMN IF NOT EXISTS "matchConfidence" TEXT;
+ALTER TABLE "Visit" ADD COLUMN IF NOT EXISTS "matchReason" TEXT;
+ALTER TABLE "Visit" ADD COLUMN IF NOT EXISTS "matchedRuleId" TEXT;
+ALTER TABLE "Visit" ADD COLUMN IF NOT EXISTS "reviewedSource" TEXT;
+ALTER TABLE "Visit" ADD COLUMN IF NOT EXISTS "reviewedCategory" TEXT;
+ALTER TABLE "Visit" ADD COLUMN IF NOT EXISTS "reviewedCtaFlag" BOOLEAN;
+ALTER TABLE "Visit" ADD COLUMN IF NOT EXISTS "sourceReviewStatus" TEXT NOT NULL DEFAULT 'unreviewed';
+ALTER TABLE "Visit" ADD COLUMN IF NOT EXISTS "sourceReviewedBy" TEXT;
+ALTER TABLE "Visit" ADD COLUMN IF NOT EXISTS "sourceReviewedAt" TIMESTAMP(3);
+ALTER TABLE "Visit" ADD COLUMN IF NOT EXISTS "sourceReviewMemo" TEXT;
+
 -- Unique Indexes
 CREATE UNIQUE INDEX IF NOT EXISTS "Patient_chartNumber_key" ON "Patient"("chartNumber");
 CREATE UNIQUE INDEX IF NOT EXISTS "PatientIdentity_patientId_key" ON "PatientIdentity"("patientId");
