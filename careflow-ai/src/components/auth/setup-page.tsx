@@ -25,7 +25,8 @@ export function SetupPage({ reason, detail }: SetupPageProps) {
       } else {
         const data = await res.json().catch(() => ({ error: "알 수 없는 오류" }));
         const stepInfo = data.step ? ` [${data.step}]` : "";
-        setErrorMsg((data.error || "시드 실행에 실패했습니다.") + stepInfo);
+        const detailInfo = data.detail ? `\n${data.detail.substring(0, 200)}` : "";
+        setErrorMsg((data.error || "시드 실행에 실패했습니다.") + stepInfo + detailInfo);
         setResult("error");
       }
     } catch {
@@ -152,9 +153,16 @@ export function SetupPage({ reason, detail }: SetupPageProps) {
           )}
 
           {result === "error" && (
-            <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 p-3 rounded-lg">
-              <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-              <span>{errorMsg}</span>
+            <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg space-y-1">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                <span className="font-medium">{errorMsg.split("\n")[0]}</span>
+              </div>
+              {errorMsg.includes("\n") && (
+                <pre className="text-xs text-red-500 whitespace-pre-wrap break-all mt-1 pl-6">
+                  {errorMsg.split("\n").slice(1).join("\n")}
+                </pre>
+              )}
             </div>
           )}
         </div>

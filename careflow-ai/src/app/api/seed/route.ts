@@ -913,67 +913,63 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── 3단계: 벌크 INSERT (의존 순서, 단계별 에러 추적) ──
-    try {
-      currentStep = "기본 데이터 생성 (캠페인/담당자/규칙/환자)";
-      await Promise.all([
-        prisma.campaign.createMany({ data: campaignRows }),
-        prisma.staff.createMany({ data: staffRows }),
-        prisma.ruleConfig.createMany({ data: ruleRows }),
-        prisma.sourceRule.createMany({ data: sourceRuleRows }),
-        prisma.patient.createMany({ data: patientRows }),
-      ]);
-    } catch (err) {
-      console.error("[Seed] 기본 데이터 생성 실패:", err);
-      return NextResponse.json(
-        { error: "기본 데이터 생성 중 오류 (캠페인/담당자/규칙/환자)", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
-        { status: 500 }
-      );
+    // ── 3단계: 벌크 INSERT (의존 순서, 개별 에러 추적) ──
+    // 헬퍼: 개별 테이블 INSERT + 에러 시 단계명 포함 응답
+    async function seedStep<T>(stepName: string, fn: () => Promise<T>): Promise<T | Response> {
+      currentStep = stepName;
+      try {
+        return await fn();
+      } catch (err) {
+        console.error(`[Seed] ${stepName} 실패:`, err);
+        const detail = err instanceof Error ? err.message : String(err);
+        return NextResponse.json(
+          { error: `${stepName} 중 오류`, step: stepName, detail },
+          { status: 500 }
+        );
+      }
     }
 
-    try {
-      currentStep = "환자 상세정보 생성 (신원/방문)";
-      await Promise.all([
-        prisma.patientIdentity.createMany({ data: identityRows }),
-        prisma.visit.createMany({ data: visitRows }),
-      ]);
-    } catch (err) {
-      console.error("[Seed] 환자 상세정보 생성 실패:", err);
-      return NextResponse.json(
-        { error: "환자 상세정보 생성 중 오류 (신원/방문 기록)", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
-        { status: 500 }
-      );
-    }
+    // 독립 테이블 (순차 실행으로 정확한 에러 위치 파악)
+    const r1 = await seedStep("Campaign 생성", () => prisma.campaign.createMany({ data: campaignRows }));
+    if (r1 instanceof Response) return r1;
 
-    try {
-      currentStep = "진료 데이터 생성 (처치/진단/CTA 귀속)";
-      await Promise.all([
-        prisma.procedure.createMany({ data: procedureRows }),
-        prisma.diagnosis.createMany({ data: diagnosisRows }),
-        prisma.leadAttribution.createMany({ data: leadRows }),
-      ]);
-    } catch (err) {
-      console.error("[Seed] 진료 데이터 생성 실패:", err);
-      return NextResponse.json(
-        { error: "진료 데이터 생성 중 오류 (처치/진단/CTA)", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
-        { status: 500 }
-      );
-    }
+    const r2 = await seedStep("Staff(담당자) 생성", () => prisma.staff.createMany({ data: staffRows }));
+    if (r2 instanceof Response) return r2;
 
-    try {
-      currentStep = "업무 데이터 생성 (워크플로우/활동 로그)";
-      await prisma.workflowTask.createMany({ data: taskRows });
-      await prisma.activityLog.createMany({ data: activityRows });
-    } catch (err) {
-      console.error("[Seed] 업무 데이터 생성 실패:", err);
-      return NextResponse.json(
-        { error: "업무 데이터 생성 중 오류 (워크플로우/활동 로그)", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
-        { status: 500 }
-      );
-    }
+    const r3 = await seedStep("RuleConfig(규칙) 생성", () => prisma.ruleConfig.createMany({ data: ruleRows }));
+    if (r3 instanceof Response) return r3;
+
+    const r4 = await seedStep("SourceRule(분류사전) 생성", () => prisma.sourceRule.createMany({ data: sourceRuleRows }));
+    if (r4 instanceof Response) return r4;
+
+    const r5 = await seedStep("Patient(환자) 생성", () => prisma.patient.createMany({ data: patientRows }));
+    if (r5 instanceof Response) return r5;
+
+    // patient 의존
+    const r6 = await seedStep("PatientIdentity(환자신원) 생성", () => prisma.patientIdentity.createMany({ data: identityRows }));
+    if (r6 instanceof Response) return r6;
+
+    const r7 = await seedStep("Visit(방문기록) 생성", () => prisma.visit.createMany({ data: visitRows }));
+    if (r7 instanceof Response) return r7;
+
+    // visit 의존
+    const r8 = await seedStep("Procedure(처치) 생성", () => prisma.procedure.createMany({ data: procedureRows }));
+    if (r8 instanceof Response) return r8;
+
+    const r9 = await seedStep("Diagnosis(진단) 생성", () => prisma.diagnosis.createMany({ data: diagnosisRows }));
+    if (r9 instanceof Response) return r9;
+
+    const r10 = await seedStep("LeadAttribution(CTA귀속) 생성", () => prisma.leadAttribution.createMany({ data: leadRows }));
+    if (r10 instanceof Response) return r10;
+
+    // workflow
+    const r11 = await seedStep("WorkflowTask(업무) 생성", () => prisma.workflowTask.createMany({ data: taskRows }));
+    if (r11 instanceof Response) return r11;
+
+    const r12 = await seedStep("ActivityLog(활동로그) 생성", () => prisma.activityLog.createMany({ data: activityRows }));
+    if (r12 instanceof Response) return r12;
 
     // ── 사용자 계정 생성 ──
-    currentStep = "사용자 계정 생성";
     const userRows = [
       { id: randomUUID(), username: "admin", passwordHash: hashPassword("admin123"), name: "관리자 홍길동", role: "ADMIN", updatedAt: now },
       { id: randomUUID(), username: "desk01", passwordHash: hashPassword("desk123"), name: "데스크 김소연", role: "DESK", updatedAt: now },
@@ -982,18 +978,10 @@ export async function POST(request: NextRequest) {
       { id: randomUUID(), username: "viewer01", passwordHash: hashPassword("view123"), name: "원장 최진수", role: "VIEWER", updatedAt: now },
       { id: randomUUID(), username: "mkt01", passwordHash: hashPassword("mkt123"), name: "마케팅 정하늘", role: "MARKETING", updatedAt: now },
     ];
-    try {
-      await prisma.user.createMany({ data: userRows });
-    } catch (err) {
-      console.error("[Seed] 사용자 계정 생성 실패:", err);
-      return NextResponse.json(
-        { error: "사용자 계정 생성 중 오류", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
-        { status: 500 }
-      );
-    }
+    const r13 = await seedStep("User(사용자계정) 생성", () => prisma.user.createMany({ data: userRows }));
+    if (r13 instanceof Response) return r13;
 
     // ── 동기화 작업(SyncJob) 시드 ──
-    currentStep = "동기화/가져오기 데이터 생성";
     const syncJobRows = [
       {
         id: randomUUID(),
@@ -1065,78 +1053,61 @@ export async function POST(request: NextRequest) {
         updatedAt: now,
       },
     ];
-    try {
-      await prisma.syncJob.createMany({ data: syncJobRows });
-    } catch (err) {
-      console.error("[Seed] 동기화 작업 생성 실패:", err);
-      return NextResponse.json(
-        { error: "동기화 작업 데이터 생성 중 오류", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
-        { status: 500 }
-      );
-    }
+    const r14 = await seedStep("SyncJob(동기화) 생성", () => prisma.syncJob.createMany({ data: syncJobRows }));
+    if (r14 instanceof Response) return r14;
 
     // ── ImportBatch 시드 (리포트용) ──
-    try {
-      await prisma.importBatch.createMany({
-        data: [
-          {
-            id: randomUUID(),
-            fileName: "202603_방문경로_일괄.csv",
-            totalRows: 150,
-            successCount: 142,
-            failCount: 3,
-            unclassifiedCount: 12,
-            reviewNeededCount: 8,
-            status: "completed",
-            importedBy: "데스크 김소연",
-            createdAt: new Date(now.getTime() - 1 * 60 * 60 * 1000),
-            updatedAt: now,
-          },
-          {
-            id: randomUUID(),
-            fileName: "202603_추가보정.csv",
-            totalRows: 50,
-            successCount: 50,
-            failCount: 0,
-            unclassifiedCount: 2,
-            reviewNeededCount: 2,
-            status: "completed",
-            importedBy: "데스크 김소연",
-            createdAt: new Date(now.getTime() - 30 * 60 * 1000),
-            updatedAt: now,
-          },
-          {
-            id: randomUUID(),
-            fileName: "202602_CTA_정리.csv",
-            totalRows: 80,
-            successCount: 75,
-            failCount: 2,
-            unclassifiedCount: 5,
-            reviewNeededCount: 3,
-            status: "completed",
-            importedBy: "관리자 홍길동",
-            createdAt: daysAgo(15),
-            updatedAt: now,
-          },
-        ],
-      });
-    } catch (err) {
-      console.error("[Seed] ImportBatch 생성 실패:", err);
-      return NextResponse.json(
-        { error: "가져오기 이력 데이터 생성 중 오류", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
-        { status: 500 }
-      );
-    }
+    const importBatchData = [
+      {
+        id: randomUUID(),
+        fileName: "202603_방문경로_일괄.csv",
+        totalRows: 150,
+        successCount: 142,
+        failCount: 3,
+        unclassifiedCount: 12,
+        reviewNeededCount: 8,
+        status: "completed",
+        importedBy: "데스크 김소연",
+        createdAt: new Date(now.getTime() - 1 * 60 * 60 * 1000),
+        updatedAt: now,
+      },
+      {
+        id: randomUUID(),
+        fileName: "202603_추가보정.csv",
+        totalRows: 50,
+        successCount: 50,
+        failCount: 0,
+        unclassifiedCount: 2,
+        reviewNeededCount: 2,
+        status: "completed",
+        importedBy: "데스크 김소연",
+        createdAt: new Date(now.getTime() - 30 * 60 * 1000),
+        updatedAt: now,
+      },
+      {
+        id: randomUUID(),
+        fileName: "202602_CTA_정리.csv",
+        totalRows: 80,
+        successCount: 75,
+        failCount: 2,
+        unclassifiedCount: 5,
+        reviewNeededCount: 3,
+        status: "completed",
+        importedBy: "관리자 홍길동",
+        createdAt: daysAgo(15),
+        updatedAt: now,
+      },
+    ];
+    const r15 = await seedStep("ImportBatch(가져오기이력) 생성", () => prisma.importBatch.createMany({ data: importBatchData }));
+    if (r15 instanceof Response) return r15;
 
     // ── 완료된 업무에 completedAt 설정 (리포트용) ──
-    currentStep = "후처리 (업무완료/수신거부 설정)";
-    try {
+    const r16 = await seedStep("후처리(업무완료/수신거부)", async () => {
       await prisma.workflowTask.updateMany({
         where: { status: "completed" },
         data: { completedAt: daysAgo(1) },
       });
 
-      // ── 수신 거부 환자 설정 ──
       const doNotContactCharts = ["CF-0008", "CF-0016"];
       for (const chart of doNotContactCharts) {
         const pid = chartToPatientId.get(chart);
@@ -1151,16 +1122,10 @@ export async function POST(request: NextRequest) {
           });
         }
       }
-    } catch (err) {
-      console.error("[Seed] 후처리 실패:", err);
-      return NextResponse.json(
-        { error: "후처리 중 오류 (업무완료/수신거부 설정)", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
-        { status: 500 }
-      );
-    }
+    });
+    if (r16 instanceof Response) return r16;
 
     // ── 아웃바운드 메시지 시드 ──
-    currentStep = "발송 메시지 데이터 생성";
     const outboundRows: {
       id: string; patientId: string; messageType: string; channel: string;
       draftMessage: string; finalMessage: string | null;
@@ -1309,20 +1274,12 @@ export async function POST(request: NextRequest) {
       createdBy: "데스크 이지은", sentBy: null, scheduledAt: null, updatedAt: now,
     });
 
-    try {
-      if (outboundRows.length > 0) {
-        await prisma.outboundMessage.createMany({ data: outboundRows });
-      }
-    } catch (err) {
-      console.error("[Seed] 발송 메시지 생성 실패:", err);
-      return NextResponse.json(
-        { error: "발송 메시지 데이터 생성 중 오류", step: currentStep, detail: err instanceof Error ? err.message : String(err) },
-        { status: 500 }
-      );
+    if (outboundRows.length > 0) {
+      const r17 = await seedStep("OutboundMessage(발송메시지) 생성", () => prisma.outboundMessage.createMany({ data: outboundRows }));
+      if (r17 instanceof Response) return r17;
     }
 
     // ── 감사 로그 ──
-    currentStep = "완료 기록";
     try {
       await prisma.auditLog.create({
         data: {
