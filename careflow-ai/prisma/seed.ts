@@ -1,6 +1,13 @@
 import { PrismaClient } from "@prisma/client";
+import { createHmac } from "crypto";
 
 const prisma = new PrismaClient();
+
+// AUTH_SECRET과 동일한 로직으로 비밀번호 해시 (auth.ts와 동기화)
+const AUTH_SECRET = process.env.AUTH_SECRET || "careflow-dev-secret-change-in-production";
+function hashPassword(password: string): string {
+  return createHmac("sha256", AUTH_SECRET).update(password).digest("hex");
+}
 
 function daysAgo(days: number): Date {
   const d = new Date();
@@ -1324,6 +1331,28 @@ async function main() {
   }
 
   console.log(`✅ Seeded ${taskCount} workflow tasks with activity logs`);
+
+  // 데모 사용자 계정 생성
+  const demoUsers = [
+    { username: "admin", password: "admin123", name: "관리자 홍길동", role: "ADMIN" },
+    { username: "desk01", password: "desk123", name: "데스크 김소연", role: "DESK" },
+    { username: "desk02", password: "desk123", name: "데스크 이지은", role: "DESK" },
+    { username: "counsel01", password: "counsel123", name: "상담실장 박미영", role: "COUNSELOR" },
+    { username: "viewer01", password: "view123", name: "원장 최진수", role: "VIEWER" },
+    { username: "mkt01", password: "mkt123", name: "마케팅 정하늘", role: "MARKETING" },
+  ];
+  for (const u of demoUsers) {
+    await prisma.user.create({
+      data: {
+        username: u.username,
+        passwordHash: hashPassword(u.password),
+        name: u.name,
+        role: u.role,
+      },
+    });
+  }
+  console.log(`✅ Seeded ${demoUsers.length} demo user accounts`);
+
   console.log(`✅ Seeded ${patients.length} patients and ${ruleConfigs.length} rule configs`);
   console.log("   (PII separated into PatientIdentity table)");
 }
