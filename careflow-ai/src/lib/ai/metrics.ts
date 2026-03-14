@@ -23,6 +23,10 @@ export interface GenerationMetrics {
   };
   /** fallback 전환율 (%) */
   fallbackRate: number;
+  /** fallback 원인별 분포 */
+  fallbackReasons: Record<string, number>;
+  /** subType별 생성 결과 (AI 성공 vs fallback 비율) */
+  bySubType: Record<string, { ai: number; template: number; fallback: number; total: number; fallbackRate: number }>;
 }
 
 export interface SendMetrics {
@@ -96,6 +100,8 @@ async function collectGenerationMetrics(
   });
 
   const counts = { ai: 0, template: 0, fallback: 0 };
+  const fallbackReasons: Record<string, number> = {};
+  const bySubType: Record<string, { ai: number; template: number; fallback: number }> = {};
 
   for (const log of logs) {
     try {
@@ -104,6 +110,20 @@ async function collectGenerationMetrics(
       if (type in counts) {
         counts[type as keyof typeof counts]++;
       }
+
+      // fallback 원인 집계
+      if (type === "fallback" && detail.fallbackReason) {
+        fallbackReasons[detail.fallbackReason] = (fallbackReasons[detail.fallbackReason] || 0) + 1;
+      }
+
+      // subType별 집계
+      const subType = detail.subType || "unknown";
+      if (!bySubType[subType]) {
+        bySubType[subType] = { ai: 0, template: 0, fallback: 0 };
+      }
+      if (type === "ai" || type === "template" || type === "fallback") {
+        bySubType[subType][type as "ai" | "template" | "fallback"]++;
+      }
     } catch {
       counts.fallback++;
     }
@@ -111,10 +131,23 @@ async function collectGenerationMetrics(
 
   const total = counts.ai + counts.template + counts.fallback;
 
+  // subType별 fallback 비율 계산
+  const bySubTypeWithRate: Record<string, { ai: number; template: number; fallback: number; total: number; fallbackRate: number }> = {};
+  for (const [st, c] of Object.entries(bySubType)) {
+    const stTotal = c.ai + c.template + c.fallback;
+    bySubTypeWithRate[st] = {
+      ...c,
+      total: stTotal,
+      fallbackRate: stTotal > 0 ? Math.round((c.fallback / stTotal) * 100) : 0,
+    };
+  }
+
   return {
     totalGenerated: total,
     byType: counts,
     fallbackRate: total > 0 ? Math.round((counts.fallback / total) * 100) : 0,
+    fallbackReasons,
+    bySubType: bySubTypeWithRate,
   };
 }
 

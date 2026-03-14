@@ -108,6 +108,8 @@ interface AIMetrics {
     totalGenerated: number;
     byType: { ai: number; template: number; fallback: number };
     fallbackRate: number;
+    fallbackReasons: Record<string, number>;
+    bySubType: Record<string, { ai: number; template: number; fallback: number; total: number; fallbackRate: number }>;
   };
   send: {
     totalAttempted: number;
@@ -158,6 +160,19 @@ const statCards = [
   { key: "recallDueCount" as const, changeKey: "recallDue" as const, label: "리콜 예정", icon: CalendarClock, color: "text-amber-600", bg: "bg-amber-50" },
   { key: "messageSuggestionCount" as const, changeKey: "messageSuggestion" as const, label: "문자 발송 추천", icon: MessageSquare, color: "text-green-600", bg: "bg-green-50" },
 ];
+
+const FALLBACK_REASON_LABELS: Record<string, string> = {
+  timeout: "타임아웃",
+  auth_error: "인증 오류",
+  rate_limit: "요청 한도",
+  safety_filter: "안전 필터",
+  parse_error: "응답 파싱",
+  validation_failed: "검증 실패",
+  server_error: "서버 오류",
+  provider_unavailable: "미설정",
+  template_error: "템플릿 오류",
+  unknown: "알 수 없음",
+};
 
 function getRuleColor(ruleType: string): string {
   switch (ruleType) {
@@ -528,6 +543,29 @@ export function DashboardContent({
                           <span key={reason}> · {reason} {count}건</span>
                         ))}
                       </p>
+                      {/* fallback 원인 분포 */}
+                      {aiMetrics.generation.fallbackReasons && Object.keys(aiMetrics.generation.fallbackReasons).length > 0 && (
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                          <span className="text-[10px] text-amber-600 font-medium">fallback 원인:</span>
+                          {Object.entries(aiMetrics.generation.fallbackReasons).map(([reason, count]) => (
+                            <span key={reason} className="text-[10px] text-amber-500">
+                              {FALLBACK_REASON_LABELS[reason] || reason} {count}건
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {/* subType별 품질 편차 */}
+                      {aiMetrics.generation.bySubType && Object.keys(aiMetrics.generation.bySubType).length > 0 && (
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                          {Object.entries(aiMetrics.generation.bySubType).map(([st, m]) => (
+                            <span key={st} className="text-[10px] text-gray-400">
+                              {st}: AI {m.ai}/{m.total}
+                              {m.fallbackRate > 0 && <span className={m.fallbackRate > 30 ? "text-red-500" : "text-amber-500"}> (fb {m.fallbackRate}%)</span>}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {/* 메시지 유형별 발송 현황 */}
                       {Object.keys(aiMetrics.byType.byMessageType).length > 0 && (
                         <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
                           {Object.entries(aiMetrics.byType.byMessageType).map(([type, m]) => (

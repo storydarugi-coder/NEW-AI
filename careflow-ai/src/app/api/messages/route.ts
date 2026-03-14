@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { evaluatePatient, buildEngineConfig } from "@/lib/engine";
-import { generateMessages } from "@/lib/ai/generate-message";
+import { generateMessages, getLastGenerationContext } from "@/lib/ai/generate-message";
 import { MessageTone } from "@/types";
 
 export async function POST(request: NextRequest) {
@@ -95,7 +95,8 @@ export async function POST(request: NextRequest) {
       }),
     ]);
 
-    // 감사 로그: 메시지 생성 기록 (PII 미포함)
+    // 감사 로그: 메시지 생성 기록 (PII 미포함, fallback 원인 포함)
+    const genCtx = getLastGenerationContext();
     await prisma.auditLog.create({
       data: {
         action: "generate_message",
@@ -104,6 +105,8 @@ export async function POST(request: NextRequest) {
         detail: JSON.stringify({
           tone: selectedTone,
           generatedBy: messages.generatedBy,
+          subType: detection.subType,
+          fallbackReason: genCtx?.fallbackReason || null,
           draftCount: drafts.length,
         }),
       },
