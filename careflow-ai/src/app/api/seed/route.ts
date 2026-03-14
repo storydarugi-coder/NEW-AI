@@ -105,7 +105,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── 2단계: 최소 데이터 생성 ──
+    // ── 2단계: 사용자 계정 먼저 생성 (가장 중요: 로그인 가능해야 함) ──
+    currentStep = "User(사용자계정) 생성";
+    const userDefs = [
+      { username: "admin", password: "admin123", name: "관리자 홍길동", role: "ADMIN" },
+      { username: "desk01", password: "desk123", name: "데스크 김소연", role: "DESK" },
+      { username: "desk02", password: "desk123", name: "데스크 이지은", role: "DESK" },
+      { username: "counsel01", password: "counsel123", name: "상담실장 박미영", role: "COUNSELOR" },
+      { username: "viewer01", password: "view123", name: "원장 최진수", role: "VIEWER" },
+      { username: "mkt01", password: "mkt123", name: "마케팅 정하늘", role: "MARKETING" },
+    ];
+    try {
+      for (const u of userDefs) {
+        await prisma.user.upsert({
+          where: { username: u.username },
+          update: { passwordHash: hashPassword(u.password), name: u.name, role: u.role, isActive: true, updatedAt: now },
+          create: { id: randomUUID(), username: u.username, passwordHash: hashPassword(u.password), name: u.name, role: u.role, updatedAt: now },
+        });
+      }
+    } catch (err) {
+      return seedError(currentStep, err);
+    }
+
+    // ── 3단계: 기본 설정 데이터 ──
 
     // 캠페인 (4개)
     currentStep = "Campaign 생성";
@@ -316,21 +338,6 @@ export async function POST(request: NextRequest) {
       currentStep = "LeadAttribution 생성";
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       try { await prisma.leadAttribution.createMany({ data: leadRows as any }); } catch (err) { return seedError(currentStep, err); }
-    }
-
-    // 사용자 계정 (6명)
-    currentStep = "User 생성";
-    try {
-      await prisma.user.createMany({ data: [
-        { id: randomUUID(), username: "admin", passwordHash: hashPassword("admin123"), name: "관리자 홍길동", role: "ADMIN", updatedAt: now },
-        { id: randomUUID(), username: "desk01", passwordHash: hashPassword("desk123"), name: "데스크 김소연", role: "DESK", updatedAt: now },
-        { id: randomUUID(), username: "desk02", passwordHash: hashPassword("desk123"), name: "데스크 이지은", role: "DESK", updatedAt: now },
-        { id: randomUUID(), username: "counsel01", passwordHash: hashPassword("counsel123"), name: "상담실장 박미영", role: "COUNSELOR", updatedAt: now },
-        { id: randomUUID(), username: "viewer01", passwordHash: hashPassword("view123"), name: "원장 최진수", role: "VIEWER", updatedAt: now },
-        { id: randomUUID(), username: "mkt01", passwordHash: hashPassword("mkt123"), name: "마케팅 정하늘", role: "MARKETING", updatedAt: now },
-      ]});
-    } catch (err) {
-      return seedError(currentStep, err);
     }
 
     // 감사 로그
