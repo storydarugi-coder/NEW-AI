@@ -172,8 +172,8 @@ export function MessagesContent() {
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">메시지 발송 관리</h1>
-          <p className="text-sm text-gray-500 mt-1">검토 · 승인 · 발송 · 재시도 · 이력</p>
+          <h1 className="text-xl font-bold text-gray-900">리콜/후속 메시지</h1>
+          <p className="text-sm text-gray-500 mt-1">재내원 유도 · 후속관리 메시지 검토 · 승인 · 발송</p>
         </div>
         <button onClick={loadData} className="flex items-center gap-2 px-3 py-2 text-sm bg-white border rounded-lg hover:bg-gray-50">
           <RefreshCw size={14} /> 새로고침

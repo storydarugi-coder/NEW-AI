@@ -145,9 +145,10 @@ function getRuleColor(ruleType: string): string {
 }
 
 const generatedByLabels: Record<string, { label: string; icon: typeof Sparkles; color: string }> = {
-  vertex: { label: "Vertex AI 생성", icon: Sparkles, color: "text-purple-600 bg-purple-50 border-purple-200" },
+  vertex: { label: "AI 자동 생성", icon: Sparkles, color: "text-purple-600 bg-purple-50 border-purple-200" },
+  ai: { label: "AI 자동 생성", icon: Sparkles, color: "text-purple-600 bg-purple-50 border-purple-200" },
   template: { label: "템플릿 생성", icon: FileCode, color: "text-blue-600 bg-blue-50 border-blue-200" },
-  fallback: { label: "기본 메시지 생성", icon: Bot, color: "text-gray-600 bg-gray-50 border-gray-200" },
+  fallback: { label: "기본 메시지", icon: Bot, color: "text-gray-600 bg-gray-50 border-gray-200" },
 };
 
 const statusActions = [

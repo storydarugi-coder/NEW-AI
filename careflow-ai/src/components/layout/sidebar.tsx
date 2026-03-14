@@ -49,8 +49,8 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "CPA 광고 관리", href: "/cta", icon: Megaphone, group: "company" },
       { label: "유입 경로 검토", href: "/source-review", icon: Search, group: "company" },
-      { label: "분류 사전", href: "/source-rules", icon: BookOpen, group: "company" },
-      { label: "동기화 관리", href: "/sync", icon: RefreshCw, group: "company" },
+      { label: "유입 경로 규칙", href: "/source-rules", icon: BookOpen, group: "company" },
+      { label: "데이터 가져오기", href: "/sync", icon: RefreshCw, group: "company" },
     ],
   },
   {
@@ -59,8 +59,8 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "대시보드", href: "/", icon: LayoutDashboard, group: "clinic" },
       { label: "환자 관리", href: "/patients", icon: Users, group: "clinic" },
-      { label: "메시지 발송", href: "/messages", icon: Mail, group: "clinic" },
-      { label: "운영 리포트", href: "/reports", icon: BarChart3, group: "clinic" },
+      { label: "리콜/후속 메시지", href: "/messages", icon: Mail, group: "clinic" },
+      { label: "재내원 성과", href: "/reports", icon: BarChart3, group: "clinic" },
       { label: "설정", href: "/settings", icon: Settings, group: "clinic" },
     ],
   },
@@ -125,7 +125,7 @@ export function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
           <Activity className="h-7 w-7 text-blue-600 mr-2" />
           <div>
             <h1 className="text-lg font-bold text-gray-900">CareFlow AI</h1>
-            <p className="text-[10px] text-gray-400 -mt-0.5">운영 보조 · 리콜 · 광고 관리</p>
+            <p className="text-[10px] text-gray-400 -mt-0.5">재내원 유도 · 후속관리 · 카카오톡 운영</p>
           </div>
         </div>
 

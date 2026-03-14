@@ -170,7 +170,7 @@ export function SyncContent() {
       {/* 페이지 헤더 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">동기화 관리</h1>
+          <h1 className="text-xl font-bold text-gray-900">데이터 가져오기</h1>
           <p className="text-sm text-gray-500 mt-1">
             데이터 유입 이력 조회 · 상태 확인 · 재처리
           </p>

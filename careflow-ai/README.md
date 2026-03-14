@@ -38,7 +38,7 @@ npm run dev       # http://localhost:3000
 | 언어 | TypeScript |
 | 스타일링 | Tailwind CSS 4 + shadcn/ui |
 | ORM/DB | Prisma 5 + SQLite |
-| AI | Vertex AI (Gemini) — 선택적 |
+| AI | LLM 기반 메시지 생성 — 선택적 |
 | 아이콘 | Lucide React |
 | 테스트 | Vitest |
 
@@ -74,13 +74,13 @@ npm run dev       # http://localhost:3000
 ### 4. AI 문자 초안 생성
 - **3가지 버전** 동시 생성: 짧은(SMS) / 기본 / 따뜻한 버전
 - 톤 선택: 정중함 / 친근함 / 원장 직접 톤
-- 생성 방식 표시: `Vertex AI 생성` / `템플릿 생성` / `기본 메시지 생성(fallback)`
-- Vertex AI 실패 시 → 템플릿 자동 fallback (앱 중단 없음)
+- 생성 방식 표시: `AI 자동 생성` / `템플릿 생성` / `기본 메시지(fallback)`
+- AI 실패 시 → 템플릿 자동 fallback (앱 중단 없음)
 
 ### 5. 관리자 설정
 - 규칙별 활성/비활성, 파라미터 조정 (판정 일수, 리콜 주기 등)
 - 기본 문자 톤 설정
-- Vertex AI 설정 안내 (환경변수 기반)
+- AI 메시지 생성 설정 안내 (환경변수 기반)
 
 ---
 
@@ -91,11 +91,11 @@ npm run dev       # http://localhost:3000
 - **정산 요약**: 확정 환자 × CPC 단가 기반 정산 가능 금액 계산
 - **대시보드 연동**: 메인 대시보드에 CTA 요약 카드 표시
 
-### 7. 방문경로 대량 처리 및 검토 큐 (NEW)
+### 7. 방문경로 대량 처리 및 유입 경로 검토 (NEW)
 - **CSV Import**: 자유입력 방문경로 CSV 업로드 → 자동 파싱/검증/정규화 → 결과 요약
   - 지원 컬럼: `sourceRaw`(방문경로), `chartNumber`(차트번호), `visitDate`(방문일), `memo`(비고)
   - 최대 5,000행 / 5MB, 한글 별칭 지원 (유입경로, 차트번호 등)
-- **검토 큐**: 3가지 뷰 모드
+- **유입 경로 검토**: 3가지 뷰 모드
   - **Queue 뷰**: 개별 방문 건별 검토 (검색, 필터: 미검토/미분류/저신뢰/CTA후보)
   - **원문 묶음 뷰**: 동일 sourceRaw 텍스트 묶어서 한 번에 확정/반려/수정
   - **추천값별 뷰**: 같은 정규화 결과별 그룹핑 → 일괄 확인
@@ -103,7 +103,7 @@ npm run dev       # http://localhost:3000
 - **정규화 이력 추적**: 모든 변경(개별/일괄/CSV import/자동)을 `SourceNormalizationHistory`에 기록
 - **대시보드 위젯**: 검토 필요/미분류/저신뢰 건수 + 최근 Import 현황
 
-### 8. 동기화 관리 및 EMR 연동 준비 (NEW)
+### 8. 데이터 가져오기 및 EMR 연동 준비 (NEW)
 - **SyncJob 모델**: 모든 데이터 유입(CSV Import, EMR Pull, Seed, 수동 재처리)을 추적
   - 상태: PENDING → RUNNING → SUCCESS / PARTIAL_SUCCESS / FAILED
   - 성공/실패/중복/미분류 건수, 에러 요약, 실행자 기록
@@ -209,12 +209,12 @@ careflow-ai/
 │   │   ├── page.tsx           # 대시보드
 │   │   ├── patients/          # 환자 목록 + 상세
 │   │   ├── cta/               # CTA 광고 귀속 관리
-│   │   ├── source-review/     # 방문경로 검토 큐
+│   │   ├── source-review/     # 유입 경로 검토
 │   │   ├── source-import/     # CSV Import
-│   │   ├── source-rules/      # 분류 사전
-│   │   ├── sync/              # 동기화 관리
-│   │   ├── messages/          # 메시지 발송 운영 화면
-│   │   ├── reports/           # 운영 리포트 및 성과 대시보드
+│   │   ├── source-rules/      # 유입 경로 규칙
+│   │   ├── sync/              # 데이터 가져오기
+│   │   ├── messages/          # 리콜/후속 메시지
+│   │   ├── reports/           # 재내원 성과
 │   │   ├── settings/          # 설정
 │   │   ├── about/             # 제품 소개
 │   │   └── api/               # API Routes
@@ -234,11 +234,11 @@ careflow-ai/
 │   │   ├── dashboard/         # 대시보드 UI
 │   │   ├── patients/          # 환자 목록/상세 UI
 │   │   ├── cta/               # CTA 광고 관리 UI
-│   │   ├── source-review/     # 방문경로 검토 큐 UI (3뷰 모드)
+│   │   ├── source-review/     # 유입 경로 검토 UI (3뷰 모드)
 │   │   ├── source-import/     # CSV Import UI
-│   │   ├── sync/              # 동기화 관리 UI
-│   │   ├── messages/          # 메시지 발송 운영 UI (필터/승인/발송/재시도)
-│   │   ├── reports/           # 운영 리포트 UI (KPI/퍼널/메시지/방문경로/담당자/동기화)
+│   │   ├── sync/              # 데이터 가져오기 UI
+│   │   ├── messages/          # 리콜/후속 메시지 UI (필터/승인/발송/재시도)
+│   │   ├── reports/           # 재내원 성과 UI (KPI/퍼널/메시지/방문경로/담당자/동기화)
 │   │   ├── layout/            # 사이드바/레이아웃 (역할 기반 메뉴)
 │   │   ├── settings/          # 설정 UI
 │   │   └── ui/                # shadcn/ui 컴포넌트
@@ -394,14 +394,16 @@ datasource db {
 
 ---
 
-## Vertex AI 연동 방법
+## AI 메시지 생성 연동 방법
+
+> 내부적으로 Vertex AI를 사용합니다. 모델명/프로바이더명은 사용자 화면에 노출되지 않습니다.
 
 ### 1. 환경변수 설정 (.env)
 ```env
 ENABLE_LLM_MESSAGE_GENERATION=true
 GOOGLE_CLOUD_PROJECT=your-project-id
 GOOGLE_CLOUD_LOCATION=us-central1
-VERTEX_MODEL=gemini-2.0-flash
+VERTEX_MODEL=gemini-3.1-pro-preview
 ```
 
 ### 2. 인증 설정
@@ -429,8 +431,8 @@ ENABLE_LLM_MESSAGE_GENERATION=false  # 또는 변수 미설정
 | `DATABASE_URL` | O | `file:./dev.db` | DB 경로 |
 | `ENABLE_LLM_MESSAGE_GENERATION` | X | `false` | LLM 메시지 생성 활성화 |
 | `GOOGLE_CLOUD_PROJECT` | X | - | GCP 프로젝트 ID |
-| `GOOGLE_CLOUD_LOCATION` | X | `us-central1` | Vertex AI 리전 |
-| `VERTEX_MODEL` | X | `gemini-2.0-flash` | Vertex AI 모델 |
+| `GOOGLE_CLOUD_LOCATION` | X | `us-central1` | AI 서비스 리전 |
+| `VERTEX_MODEL` | X | `gemini-3.1-pro-preview` | AI 모델 (내부용) |
 | `GOOGLE_APPLICATION_CREDENTIALS` | X | - | 서비스 계정 키 경로 |
 | `AUTH_SECRET` | X | (dev fallback) | 세션 쿠키 서명 키 (프로덕션 필수) |
 | `MESSAGE_PROVIDER` | X | `mock` | 메시지 발송 프로바이더 (mock/kakao) |

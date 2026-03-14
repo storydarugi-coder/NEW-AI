@@ -188,43 +188,27 @@ export function SettingsContent({ configs: initialConfigs }: Props) {
 
       <Separator />
 
-      {/* Vertex AI Config */}
+      {/* AI 메시지 생성 설정 */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Sparkles size={18} className="text-purple-600" />
-            AI 메시지 생성 설정 (Vertex AI)
+            AI 메시지 생성 설정
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="bg-purple-50 border border-purple-100 rounded-lg p-3">
             <p className="text-xs text-purple-700">
-              Vertex AI를 사용하면 환자별 맞춤 문자 초안을 AI가 생성합니다.
+              AI를 사용하면 환자별 맞춤 문자 초안을 자동으로 생성합니다.
               설정되지 않으면 템플릿 기반으로 자동 생성됩니다.
             </p>
           </div>
 
           <div className="space-y-3 bg-gray-50 rounded-lg p-4">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-              <Label className="text-sm text-gray-600 sm:w-48 shrink-0">프로바이더</Label>
-              <Input value="Vertex AI (Google Gemini)" disabled className="sm:w-64 bg-gray-100" />
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-              <Label className="text-sm text-gray-600 sm:w-48 shrink-0">모델</Label>
-              <Input value={process.env.NEXT_PUBLIC_VERTEX_MODEL || "gemini-2.0-flash"} disabled className="sm:w-64 bg-gray-100" />
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-              <Label className="text-sm text-gray-600 sm:w-48 shrink-0">Temperature</Label>
-              <Input value="0.7" disabled className="sm:w-32 bg-gray-100" />
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-              <Label className="text-sm text-gray-600 sm:w-48 shrink-0">Max Output Tokens</Label>
-              <Input value="1024" disabled className="sm:w-32 bg-gray-100" />
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-              <Label className="text-sm text-gray-600 sm:w-48 shrink-0">LLM 사용</Label>
+              <Label className="text-sm text-gray-600 sm:w-48 shrink-0">AI 메시지 생성</Label>
               <Badge variant="outline" className={process.env.NEXT_PUBLIC_ENABLE_LLM === "true" ? "bg-green-50 text-green-700 border-green-200" : "bg-gray-50 text-gray-500 border-gray-200"}>
-                {process.env.NEXT_PUBLIC_ENABLE_LLM === "true" ? "활성 (Vertex AI)" : "비활성 (템플릿 사용)"}
+                {process.env.NEXT_PUBLIC_ENABLE_LLM === "true" ? "활성 (AI 자동 생성)" : "비활성 (템플릿 사용)"}
               </Badge>
             </div>
           </div>
@@ -233,14 +217,8 @@ export function SettingsContent({ configs: initialConfigs }: Props) {
             <AlertTriangle size={14} className="text-amber-600 mt-0.5 shrink-0" />
             <div className="text-xs text-amber-700">
               <p className="font-medium mb-1">환경변수 설정 안내</p>
-              <p>AI 메시지 생성을 활성화하려면 <code className="bg-amber-100 px-1 rounded">.env</code> 파일에 아래 변수를 설정하세요:</p>
-              <pre className="mt-1 bg-amber-100/50 p-2 rounded text-[11px] overflow-x-auto">
-{`ENABLE_LLM_MESSAGE_GENERATION=true
-GOOGLE_CLOUD_PROJECT=your-project-id
-GOOGLE_CLOUD_LOCATION=us-central1
-VERTEX_MODEL=gemini-2.0-flash`}
-              </pre>
-              <p className="mt-1">인증: <code className="bg-amber-100 px-1 rounded">gcloud auth login</code> 또는 <code className="bg-amber-100 px-1 rounded">GOOGLE_APPLICATION_CREDENTIALS</code> 환경변수 설정</p>
+              <p>AI 메시지 생성을 활성화하려면 <code className="bg-amber-100 px-1 rounded">.env</code> 파일에 관련 환경변수를 설정하세요.</p>
+              <p className="mt-1">자세한 설정 방법은 프로젝트 README를 참고하세요.</p>
             </div>
           </div>
         </CardContent>

@@ -198,7 +198,7 @@ export function CtaContent() {
             href="/source-rules"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-gray-50 text-indigo-700"
           >
-            분류 사전
+            유입 경로 규칙
           </Link>
           <button
             onClick={handleCsvExport}

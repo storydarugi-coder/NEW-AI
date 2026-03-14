@@ -109,10 +109,17 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // generatedBy: 프론트에는 일반화된 값만 전달 (모델명/프로바이더명 비노출)
+    const publicGeneratedBy = messages.generatedBy === "vertex" ? "ai" : messages.generatedBy;
+
     return NextResponse.json({
-      messages,
+      messages: {
+        shortMessage: messages.shortMessage,
+        standardMessage: messages.standardMessage,
+        warmMessage: messages.warmMessage,
+      },
       drafts,
-      generatedBy: messages.generatedBy,
+      generatedBy: publicGeneratedBy,
     });
   } catch (error) {
     console.error("Message generation error:", error);

@@ -169,8 +169,8 @@ export function ReportsContent() {
       {/* 헤더 */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">운영 리포트</h1>
-          <p className="text-sm text-gray-500 mt-1">병원 운영 성과와 핵심 지표를 한눈에 확인합니다</p>
+          <h1 className="text-2xl font-bold text-gray-900">재내원 성과</h1>
+          <p className="text-sm text-gray-500 mt-1">재내원 유도 · 후속관리 · 메시지 성과를 한눈에 확인합니다</p>
         </div>
 
         {/* 기간 필터 */}

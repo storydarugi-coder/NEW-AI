@@ -108,7 +108,7 @@ export function SourceRulesContent() {
             </Link>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <BookOpen className="h-6 w-6 text-indigo-600" />
-              방문경로 분류 사전
+              유입 경로 규칙
             </h1>
           </div>
           <p className="text-sm text-gray-500 mt-1">

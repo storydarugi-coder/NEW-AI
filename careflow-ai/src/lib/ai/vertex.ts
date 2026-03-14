@@ -1,8 +1,9 @@
 /**
- * Vertex AI (Google Gemini) 프로바이더
+ * AI 메시지 생성 프로바이더 (Vertex AI 기반)
  *
  * 서버 전용 모듈 — 클라이언트에서 직접 호출하지 않습니다.
  * GOOGLE_APPLICATION_CREDENTIALS 또는 서비스 계정 인증이 필요합니다.
+ * 모델명/프로바이더명은 사용자 UI에 노출하지 않습니다.
  */
 
 import {

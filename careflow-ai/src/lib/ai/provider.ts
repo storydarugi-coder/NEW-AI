@@ -41,7 +41,7 @@ export interface AIProviderConfig {
 export function getDefaultAIConfig(): AIProviderConfig {
   return {
     provider: "vertex",
-    modelName: process.env.VERTEX_MODEL || "gemini-2.0-flash",
+    modelName: process.env.VERTEX_MODEL || "gemini-3.1-pro-preview",
     temperature: 0.7,
     maxOutputTokens: 1024,
     enabled: process.env.ENABLE_LLM_MESSAGE_GENERATION === "true",
