@@ -77,20 +77,21 @@ export const ROLE_NAV_ACCESS: Record<string, string[]> = {
   ADMIN: ["*"],
   DESK: [
     "/",
-    "/workflow",
-    "/patients",
-    "/messages",
-    "/reports",
+    "/hospital/dashboard",
+    "/hospital/workflow",
+    "/hospital/patients",
+    "/hospital/messages",
+    "/hospital/reports",
+    "/hospital/settings",
     "/internal/source-review",
     "/internal/import",
     "/internal/source-rules",
     "/internal/sync",
-    "/settings",
     "/about",
   ],
-  COUNSELOR: ["/", "/workflow", "/patients", "/messages", "/internal/cpa", "/about"],
-  VIEWER: ["/", "/patients", "/about"],
-  MARKETING: ["/", "/internal/cpa", "/internal/source-review", "/reports", "/about"],
+  COUNSELOR: ["/", "/hospital/dashboard", "/hospital/workflow", "/hospital/patients", "/hospital/messages", "/internal/cpa", "/about"],
+  VIEWER: ["/", "/hospital/dashboard", "/hospital/patients", "/about"],
+  MARKETING: ["/", "/internal/cpa", "/internal/source-review", "/hospital/reports", "/about"],
 };
 
 /**
@@ -98,11 +99,11 @@ export const ROLE_NAV_ACCESS: Record<string, string[]> = {
  * 메뉴 필터링과 접근 제어에 사용
  */
 export const PRODUCT_AREA_PATHS: Record<ProductArea, string[]> = {
-  hospital: ["/", "/workflow", "/patients", "/messages", "/reports", "/settings", "/about"],
-  internal: ["/internal/cpa", "/internal/source-review", "/internal/source-rules", "/internal/sync", "/internal/import", "/reports", "/about"],
+  hospital: ["/", "/hospital/dashboard", "/hospital/workflow", "/hospital/patients", "/hospital/messages", "/hospital/reports", "/hospital/settings", "/about"],
+  internal: ["/internal/cpa", "/internal/source-review", "/internal/source-rules", "/internal/sync", "/internal/import", "/hospital/reports", "/about"],
   all: ["*"],
 };
-// /reports, /about 은 양쪽 모두에 포함 — 의도적 공유 항목
+// /hospital/reports, /about 은 양쪽 모두에 포함 — 의도적 공유 항목
 
 /**
  * 역할에서 기본 productArea 추론 (User.productArea가 없는 레거시 데이터용)
@@ -124,9 +125,9 @@ export function inferProductArea(role: string): ProductArea {
 export function getDefaultLandingPath(productArea: ProductArea): string {
   switch (productArea) {
     case "internal": return "/internal/cpa";
-    case "hospital": return "/";
-    case "all": return "/";
-    default: return "/";
+    case "hospital": return "/hospital/dashboard";
+    case "all": return "/hospital/dashboard";
+    default: return "/hospital/dashboard";
   }
 }
 

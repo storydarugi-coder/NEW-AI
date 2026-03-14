@@ -31,10 +31,10 @@ export function LoginPage() {
       // 제품 영역별 기본 랜딩 페이지로 이동
       const landingMap: Record<string, string> = {
         internal: "/internal/cpa",
-        hospital: "/",
-        all: "/",
+        hospital: "/hospital/dashboard",
+        all: "/hospital/dashboard",
       };
-      const landing = landingMap[data.user?.productArea] || "/";
+      const landing = landingMap[data.user?.productArea] || "/hospital/dashboard";
       window.location.href = landing;
     } catch {
       setError("서버에 연결할 수 없습니다.");

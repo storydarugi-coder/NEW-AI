@@ -184,7 +184,55 @@ test.describe("레거시 경로 → /internal/* 리다이렉트", () => {
   });
 });
 
-// ── 5. 비인증 접근 차단 ──
+// ── 5. 레거시 → /hospital/* 리다이렉트 ──
+
+test.describe("레거시 경로 → /hospital/* 리다이렉트", () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page, "desk01", "desk123");
+  });
+
+  test("병원 계정 로그인 → /hospital/dashboard 랜딩", async ({ page }) => {
+    expect(page.url()).toContain("/hospital/dashboard");
+  });
+
+  test("레거시 / → /hospital/dashboard", async ({ page }) => {
+    await page.goto(`${BASE}/`);
+    await page.waitForURL((url) => url.pathname === "/hospital/dashboard", { timeout: 5000 });
+    expect(page.url()).toContain("/hospital/dashboard");
+  });
+
+  test("레거시 /workflow → /hospital/workflow", async ({ page }) => {
+    await page.goto(`${BASE}/workflow`);
+    await page.waitForURL((url) => url.pathname === "/hospital/workflow", { timeout: 5000 });
+    expect(page.url()).toContain("/hospital/workflow");
+  });
+
+  test("레거시 /patients → /hospital/patients", async ({ page }) => {
+    await page.goto(`${BASE}/patients`);
+    await page.waitForURL((url) => url.pathname === "/hospital/patients", { timeout: 5000 });
+    expect(page.url()).toContain("/hospital/patients");
+  });
+
+  test("레거시 /messages → /hospital/messages", async ({ page }) => {
+    await page.goto(`${BASE}/messages`);
+    await page.waitForURL((url) => url.pathname === "/hospital/messages", { timeout: 5000 });
+    expect(page.url()).toContain("/hospital/messages");
+  });
+
+  test("레거시 /settings → /hospital/settings", async ({ page }) => {
+    await page.goto(`${BASE}/settings`);
+    await page.waitForURL((url) => url.pathname === "/hospital/settings", { timeout: 5000 });
+    expect(page.url()).toContain("/hospital/settings");
+  });
+
+  test("레거시 /reports → /hospital/reports", async ({ page }) => {
+    await page.goto(`${BASE}/reports`);
+    await page.waitForURL((url) => url.pathname === "/hospital/reports", { timeout: 5000 });
+    expect(page.url()).toContain("/hospital/reports");
+  });
+});
+
+// ── 6. 비인증 접근 차단 ──
 
 test.describe("비인증 접근", () => {
   test("API 호출 시 401", async ({ page }) => {
@@ -196,7 +244,7 @@ test.describe("비인증 접근", () => {
   });
 });
 
-// ── 6. 세션 무효화 (관리자가 productArea 변경 후) ──
+// ── 7. 세션 무효화 (관리자가 productArea 변경 후) ──
 
 test.describe("세션 무효화", () => {
   test("관리자가 productArea 변경 → 기존 세션 401", async ({ browser }) => {

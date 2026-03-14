@@ -368,7 +368,7 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/" className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+          <Link href="/hospital/dashboard" className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
             <ArrowLeft size={20} />
           </Link>
           <div>
@@ -623,7 +623,7 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
                       제외
                     </button>
                     <Link
-                      href="/messages"
+                      href="/hospital/messages"
                       className="flex items-center gap-1 px-2.5 py-1 text-xs text-gray-400 hover:text-gray-600"
                     >
                       <Mail size={10} />

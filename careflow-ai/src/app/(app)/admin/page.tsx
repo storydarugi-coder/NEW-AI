@@ -10,7 +10,7 @@ export default function AdminPage() {
   const { user } = useAuth();
 
   if (user.role !== "ADMIN") {
-    redirect("/");
+    redirect("/hospital/dashboard");
   }
 
   return (

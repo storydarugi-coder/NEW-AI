@@ -1,7 +1,5 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { MessagesContent } from "@/components/messages/messages-content";
-
-export default function MessagesPage() {
-  return <MessagesContent />;
+export default function MessagesLegacyRedirect() {
+  redirect("/hospital/messages");
 }

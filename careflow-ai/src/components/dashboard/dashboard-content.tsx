@@ -322,10 +322,10 @@ export function DashboardContent({
             </p>
           </div>
           <div className="flex gap-2 shrink-0">
-            <Link href="/workflow" className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors">
+            <Link href="/hospital/workflow" className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors">
               후속관리 업무
             </Link>
-            <Link href="/patients" className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors">
+            <Link href="/hospital/patients" className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors">
               환자 목록
             </Link>
             <Link href="/about" className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-colors">
@@ -412,7 +412,7 @@ export function DashboardContent({
                     </div>
                   </div>
                   <Link
-                    href="/workflow"
+                    href="/hospital/workflow"
                     className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium"
                   >
                     관리 <ChevronRight size={14} />
@@ -530,7 +530,7 @@ export function DashboardContent({
                     </div>
                   </div>
                   <Link
-                    href="/messages"
+                    href="/hospital/messages"
                     className={`text-sm flex items-center gap-1 font-medium ${messageStats.failed > 0 ? "text-red-600 hover:text-red-700" : messageStats.reviewNeeded > 0 ? "text-amber-600 hover:text-amber-700" : "text-green-600 hover:text-green-700"}`}
                   >
                     관리 <ChevronRight size={14} />
@@ -601,7 +601,7 @@ export function DashboardContent({
                     </div>
                   </div>
                   <Link
-                    href="/reports"
+                    href="/hospital/reports"
                     className="text-sm text-violet-600 hover:text-violet-700 flex items-center gap-1 font-medium"
                   >
                     상세 <ChevronRight size={14} />
@@ -668,7 +668,7 @@ export function DashboardContent({
                       </div>
                     </div>
                     <Link
-                      href="/reports"
+                      href="/hospital/reports"
                       className="text-sm text-emerald-600 hover:text-emerald-700 flex items-center gap-1 font-medium"
                     >
                       상세 <ChevronRight size={14} />
@@ -729,7 +729,7 @@ export function DashboardContent({
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">우선순위 환자 리스트</CardTitle>
             <Link
-              href="/patients"
+              href="/hospital/patients"
               className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
             >
               전체 보기 <ChevronRight size={14} />
@@ -803,7 +803,7 @@ export function DashboardContent({
       <Card>
         <CardContent className="p-4">
           <Link
-            href="/reports"
+            href="/hospital/reports"
             className="flex items-center justify-between group"
           >
             <div className="flex items-center gap-3">

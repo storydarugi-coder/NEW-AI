@@ -129,7 +129,7 @@ export default function AboutPage() {
       {/* CTA */}
       <div className="text-center pb-4">
         <Link
-          href="/"
+          href="/hospital/dashboard"
           className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
         >
           대시보드에서 체험하기 <ArrowRight size={16} />

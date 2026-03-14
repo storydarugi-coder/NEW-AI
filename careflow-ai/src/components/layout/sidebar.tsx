@@ -62,12 +62,12 @@ const NAV_SECTIONS: NavSection[] = [
     group: "clinic",
     title: "병원 SaaS",
     items: [
-      { label: "대시보드", href: "/", icon: LayoutDashboard, group: "clinic" },
-      { label: "후속관리 업무", href: "/workflow", icon: ClipboardCheck, group: "clinic" },
-      { label: "환자 관리", href: "/patients", icon: Users, group: "clinic" },
-      { label: "리콜/후속 메시지", href: "/messages", icon: Mail, group: "clinic" },
-      { label: "재내원 성과", href: "/reports", icon: BarChart3, group: "clinic" },
-      { label: "설정", href: "/settings", icon: Settings, group: "clinic" },
+      { label: "대시보드", href: "/hospital/dashboard", icon: LayoutDashboard, group: "clinic" },
+      { label: "후속관리 업무", href: "/hospital/workflow", icon: ClipboardCheck, group: "clinic" },
+      { label: "환자 관리", href: "/hospital/patients", icon: Users, group: "clinic" },
+      { label: "리콜/후속 메시지", href: "/hospital/messages", icon: Mail, group: "clinic" },
+      { label: "재내원 성과", href: "/hospital/reports", icon: BarChart3, group: "clinic" },
+      { label: "설정", href: "/hospital/settings", icon: Settings, group: "clinic" },
     ],
   },
   {
@@ -166,8 +166,8 @@ export function Sidebar({ userRole = "ADMIN", productArea = "all" as ProductArea
               <div className="space-y-0.5">
                 {section.items.map((item) => {
                   const isActive =
-                    item.href === "/"
-                      ? pathname === "/"
+                    item.href === "/hospital/dashboard"
+                      ? pathname === "/hospital/dashboard" || pathname === "/"
                       : pathname.startsWith(item.href);
 
                   return (

@@ -249,7 +249,7 @@ export function PatientDetailContent({ data }: Props) {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Link href="/patients" className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+        <Link href="/hospital/patients" className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
           <ArrowLeft size={20} />
         </Link>
         <div className="flex-1">
