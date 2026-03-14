@@ -16,6 +16,7 @@ datasource db {
 
 model Patient {
   id          String   @id @default(cuid())
+  tenantId    String?  // 멀티테넌시: null = 레거시 (마이그레이션 전)
   chartNumber String   @unique
   gender      String   // M/F - 운영/리콜 판단에 필요
   birthYear   Int      // 연령대 계산용 - 운영에 필요
@@ -28,6 +29,7 @@ model Patient {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  tenant                Tenant?              @relation(fields: [tenantId], references: [id])
   identity              PatientIdentity?
   visits                Visit[]
   recallRecommendations RecallRecommendation[]
@@ -35,6 +37,8 @@ model Patient {
   outboundMessages      OutboundMessage[]
   workflowTasks         WorkflowTask[]
   activityLogs          ActivityLog[]
+
+  @@index([tenantId])
 }
 
 // PII 계층: 직접 식별정보 분리 저장
@@ -268,19 +272,24 @@ model AuditLog {
 // 업무 처리 흐름 (Workflow)
 // ──────────────────────────────────────────────
 
-// 담당자 (mock 기반, 추후 인증 시스템 연동)
+// 담당자 (병원 직원 + 내부 운영자 공통 모델)
 model Staff {
   id        String   @id @default(cuid())
+  tenantId  String?  // 멀티테넌시: null = 레거시/내부 운영자
   name      String   // 표시명: "데스크 김OO", "상담실장 박OO"
   role      String   @default("desk") // desk, counselor, doctor, manager
+  staffType String   @default("clinic") // clinic: 병원 직원, operator: 내부 운영자
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  tenant     Tenant?        @relation(fields: [tenantId], references: [id])
   tasks      WorkflowTask[]
   activities ActivityLog[]
 
+  @@index([tenantId])
   @@index([role])
+  @@index([staffType])
   @@index([isActive])
 }
 
@@ -376,6 +385,7 @@ model SourceRule {
 
 model RuleConfig {
   id          String   @id @default(cuid())
+  tenantId    String?  // 멀티테넌시: null = 전역 기본값
   ruleType    String   @unique
   displayName String
   description String
@@ -383,6 +393,10 @@ model RuleConfig {
   parameters  String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
 }
 
 // ──────────────────────────────────────────────
@@ -401,6 +415,7 @@ enum ProductArea {
 
 model User {
   id             String      @id @default(cuid())
+  tenantId       String?     // 멀티테넌시: null = 슈퍼어드민/레거시
   username       String      @unique
   passwordHash   String
   name           String
@@ -411,6 +426,9 @@ model User {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
   @@index([role])
   @@index([isActive])
   @@index([productArea])
@@ -429,6 +447,11 @@ model Tenant {
   isActive    Boolean     @default(true)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+
+  users       User[]
+  patients    Patient[]
+  staff       Staff[]
+  ruleConfigs RuleConfig[]
 
   @@index([slug])
   @@index([isActive])

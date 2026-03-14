@@ -18,6 +18,7 @@ import {
   Mail,
   BarChart3,
   ClipboardCheck,
+  Shield,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -73,6 +74,7 @@ const NAV_SECTIONS: NavSection[] = [
     group: "common",
     title: "공통",
     items: [
+      { label: "관리자", href: "/admin", icon: Shield, group: "common" },
       { label: "제품 소개", href: "/about", icon: Info, group: "common" },
     ],
   },

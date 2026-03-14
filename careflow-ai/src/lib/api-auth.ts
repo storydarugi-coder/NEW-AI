@@ -122,17 +122,20 @@ const API_AREA_MAP: Array<{ prefix: string; area: ProductArea }> = [
   { prefix: "/api/source-rules", area: "internal" },
   { prefix: "/api/source-import", area: "internal" },
   { prefix: "/api/sync", area: "internal" },
+  { prefix: "/api/reports/sync", area: "internal" },
+  { prefix: "/api/reports/ai-metrics", area: "internal" },
   // hospital 전용
   { prefix: "/api/dashboard", area: "hospital" },
   { prefix: "/api/workflow", area: "hospital" },
   { prefix: "/api/messages", area: "hospital" },
   { prefix: "/api/outbound", area: "hospital" },
   { prefix: "/api/patients", area: "hospital" },
+  { prefix: "/api/reports/staff", area: "hospital" },
 ];
 
 export function getApiProductArea(pathname: string): ProductArea | null {
   for (const { prefix, area } of API_AREA_MAP) {
     if (pathname.startsWith(prefix)) return area;
   }
-  return null; // shared (reports, auth, seed, settings, staff)
+  return null; // shared (reports, auth, seed, settings, staff, admin)
 }

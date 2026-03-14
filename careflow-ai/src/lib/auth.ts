@@ -21,6 +21,7 @@ export interface SessionUser {
   name: string;
   role: string; // ADMIN, DESK, COUNSELOR, VIEWER, MARKETING
   productArea: ProductArea;
+  tenantId?: string | null; // 멀티테넌시: null = 슈퍼어드민/레거시
   sessionVersion?: number; // 관리자 변경 시 증가 → 기존 세션 강제 무효화
 }
 

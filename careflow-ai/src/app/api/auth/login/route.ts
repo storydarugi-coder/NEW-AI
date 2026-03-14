@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
       name: user.name,
       role: user.role,
       productArea,
+      tenantId: (user as Record<string, unknown>).tenantId as string | null ?? null,
       sessionVersion: (user as Record<string, unknown>).sessionVersion as number ?? 1,
     });
 
