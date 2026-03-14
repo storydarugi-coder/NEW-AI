@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * 방문경로 검토 통계 (대시보드 위젯용)
@@ -9,6 +10,10 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "internal");
+    if (areaError) return areaError;
     const [
       totalWithSource,
       unreviewedCount,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * 유입 경로 검토 CSV Export
@@ -9,6 +10,10 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "internal");
+    if (areaError) return areaError;
     const { searchParams } = new URL(request.url);
     const filter = searchParams.get("filter") || "all";
 

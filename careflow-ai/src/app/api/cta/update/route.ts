@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { evaluateSettlementEligibility } from "@/lib/cta/classify";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * CTA 유입 귀속 정보 업데이트
  * PATCH /api/cta/update
- *
- * 가능한 업데이트:
- * - treatmentStarted: 진료 시작 여부 변경
- * - reviewMemo: 검토 메모 추가/수정
- * - ineligibleReason: 정산 제외 사유 수동 입력
- * - settlementEligible: 정산 포함/제외 수동 처리
  */
 export async function PATCH(request: NextRequest) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "internal");
+    if (areaError) return areaError;
     const body = await request.json();
     const { attributionId, ...updates } = body as {
       attributionId: string;

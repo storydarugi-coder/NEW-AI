@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { evaluateSettlementEligibility } from "@/lib/cta/classify";
-import { verifySession } from "@/lib/auth";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 export async function POST(request: NextRequest) {
   try {
+    const { session: sessionUser, error: authError } = await requireSession();
+    if (authError) return authError;
+    const areaError = requireProductArea(sessionUser, "internal");
+    if (areaError) return areaError;
+
     const body = await request.json();
-    const sessionUser = verifySession(request.cookies.get("session")?.value);
     const { attributionId, reviewStatus, reviewer, memo } = body as {
       attributionId: string;
       reviewStatus: "confirmed" | "rejected";

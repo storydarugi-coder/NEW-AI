@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { evaluateAllPatients, buildEngineConfig } from "@/lib/engine";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 export async function GET() {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "hospital");
+    if (areaError) return areaError;
     const ruleConfigs = await prisma.ruleConfig.findMany();
     const engineConfig = buildEngineConfig(ruleConfigs);
 

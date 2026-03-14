@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { evaluateAllPatients, buildEngineConfig } from "@/lib/engine";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "hospital");
+    if (areaError) return areaError;
     const { searchParams } = new URL(request.url);
     const segment = searchParams.get("segment");
     const search = searchParams.get("search") || "";

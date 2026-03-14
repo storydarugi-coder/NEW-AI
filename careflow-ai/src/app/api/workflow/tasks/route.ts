@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { VALID_TASK_STATUSES, VALID_ACTION_TYPES } from "@/types";
 import { onDashboardDataChanged } from "@/lib/cache/dashboard-engine";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 // GET: 업무 목록 조회 (필터링, 정렬)
 export async function GET(request: NextRequest) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "hospital");
+    if (areaError) return areaError;
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const actionType = searchParams.get("actionType");
@@ -66,6 +71,10 @@ export async function GET(request: NextRequest) {
 // POST: 새 업무 생성
 export async function POST(request: NextRequest) {
   try {
+    const { session: sess, error: authErr } = await requireSession();
+    if (authErr) return authErr;
+    const aErr = requireProductArea(sess, "hospital");
+    if (aErr) return aErr;
     const body = await request.json();
     const { patientId, actionType, assigneeId, note, nextFollowUpAt } = body;
 

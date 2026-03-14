@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Settings, Save, Loader2, CheckCircle, Sparkles, AlertTriangle } from "lucide-react";
 import { TONE_LABELS, type MessageTone } from "@/types";
+import { useAuth } from "@/components/auth/auth-provider";
+import { UserManagement } from "./user-management";
 
 interface RuleConfigItem {
   id: string;
@@ -46,6 +48,7 @@ function getParamLabel(key: string): string {
 }
 
 export function SettingsContent({ configs: initialConfigs }: Props) {
+  const { user } = useAuth();
   const [configs, setConfigs] = useState(initialConfigs);
   const [saving, setSaving] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
@@ -223,6 +226,14 @@ export function SettingsContent({ configs: initialConfigs }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      {/* User Management (ADMIN only) */}
+      {user.role === "ADMIN" && (
+        <>
+          <Separator />
+          <UserManagement />
+        </>
+      )}
 
       {/* Disclaimer */}
       <Card className="border-0 shadow-sm bg-amber-50/50">

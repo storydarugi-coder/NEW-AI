@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
-import { verifySession } from "@/lib/auth";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * 묶음 검토 API
@@ -21,6 +21,11 @@ interface BatchRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "internal");
+    if (areaError) return areaError;
+
     const body = await request.json() as BatchRequest;
     const { action, sourceRaw, visitIds, reviewedSource, reviewedCategory, reviewedCtaFlag, changeMemo } = body;
 
@@ -66,8 +71,7 @@ export async function POST(request: NextRequest) {
 
     const batchKey = sourceRaw || `batch_${Date.now()}`;
     const now = new Date();
-    const sessionUser = verifySession(request.cookies.get("session")?.value);
-    const changedBy = sessionUser?.name || "운영자";
+    const changedBy = session.name;
 
     // 이력 데이터 준비
     const historyRows: {

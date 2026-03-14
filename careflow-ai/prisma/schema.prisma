@@ -386,19 +386,29 @@ model RuleConfig {
 }
 
 // ──────────────────────────────────────────────
+// 제품 영역 열거형
+// ──────────────────────────────────────────────
+
+enum ProductArea {
+  hospital // 병원 SaaS (재내원 유도, 후속관리, 메시지)
+  internal // 회사 내부용 (CPA 운영, 유입 경로 관리)
+  all      // 양쪽 모두 (관리자 전용)
+}
+
+// ──────────────────────────────────────────────
 // 사용자 / 인증
 // ──────────────────────────────────────────────
 
 model User {
-  id           String   @id @default(cuid())
-  username     String   @unique
+  id           String      @id @default(cuid())
+  username     String      @unique
   passwordHash String
   name         String
-  role         String   @default("DESK") // ADMIN, DESK, COUNSELOR, VIEWER, MARKETING
-  productArea  String   @default("all") // hospital, internal, all — 제품 영역 접근 범위
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  role         String      @default("DESK") // ADMIN, DESK, COUNSELOR, VIEWER, MARKETING
+  productArea  ProductArea @default(all)
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   @@index([role])
   @@index([isActive])
@@ -411,13 +421,13 @@ model User {
 // ──────────────────────────────────────────────
 
 model Tenant {
-  id          String   @id @default(cuid())
-  name        String   // "OO치과", "CareFlow 본사"
-  slug        String   @unique // URL-safe 식별자
-  productArea String   @default("hospital") // hospital, internal
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id          String      @id @default(cuid())
+  name        String      // "OO치과", "CareFlow 본사"
+  slug        String      @unique // URL-safe 식별자
+  productArea ProductArea @default(hospital)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   @@index([slug])
   @@index([isActive])

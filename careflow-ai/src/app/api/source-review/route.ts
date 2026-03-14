@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { normalizeSource, dbRuleToDefinition } from "@/lib/attribution/normalizer";
-import { verifySession } from "@/lib/auth";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * 방문경로 검토 API
@@ -13,6 +13,10 @@ import { verifySession } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "internal");
+    if (areaError) return areaError;
     const { searchParams } = new URL(request.url);
     const reviewStatus = searchParams.get("status"); // unreviewed, auto_confirmed, manually_confirmed, all
     const confidence = searchParams.get("confidence"); // HIGH, MEDIUM, LOW
@@ -135,6 +139,10 @@ export async function GET(request: NextRequest) {
  */
 export async function POST() {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "internal");
+    if (areaError) return areaError;
     const dbRules = await prisma.sourceRule.findMany({
       where: { isActive: true },
       orderBy: { priority: "asc" },
@@ -202,6 +210,11 @@ export async function POST() {
  */
 export async function PATCH(request: NextRequest) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "internal");
+    if (areaError) return areaError;
+
     const body = await request.json();
     const { visitId, reviewedSource, reviewedCategory, reviewedCtaFlag, sourceReviewMemo, action } = body as {
       visitId: string;
@@ -223,7 +236,7 @@ export async function PATCH(request: NextRequest) {
 
     const data: Record<string, unknown> = {
       sourceReviewedAt: new Date(),
-      sourceReviewedBy: verifySession(request.cookies.get("session")?.value)?.name || "운영자",
+      sourceReviewedBy: session.name,
     };
 
     if (action === "confirm_recommended") {
@@ -262,7 +275,7 @@ export async function PATCH(request: NextRequest) {
         newCtaCandidate: typeof data.reviewedCtaFlag === "boolean" ? data.reviewedCtaFlag : visit.ctaCandidate,
         newReviewStatus: data.sourceReviewStatus as string,
         changeType: "individual_review",
-        changedBy: verifySession(request.cookies.get("session")?.value)?.name || "운영자",
+        changedBy: session.name,
         changeMemo: sourceReviewMemo || null,
       },
     });

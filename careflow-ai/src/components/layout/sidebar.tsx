@@ -53,6 +53,8 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "유입 경로 검토", href: "/source-review", icon: Search, group: "company" },
       { label: "유입 경로 규칙", href: "/source-rules", icon: BookOpen, group: "company" },
       { label: "데이터 가져오기", href: "/sync", icon: RefreshCw, group: "company" },
+      { label: "CSV Import", href: "/source-import", icon: Upload, group: "company" },
+      { label: "운영 리포트", href: "/reports", icon: BarChart3, group: "company" },
     ],
   },
   {
@@ -69,9 +71,8 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     group: "common",
-    title: "공통 · 도구",
+    title: "공통",
     items: [
-      { label: "CSV Import", href: "/source-import", icon: Upload, group: "common" },
       { label: "제품 소개", href: "/about", icon: Info, group: "common" },
     ],
   },

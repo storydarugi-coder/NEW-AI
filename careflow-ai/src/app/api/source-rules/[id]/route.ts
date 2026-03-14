@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * 개별 분류 규칙 CRUD
@@ -12,6 +13,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "internal");
+    if (areaError) return areaError;
+
     const { id } = await params;
     const body = await request.json();
     const { keywords, normalizedSource, sourceCategory, ctaCandidate, priority, isActive, description } = body;
@@ -62,6 +68,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "internal");
+    if (areaError) return areaError;
+
     const { id } = await params;
 
     await prisma.sourceRule.delete({ where: { id } });

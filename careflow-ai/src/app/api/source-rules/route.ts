@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_SOURCE_RULES } from "@/lib/attribution/rules";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * 분류 규칙 사전 API
@@ -10,6 +11,10 @@ import { DEFAULT_SOURCE_RULES } from "@/lib/attribution/rules";
 
 export async function GET() {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "internal");
+    if (areaError) return areaError;
     const dbRules = await prisma.sourceRule.findMany({
       orderBy: { priority: "asc" },
     });
@@ -44,6 +49,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "internal");
+    if (areaError) return areaError;
     const body = await request.json();
     const { ruleName, keywords, normalizedSource, sourceCategory, ctaCandidate, priority, description } = body;
 

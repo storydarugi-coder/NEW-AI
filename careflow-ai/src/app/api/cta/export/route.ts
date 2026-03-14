@@ -2,15 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { maskName } from "@/lib/privacy";
 import { CHANNEL_LABELS, REVIEW_STATUS_LABELS } from "@/types";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * CTA 정산 대상 CSV 내보내기
  * GET /api/cta/export?month=YYYY-MM
- *
- * 개인정보 최소화: 이름은 마스킹, 차트번호만 식별자로 사용
  */
 export async function GET(request: NextRequest) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "internal");
+    if (areaError) return areaError;
     const { searchParams } = new URL(request.url);
     const month = searchParams.get("month"); // YYYY-MM 또는 "all"
 

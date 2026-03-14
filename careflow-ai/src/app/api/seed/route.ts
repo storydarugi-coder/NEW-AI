@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { DEFAULT_SOURCE_RULES } from "@/lib/attribution/rules";
 import { normalizeSource, type NormalizationResult } from "@/lib/attribution/normalizer";
 import { hashPassword, verifySession } from "@/lib/auth";
+import { ProductArea as PrismaProductArea } from "@prisma/client";
 import { onDashboardDataChanged } from "@/lib/cache/dashboard-engine";
 
 /**
@@ -109,12 +110,12 @@ export async function POST(request: NextRequest) {
     // ── 2단계: 사용자 계정 먼저 생성 (가장 중요: 로그인 가능해야 함) ──
     currentStep = "User(사용자계정) 생성";
     const userDefs = [
-      { username: "admin", password: "admin123", name: "관리자 홍길동", role: "ADMIN", productArea: "all" },
-      { username: "desk01", password: "desk123", name: "데스크 김소연", role: "DESK", productArea: "hospital" },
-      { username: "desk02", password: "desk123", name: "데스크 이지은", role: "DESK", productArea: "all" },
-      { username: "counsel01", password: "counsel123", name: "상담실장 박미영", role: "COUNSELOR", productArea: "hospital" },
-      { username: "viewer01", password: "view123", name: "원장 최진수", role: "VIEWER", productArea: "hospital" },
-      { username: "mkt01", password: "mkt123", name: "마케팅 정하늘", role: "MARKETING", productArea: "internal" },
+      { username: "admin", password: "admin123", name: "관리자 홍길동", role: "ADMIN", productArea: PrismaProductArea.all },
+      { username: "desk01", password: "desk123", name: "데스크 김소연", role: "DESK", productArea: PrismaProductArea.hospital },
+      { username: "desk02", password: "desk123", name: "데스크 이지은", role: "DESK", productArea: PrismaProductArea.all },
+      { username: "counsel01", password: "counsel123", name: "상담실장 박미영", role: "COUNSELOR", productArea: PrismaProductArea.hospital },
+      { username: "viewer01", password: "view123", name: "원장 최진수", role: "VIEWER", productArea: PrismaProductArea.hospital },
+      { username: "mkt01", password: "mkt123", name: "마케팅 정하늘", role: "MARKETING", productArea: PrismaProductArea.internal },
     ];
     try {
       for (const u of userDefs) {

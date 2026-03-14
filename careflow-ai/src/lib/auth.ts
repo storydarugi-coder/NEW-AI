@@ -100,6 +100,7 @@ export const PRODUCT_AREA_PATHS: Record<ProductArea, string[]> = {
   internal: ["/cta", "/source-review", "/source-rules", "/sync", "/source-import", "/reports", "/about"],
   all: ["*"],
 };
+// /reports, /about 은 양쪽 모두에 포함 — 의도적 공유 항목
 
 /**
  * 역할에서 기본 productArea 추론 (User.productArea가 없는 레거시 데이터용)

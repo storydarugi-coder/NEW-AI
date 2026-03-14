@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 export async function GET() {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "hospital");
+    if (areaError) return areaError;
     const configs = await prisma.ruleConfig.findMany({
       orderBy: { ruleType: "asc" },
     });
@@ -18,6 +23,10 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "hospital");
+    if (areaError) return areaError;
     const body = await request.json();
     const { id, enabled, parameters } = body as {
       id: string;

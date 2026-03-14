@@ -60,12 +60,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. 세션 토큰 생성 (productArea: DB에 있으면 사용, 없으면 role에서 추론)
-    const rawArea = (user as Record<string, unknown>).productArea as string | undefined;
-    const productArea: ProductArea =
-      (rawArea === "hospital" || rawArea === "internal" || rawArea === "all")
-        ? rawArea
-        : inferProductArea(user.role);
+    // 5. 세션 토큰 생성 (productArea: DB enum 값 사용)
+    const productArea: ProductArea = user.productArea as ProductArea;
 
     const token = createSessionToken({
       id: user.id,
