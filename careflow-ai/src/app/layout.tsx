@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { AuthGate } from "@/components/auth/auth-gate";
 
 export const metadata: Metadata = {
   title: "CareFlow AI - 치과 리콜 관리 시스템",
@@ -15,7 +14,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className="font-sans antialiased bg-gray-50">
-        <AuthGate>{children}</AuthGate>
+        {children}
       </body>
     </html>
   );
