@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { verifySession, hasCapability } from "./auth";
 import { prisma } from "./prisma";
 import type { SessionUser, ProductArea } from "./auth";
+import { getTenantScope, assertTenantAccess, type TenantScope } from "./tenant";
 
 /**
  * API Route용 인증/인가 헬퍼
@@ -66,6 +67,67 @@ export async function requireSession(): Promise<SessionResult | SessionError> {
   }
 
   return { session, error: null };
+}
+
+// ── 세션 + 테넌트 스코프 통합 ──
+
+interface SessionWithScopeResult {
+  session: SessionUser;
+  scope: TenantScope;
+  error: null;
+}
+interface SessionWithScopeError {
+  session: null;
+  scope: null;
+  error: NextResponse;
+}
+
+/**
+ * requireSession + getTenantScope 통합 헬퍼
+ * 대부분의 API에서 세션과 테넌트 스코프를 동시에 필요로 함
+ */
+export async function requireSessionWithScope(): Promise<
+  SessionWithScopeResult | SessionWithScopeError
+> {
+  const result = await requireSession();
+  if (result.error) return { session: null, scope: null, error: result.error };
+  return {
+    session: result.session,
+    scope: getTenantScope(result.session),
+    error: null,
+  };
+}
+
+/**
+ * 단건 조회 후 테넌트 접근 검증
+ * findUnique 결과의 tenantId가 세션과 일치하는지 확인
+ * - 불일치 시 403 NextResponse 반환
+ * - 일치 시 null 반환
+ */
+export function guardTenantAccess(
+  session: SessionUser,
+  record: { tenantId?: string | null } | null
+): NextResponse | null {
+  if (!record) return null; // 404는 호출 측에서 처리
+  if (!assertTenantAccess(session, record)) {
+    return NextResponse.json(
+      { error: "접근 권한이 없습니다." },
+      { status: 403 }
+    );
+  }
+  return null;
+}
+
+/**
+ * OutboundMessage 등 tenantId가 없는 모델에서
+ * 관련 Patient의 tenantId를 기준으로 접근 검증
+ */
+export function guardTenantAccessViaPatient(
+  session: SessionUser,
+  patient: { tenantId?: string | null } | null
+): NextResponse | null {
+  if (!patient) return null;
+  return guardTenantAccess(session, patient);
 }
 
 // ── 제품 영역 제한 ──

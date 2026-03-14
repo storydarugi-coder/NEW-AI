@@ -67,6 +67,10 @@ export async function POST(request: NextRequest) {
 
     const now = new Date();
 
+    // ── 멀티테넌시: 테넌트 ID 정의 ──
+    const TENANT_A = "tenant_a"; // 병원A (서울하나치과)
+    const TENANT_B = "tenant_b"; // 병원B (부산미소치과)
+
     // ── 1단계: 기존 데이터 삭제 (leaf → root) ──
     currentStep = "기존 데이터 삭제";
     try {
@@ -110,19 +114,20 @@ export async function POST(request: NextRequest) {
     // ── 2단계: 사용자 계정 먼저 생성 (가장 중요: 로그인 가능해야 함) ──
     currentStep = "User(사용자계정) 생성";
     const userDefs = [
-      { username: "admin", password: "admin123", name: "관리자 홍길동", role: "ADMIN", productArea: PrismaProductArea.all },
-      { username: "desk01", password: "desk123", name: "데스크 김소연", role: "DESK", productArea: PrismaProductArea.hospital },
-      { username: "desk02", password: "desk123", name: "데스크 이지은", role: "DESK", productArea: PrismaProductArea.all },
-      { username: "counsel01", password: "counsel123", name: "상담실장 박미영", role: "COUNSELOR", productArea: PrismaProductArea.hospital },
-      { username: "viewer01", password: "view123", name: "원장 최진수", role: "VIEWER", productArea: PrismaProductArea.hospital },
-      { username: "mkt01", password: "mkt123", name: "마케팅 정하늘", role: "MARKETING", productArea: PrismaProductArea.internal },
+      { username: "admin", password: "admin123", name: "관리자 홍길동", role: "ADMIN", productArea: PrismaProductArea.all, tenantId: null },
+      { username: "desk01", password: "desk123", name: "데스크 김소연 (서울)", role: "DESK", productArea: PrismaProductArea.hospital, tenantId: TENANT_A },
+      { username: "desk02", password: "desk123", name: "데스크 이지은", role: "DESK", productArea: PrismaProductArea.all, tenantId: null },
+      { username: "counsel01", password: "counsel123", name: "상담실장 박미영 (서울)", role: "COUNSELOR", productArea: PrismaProductArea.hospital, tenantId: TENANT_A },
+      { username: "viewer01", password: "view123", name: "원장 최진수 (부산)", role: "VIEWER", productArea: PrismaProductArea.hospital, tenantId: TENANT_B },
+      { username: "mkt01", password: "mkt123", name: "마케팅 정하늘", role: "MARKETING", productArea: PrismaProductArea.internal, tenantId: null },
+      { username: "desk_b01", password: "desk123", name: "데스크 장민지 (부산)", role: "DESK", productArea: PrismaProductArea.hospital, tenantId: TENANT_B },
     ];
     try {
       for (const u of userDefs) {
         await prisma.user.upsert({
           where: { username: u.username },
-          update: { passwordHash: hashPassword(u.password), name: u.name, role: u.role, productArea: u.productArea, isActive: true, updatedAt: now },
-          create: { id: randomUUID(), username: u.username, passwordHash: hashPassword(u.password), name: u.name, role: u.role, productArea: u.productArea, updatedAt: now },
+          update: { passwordHash: hashPassword(u.password), name: u.name, role: u.role, productArea: u.productArea, tenantId: u.tenantId, isActive: true, updatedAt: now },
+          create: { id: randomUUID(), username: u.username, passwordHash: hashPassword(u.password), name: u.name, role: u.role, productArea: u.productArea, tenantId: u.tenantId, updatedAt: now },
         });
       }
     } catch (err) {
@@ -156,10 +161,10 @@ export async function POST(request: NextRequest) {
     const staffIds = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
     try {
       await prisma.staff.createMany({ data: [
-        { id: staffIds[0], name: "김수진", role: "desk", updatedAt: now },
-        { id: staffIds[1], name: "박미영", role: "counselor", updatedAt: now },
-        { id: staffIds[2], name: "이원장", role: "doctor", updatedAt: now },
-        { id: staffIds[3], name: "정관리", role: "manager", updatedAt: now },
+        { id: staffIds[0], name: "김수진 (서울)", role: "desk", tenantId: TENANT_A, updatedAt: now },
+        { id: staffIds[1], name: "박미영 (서울)", role: "counselor", tenantId: TENANT_A, updatedAt: now },
+        { id: staffIds[2], name: "이원장 (부산)", role: "doctor", tenantId: TENANT_B, updatedAt: now },
+        { id: staffIds[3], name: "정관리", role: "manager", tenantId: null, updatedAt: now },
       ]});
     } catch (err) {
       return seedError(currentStep, err);
@@ -169,10 +174,10 @@ export async function POST(request: NextRequest) {
     currentStep = "RuleConfig 생성";
     try {
       await prisma.ruleConfig.createMany({ data: [
-        { id: randomUUID(), ruleType: "treatment_dropout", displayName: "치료 중단 탐지", description: "신경치료, 보철치료 중단 의심 환자를 탐지합니다.", enabled: true, parameters: JSON.stringify({ nerve_treatment_days: 14, prosthetic_days: 21 }), updatedAt: now },
-        { id: randomUUID(), ruleType: "scaling_recall", displayName: "스케일링/치주 리콜", description: "보험 스케일링 미수진자와 치주 정기 리콜 대상을 탐지합니다.", enabled: true, parameters: JSON.stringify({ scaling_months: 12, perio_recall_months: 4 }), updatedAt: now },
-        { id: randomUUID(), ruleType: "implant_followup", displayName: "임플란트 사후관리", description: "임플란트 시술 후 정기 점검 대상을 탐지합니다.", enabled: true, parameters: JSON.stringify({ implant_checkup_months: [1, 3, 6, 12] }), updatedAt: now },
-        { id: randomUUID(), ruleType: "potential_demand", displayName: "잠재 수요 발굴", description: "사랑니 발치, 교정 등 상담 후 미전환 잠재 수요를 탐지합니다.", enabled: true, parameters: JSON.stringify({}), updatedAt: now },
+        { id: randomUUID(), ruleType: "treatment_dropout", displayName: "치료 중단 탐지", description: "신경치료, 보철치료 중단 의심 환자를 탐지합니다.", enabled: true, parameters: JSON.stringify({ nerve_treatment_days: 14, prosthetic_days: 21 }), tenantId: TENANT_A, updatedAt: now },
+        { id: randomUUID(), ruleType: "scaling_recall", displayName: "스케일링/치주 리콜", description: "보험 스케일링 미수진자와 치주 정기 리콜 대상을 탐지합니다.", enabled: true, parameters: JSON.stringify({ scaling_months: 12, perio_recall_months: 4 }), tenantId: TENANT_A, updatedAt: now },
+        { id: randomUUID(), ruleType: "implant_followup", displayName: "임플란트 사후관리", description: "임플란트 시술 후 정기 점검 대상을 탐지합니다.", enabled: true, parameters: JSON.stringify({ implant_checkup_months: [1, 3, 6, 12] }), tenantId: TENANT_B, updatedAt: now },
+        { id: randomUUID(), ruleType: "potential_demand", displayName: "잠재 수요 발굴", description: "사랑니 발치, 교정 등 상담 후 미전환 잠재 수요를 탐지합니다.", enabled: true, parameters: JSON.stringify({}), tenantId: TENANT_B, updatedAt: now },
       ]});
     } catch (err) {
       return seedError(currentStep, err);
@@ -195,12 +200,12 @@ export async function POST(request: NextRequest) {
     // 환자 10명 (CF-0001 ~ CF-0010)
     currentStep = "Patient 생성";
     interface SeedVisit { visitDate: Date; memo?: string; sourceRaw?: string; channel?: string; isCta?: boolean; campaignKey?: string; hasTreatment?: boolean; procedures: { code: string; name: string; tooth?: string }[]; diagnoses: { code: string; name: string; tooth?: string }[] }
-    interface SeedPatient { chartNumber: string; name: string; gender: string; birthYear: number; phone: string; tags?: string; isVip?: boolean; visits: SeedVisit[] }
+    interface SeedPatient { chartNumber: string; name: string; gender: string; birthYear: number; phone: string; tags?: string; isVip?: boolean; tenantId: string | null; visits: SeedVisit[] }
 
     const patients: SeedPatient[] = [
       {
         chartNumber: "CF-0001", name: "김민수", gender: "M", birthYear: 1985, phone: "010-1234-0001",
-        tags: "야근잦음,예약취소이력",
+        tenantId: TENANT_A, tags: "야근잦음,예약취소이력",
         visits: [
           { visitDate: daysAgo(60), procedures: [{ code: "U0001", name: "검진" }], diagnoses: [{ code: "K029", name: "치아우식증", tooth: "46" }], channel: "walk_in" },
           { visitDate: daysAgo(53), procedures: [{ code: "U4412", name: "발수(구치)", tooth: "46" }], diagnoses: [{ code: "K040", name: "치수염", tooth: "46" }] },
@@ -209,7 +214,7 @@ export async function POST(request: NextRequest) {
       },
       {
         chartNumber: "CF-0002", name: "이영희", gender: "F", birthYear: 1990, phone: "010-1234-0002",
-        tags: "중단이력",
+        tenantId: TENANT_A, tags: "중단이력",
         visits: [
           { visitDate: daysAgo(20), procedures: [{ code: "U4412", name: "발수(구치)", tooth: "36" }], diagnoses: [{ code: "K040", name: "치수염", tooth: "36" }] },
           { visitDate: daysAgo(13), procedures: [{ code: "U4412", name: "근관성형(구치)", tooth: "36" }], diagnoses: [] },
@@ -217,16 +222,16 @@ export async function POST(request: NextRequest) {
       },
       {
         chartNumber: "CF-0003", name: "박준호", gender: "M", birthYear: 1978, phone: "010-1234-0003",
-        tags: "치과공포증",
+        tenantId: TENANT_A, tags: "치과공포증",
         visits: [{ visitDate: daysAgo(40), procedures: [{ code: "U4413", name: "발수(복수근관)", tooth: "46" }], diagnoses: [{ code: "K041", name: "치수괴사", tooth: "46" }] }],
       },
       {
         chartNumber: "CF-0004", name: "최서연", gender: "F", birthYear: 1995, phone: "010-1234-0004",
-        visits: [{ visitDate: daysAgo(18), procedures: [{ code: "U4411", name: "발수(전치)", tooth: "21" }], diagnoses: [{ code: "K040", name: "치수염", tooth: "21" }], sourceRaw: "네이버 검색 광고 클릭", channel: "cta_naver", isCta: true, campaignKey: "naver_implant_mar", hasTreatment: true }],
+        tenantId: TENANT_A, visits: [{ visitDate: daysAgo(18), procedures: [{ code: "U4411", name: "발수(전치)", tooth: "21" }], diagnoses: [{ code: "K040", name: "치수염", tooth: "21" }], sourceRaw: "네이버 검색 광고 클릭", channel: "cta_naver", isCta: true, campaignKey: "naver_implant_mar", hasTreatment: true }],
       },
       {
         chartNumber: "CF-0005", name: "정태영", gender: "M", birthYear: 1982, phone: "010-1234-0005",
-        isVip: true, tags: "가족4인,매출상위5%",
+        tenantId: TENANT_A, isVip: true, tags: "가족4인,매출상위5%",
         visits: [
           { visitDate: monthsAgo(6), procedures: [{ code: "U2232", name: "치석제거(전악)" }], diagnoses: [], channel: "walk_in" },
           { visitDate: daysAgo(30), procedures: [{ code: "U4412", name: "발수(구치)", tooth: "16" }], diagnoses: [{ code: "K040", name: "치수염", tooth: "16" }] },
@@ -235,7 +240,7 @@ export async function POST(request: NextRequest) {
       },
       {
         chartNumber: "CF-0006", name: "한지은", gender: "F", birthYear: 1988, phone: "010-1234-0006",
-        tags: "비용보류",
+        tenantId: TENANT_B, tags: "비용보류",
         visits: [
           { visitDate: daysAgo(45), procedures: [{ code: "U6020", name: "보철 prep", tooth: "26" }], diagnoses: [{ code: "K029", name: "치아우식증", tooth: "26" }] },
           { visitDate: daysAgo(30), procedures: [{ code: "U6010", name: "크라운 인상", tooth: "26" }], diagnoses: [] },
@@ -243,25 +248,25 @@ export async function POST(request: NextRequest) {
       },
       {
         chartNumber: "CF-0007", name: "오승민", gender: "M", birthYear: 1975, phone: "010-1234-0007",
-        isVip: true, tags: "해외출장잦음",
+        tenantId: TENANT_B, isVip: true, tags: "해외출장잦음",
         visits: [{ visitDate: daysAgo(35), procedures: [{ code: "U6011", name: "브릿지 인상", tooth: "35" }], diagnoses: [] }],
       },
       {
         chartNumber: "CF-0008", name: "윤다혜", gender: "F", birthYear: 1992, phone: "010-1234-0008",
-        visits: [{ visitDate: daysAgo(50), procedures: [{ code: "U6020", name: "보철 prep", tooth: "14" }], diagnoses: [{ code: "K030", name: "치아마모증", tooth: "14" }] }],
+        tenantId: TENANT_B, visits: [{ visitDate: daysAgo(50), procedures: [{ code: "U6020", name: "보철 prep", tooth: "14" }], diagnoses: [{ code: "K030", name: "치아마모증", tooth: "14" }] }],
       },
       {
         chartNumber: "CF-0009", name: "강현우", gender: "M", birthYear: 1980, phone: "010-1234-0009",
-        visits: [{ visitDate: daysAgo(25), procedures: [{ code: "U6010", name: "크라운 인상", tooth: "47" }], diagnoses: [], sourceRaw: "구글 스케일링 검색 광고", channel: "cta_google", isCta: true, campaignKey: "google_scaling_q1", hasTreatment: true }],
+        tenantId: TENANT_B, visits: [{ visitDate: daysAgo(25), procedures: [{ code: "U6010", name: "크라운 인상", tooth: "47" }], diagnoses: [], sourceRaw: "구글 스케일링 검색 광고", channel: "cta_google", isCta: true, campaignKey: "google_scaling_q1", hasTreatment: true }],
       },
       {
         chartNumber: "CF-0010", name: "서미라", gender: "F", birthYear: 1987, phone: "010-1234-0010",
-        visits: [{ visitDate: daysAgo(28), procedures: [{ code: "U6011", name: "브릿지 인상", tooth: "15" }], diagnoses: [{ code: "K083", name: "잔존 치근", tooth: "15" }] }],
+        tenantId: TENANT_B, visits: [{ visitDate: daysAgo(28), procedures: [{ code: "U6011", name: "브릿지 인상", tooth: "15" }], diagnoses: [{ code: "K083", name: "잔존 치근", tooth: "15" }] }],
       },
     ];
 
     // 환자/방문/처치/진단/CTA 행 빌드
-    const patientRows: { id: string; chartNumber: string; gender: string; birthYear: number; isVip: boolean; tags: string | null; updatedAt: Date }[] = [];
+    const patientRows: { id: string; chartNumber: string; gender: string; birthYear: number; isVip: boolean; tags: string | null; tenantId: string | null; updatedAt: Date }[] = [];
     const identityRows: { id: string; patientId: string; name: string; phone: string; updatedAt: Date }[] = [];
     const visitRows: Record<string, unknown>[] = [];
     const procedureRows: { id: string; visitId: string; code: string; name: string; tooth: string | null }[] = [];
@@ -270,7 +275,7 @@ export async function POST(request: NextRequest) {
 
     for (const p of patients) {
       const patientId = randomUUID();
-      patientRows.push({ id: patientId, chartNumber: p.chartNumber, gender: p.gender, birthYear: p.birthYear, isVip: p.isVip || false, tags: p.tags || null, updatedAt: now });
+      patientRows.push({ id: patientId, chartNumber: p.chartNumber, gender: p.gender, birthYear: p.birthYear, isVip: p.isVip || false, tags: p.tags || null, tenantId: p.tenantId, updatedAt: now });
       identityRows.push({ id: randomUUID(), patientId, name: p.name, phone: p.phone, updatedAt: now });
 
       const campaignsSeen = new Set<string>();
@@ -354,7 +359,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       phase: "minimal",
-      message: `기본 초기화 완료: ${patients.length}명의 환자, 6명의 사용자 계정, 4개 캠페인이 생성되었습니다. admin / admin123 으로 로그인할 수 있습니다.`,
+      message: `기본 초기화 완료: ${patients.length}명의 환자 (tenant_a: 5, tenant_b: 5), ${userDefs.length}명의 사용자 계정, 4개 캠페인이 생성되었습니다. admin / admin123 으로 로그인할 수 있습니다. 테넌트 테스트: desk01(서울A) / desk_b01(부산B)`,
       loginInfo: { username: "admin", password: "admin123" },
       demoAvailable: true,
     });

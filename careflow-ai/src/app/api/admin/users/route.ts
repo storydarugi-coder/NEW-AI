@@ -28,6 +28,7 @@ export async function GET() {
         name: true,
         role: true,
         productArea: true,
+        tenantId: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
@@ -53,11 +54,12 @@ export async function PATCH(request: NextRequest) {
     if (adminError) return adminError;
 
     const body = await request.json();
-    const { userId, productArea, role, isActive } = body as {
+    const { userId, productArea, role, isActive, tenantId } = body as {
       userId: string;
       productArea?: string;
       role?: string;
       isActive?: boolean;
+      tenantId?: string | null;
     };
 
     if (!userId) {
@@ -104,12 +106,28 @@ export async function PATCH(request: NextRequest) {
       data.isActive = isActive;
     }
 
+    // tenantId 변경 처리
+    if (tenantId !== undefined && tenantId !== target.tenantId) {
+      changes.tenantId = { from: target.tenantId, to: tenantId };
+      data.tenantId = tenantId;
+    }
+
+    // hospital 계정은 tenantId 필수 정책
+    const finalProductArea = (data.productArea as string) || target.productArea;
+    const finalTenantId = data.tenantId !== undefined ? data.tenantId : target.tenantId;
+    if (finalProductArea === "hospital" && !finalTenantId) {
+      return NextResponse.json(
+        { error: "병원(hospital) 계정은 소속 병원(tenantId)이 필수입니다." },
+        { status: 400 }
+      );
+    }
+
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: "변경할 내용이 없습니다." }, { status: 400 });
     }
 
-    // role, productArea, isActive 변경 시 sessionVersion 증가 → 기존 세션 무효화
-    if (data.productArea !== undefined || data.role !== undefined || data.isActive !== undefined) {
+    // role, productArea, isActive, tenantId 변경 시 sessionVersion 증가 → 기존 세션 무효화
+    if (data.productArea !== undefined || data.role !== undefined || data.isActive !== undefined || data.tenantId !== undefined) {
       data.sessionVersion = (target as Record<string, unknown>).sessionVersion as number + 1 || 2;
     }
 
@@ -130,6 +148,7 @@ export async function PATCH(request: NextRequest) {
         name: true,
         role: true,
         productArea: true,
+        tenantId: true,
         isActive: true,
         updatedAt: true,
       },
@@ -153,7 +172,7 @@ export async function PATCH(request: NextRequest) {
       success: true,
       user: updated,
       changes,
-      notice: Object.keys(changes).includes("productArea") || Object.keys(changes).includes("role")
+      notice: Object.keys(changes).includes("productArea") || Object.keys(changes).includes("role") || Object.keys(changes).includes("tenantId")
         ? "변경 사항은 해당 사용자가 다시 로그인한 후 적용됩니다."
         : undefined,
     });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hasCapability } from "@/lib/auth";
-import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { requireSession, requireProductArea, guardTenantAccessViaPatient } from "@/lib/api-auth";
 import { executeOutboundSend } from "@/lib/messaging/send";
 
 /**
@@ -24,10 +24,15 @@ export async function POST(
 
     const { id } = await params;
 
-    const msg = await prisma.outboundMessage.findUnique({ where: { id } });
+    const msg = await prisma.outboundMessage.findUnique({
+      where: { id },
+      include: { patient: { select: { tenantId: true } } },
+    });
     if (!msg) {
       return NextResponse.json({ error: "메시지를 찾을 수 없습니다." }, { status: 404 });
     }
+    const tenantError = guardTenantAccessViaPatient(user, msg.patient);
+    if (tenantError) return tenantError;
 
     const isBlocked = msg.sendStatus === "BLOCKED";
     if (!isBlocked && !["FAILED", "RETRY_NEEDED"].includes(msg.sendStatus)) {

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hasCapability } from "@/lib/auth";
 import { checkBeforeSend } from "@/lib/messaging/send";
-import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { requireSession, requireProductArea, guardTenantAccess } from "@/lib/api-auth";
+import { getTenantScope } from "@/lib/tenant";
 
 /**
  * 발송 메시지 API
@@ -30,6 +31,12 @@ export async function GET(request: NextRequest) {
     if (sendStatus) where.sendStatus = sendStatus;
     if (messageType) where.messageType = messageType;
     if (patientId) where.patientId = patientId;
+
+    // 테넌트 스코프: patient의 tenantId 기준 필터링
+    const scope = getTenantScope(user);
+    if (scope.tenantId) {
+      where.patient = { tenantId: scope.tenantId };
+    }
 
     const messages = await prisma.outboundMessage.findMany({
       where,
@@ -112,11 +119,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 환자 존재 확인
+    // 환자 존재 확인 + 테넌트 접근 검증
     const patient = await prisma.patient.findUnique({ where: { id: patientId } });
     if (!patient) {
       return NextResponse.json({ error: "환자를 찾을 수 없습니다." }, { status: 404 });
     }
+    const tenantError = guardTenantAccess(user, patient);
+    if (tenantError) return tenantError;
 
     const msg = await prisma.outboundMessage.create({
       data: {

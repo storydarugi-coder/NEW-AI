@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getMessageProvider } from "@/lib/messaging/provider";
-import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { requireSession, requireProductArea, guardTenantAccessViaPatient } from "@/lib/api-auth";
 
 /**
  * 메시지 발송 API
@@ -39,6 +39,9 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    const tenantError = guardTenantAccessViaPatient(session, message.patient);
+    if (tenantError) return tenantError;
 
     if (action === "cancel") {
       // 발송 대기 중인 건 취소

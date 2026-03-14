@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { requireSession, requireProductArea, guardTenantAccess } from "@/lib/api-auth";
 
 export async function POST(
   request: NextRequest,
@@ -13,6 +13,18 @@ export async function POST(
     if (areaError) return areaError;
 
     const { id: patientId } = await params;
+
+    // 환자 테넌트 접근 검증
+    const patient = await prisma.patient.findUnique({
+      where: { id: patientId },
+      select: { tenantId: true },
+    });
+    if (!patient) {
+      return NextResponse.json({ error: "환자를 찾을 수 없습니다." }, { status: 404 });
+    }
+    const tenantError = guardTenantAccess(session, patient);
+    if (tenantError) return tenantError;
+
     const body = await request.json();
     const { ruleType, subType, status } = body as {
       ruleType: string;

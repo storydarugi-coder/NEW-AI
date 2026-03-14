@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { evaluatePatient, buildEngineConfig } from "@/lib/engine";
 import { generateMessages, getLastGenerationContext } from "@/lib/ai/generate-message";
 import { MessageTone } from "@/types";
-import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { requireSession, requireProductArea, guardTenantAccess } from "@/lib/api-auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,6 +42,9 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    const tenantError = guardTenantAccess(session, patient);
+    if (tenantError) return tenantError;
 
     const ruleConfigs = await prisma.ruleConfig.findMany();
     const engineConfig = buildEngineConfig(ruleConfigs);

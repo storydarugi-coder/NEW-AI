@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { evaluateAllPatients, buildEngineConfig } from "@/lib/engine";
-import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { requireSessionWithScope, requireProductArea } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
   try {
-    const { session, error } = await requireSession();
+    const { session, scope, error } = await requireSessionWithScope();
     if (error) return error;
     const areaError = requireProductArea(session, "hospital");
     if (areaError) return areaError;
@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "20");
 
     const patients = await prisma.patient.findMany({
+      where: { ...scope },
       include: {
         identity: true,
         visits: {
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const ruleConfigs = await prisma.ruleConfig.findMany();
+    const ruleConfigs = await prisma.ruleConfig.findMany({ where: { ...scope } });
     const engineConfig = buildEngineConfig(ruleConfigs);
     const detectionMap = evaluateAllPatients(patients, engineConfig);
 
