@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. 세션 토큰 생성 (productArea: DB enum 값 사용)
+    // 5. 세션 토큰 생성 (productArea: DB enum, sessionVersion: 세션 무효화용)
     const productArea: ProductArea = user.productArea as ProductArea;
 
     const token = createSessionToken({
@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
       name: user.name,
       role: user.role,
       productArea,
+      sessionVersion: (user as Record<string, unknown>).sessionVersion as number ?? 1,
     });
 
     // 6. 응답 + 쿠키 설정

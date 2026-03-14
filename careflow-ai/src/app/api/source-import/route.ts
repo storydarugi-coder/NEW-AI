@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { normalizeSource, dbRuleToDefinition } from "@/lib/attribution/normalizer";
 import { randomUUID } from "crypto";
-import { verifySession } from "@/lib/auth";
 import { startSyncJob, completeSyncJob, failSyncJob } from "@/lib/sync/pipeline";
 import { onDashboardDataChanged } from "@/lib/cache/dashboard-engine";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * CSV Import API
@@ -96,6 +96,11 @@ function parseCsvLine(line: string): string[] {
 
 export async function POST(request: NextRequest) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "internal");
+    if (areaError) return areaError;
+
     const contentType = request.headers.get("content-type") || "";
 
     let csvText: string;
@@ -157,9 +162,7 @@ export async function POST(request: NextRequest) {
       defaultPatientId = firstPatient?.id || null;
     }
 
-    // 세션 사용자
-    const sessionUser = verifySession(request.cookies.get("session")?.value);
-    const userName = sessionUser?.name || "운영자";
+    const userName = session.name;
 
     // Import 배치 생성
     const batchId = randomUUID();
@@ -293,7 +296,7 @@ export async function POST(request: NextRequest) {
         action: "csv_import",
         entityType: "import_batch",
         entityId: batchId,
-        userId: sessionUser?.id,
+        userId: session.id,
         detail: JSON.stringify({ fileName, totalRows: rows.length, successCount, failCount, unclassifiedCount, reviewNeededCount }),
       },
     });
@@ -324,6 +327,11 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "internal");
+    if (areaError) return areaError;
+
     const batches = await prisma.importBatch.findMany({
       orderBy: { createdAt: "desc" },
       take: 20,

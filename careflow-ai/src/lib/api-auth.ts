@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { verifySession, hasCapability } from "./auth";
+import { prisma } from "./prisma";
 import type { SessionUser, ProductArea } from "./auth";
 
 /**
@@ -37,6 +38,33 @@ export async function requireSession(): Promise<SessionResult | SessionError> {
       ),
     };
   }
+
+  // sessionVersion 체크: 관리자가 role/productArea를 변경하면 기존 세션 무효화
+  if (session.sessionVersion != null) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.id },
+      select: { sessionVersion: true, isActive: true },
+    });
+    if (!dbUser || !dbUser.isActive) {
+      return {
+        session: null,
+        error: NextResponse.json(
+          { error: "계정이 비활성화되었습니다. 다시 로그인하세요.", code: "SESSION_EXPIRED" },
+          { status: 401 }
+        ),
+      };
+    }
+    if (dbUser.sessionVersion !== session.sessionVersion) {
+      return {
+        session: null,
+        error: NextResponse.json(
+          { error: "권한이 변경되었습니다. 다시 로그인하세요.", code: "SESSION_EXPIRED" },
+          { status: 401 }
+        ),
+      };
+    }
+  }
+
   return { session, error: null };
 }
 

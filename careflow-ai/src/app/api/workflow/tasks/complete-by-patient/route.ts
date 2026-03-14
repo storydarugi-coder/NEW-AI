@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifySession } from "@/lib/auth";
 import { onDashboardDataChanged } from "@/lib/cache/dashboard-engine";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * POST /api/workflow/tasks/complete-by-patient
@@ -10,10 +10,10 @@ import { onDashboardDataChanged } from "@/lib/cache/dashboard-engine";
  */
 export async function POST(request: NextRequest) {
   try {
-    const user = verifySession(request.cookies.get("session")?.value);
-    if (!user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
-    }
+    const { session: user, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(user, "hospital");
+    if (areaError) return areaError;
 
     const body = await request.json();
     const { patientId, memo } = body;

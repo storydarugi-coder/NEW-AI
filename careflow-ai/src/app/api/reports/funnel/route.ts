@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parsePeriod } from "@/lib/reports/period";
+import { requireSession } from "@/lib/api-auth";
 
 /**
  * GET /api/reports/funnel
  * 운영 퍼널 시각화:
  * CTA 후보 → 검토 → 확정 → 진료개시 → 정산대상 → 후속조치 → 메시지 → 성공
  */
+// shared: 병원(재내원 성과)과 내부(운영 분석) 양쪽에서 사용하므로 productArea 제한 없음
 export async function GET(req: NextRequest) {
   try {
+    const { error } = await requireSession();
+    if (error) return error;
+
     const sp = req.nextUrl.searchParams;
     const { from, to } = parsePeriod(sp.get("period"), sp.get("from"), sp.get("to"));
 

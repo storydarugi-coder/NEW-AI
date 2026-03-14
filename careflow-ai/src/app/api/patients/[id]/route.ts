@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { evaluatePatient, buildEngineConfig } from "@/lib/engine";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "hospital");
+    if (areaError) return areaError;
+
     const { id } = await params;
 
     const patient = await prisma.patient.findUnique({

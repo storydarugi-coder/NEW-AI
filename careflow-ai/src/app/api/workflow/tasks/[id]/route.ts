@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { VALID_TASK_STATUSES } from "@/types";
 import { onDashboardDataChanged } from "@/lib/cache/dashboard-engine";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -10,6 +11,11 @@ interface RouteParams {
 // GET: 단일 업무 상세 조회
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "hospital");
+    if (areaError) return areaError;
+
     const { id } = await params;
     const task = await prisma.workflowTask.findUnique({
       where: { id },
@@ -35,6 +41,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 // PATCH: 업무 수정 (상태 변경, 담당자 변경, 메모, 다음 확인일 등)
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    const { session: s, error: e } = await requireSession();
+    if (e) return e;
+    const ae = requireProductArea(s, "hospital");
+    if (ae) return ae;
+
     const { id } = await params;
     const body = await request.json();
     const { status, assigneeId, note, reason, nextFollowUpAt, staffId } = body;

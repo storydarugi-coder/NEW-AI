@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifySession } from "@/lib/auth";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * 동기화 작업 상세 API
@@ -9,14 +9,14 @@ import { verifySession } from "@/lib/auth";
  */
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = verifySession(request.cookies.get("session")?.value);
-    if (!user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
-    }
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "internal");
+    if (areaError) return areaError;
 
     const { id } = await params;
 

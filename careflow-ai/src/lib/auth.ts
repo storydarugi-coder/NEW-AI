@@ -21,6 +21,7 @@ export interface SessionUser {
   name: string;
   role: string; // ADMIN, DESK, COUNSELOR, VIEWER, MARKETING
   productArea: ProductArea;
+  sessionVersion?: number; // 관리자 변경 시 증가 → 기존 세션 강제 무효화
 }
 
 // ── Token (HMAC-signed cookie) ──

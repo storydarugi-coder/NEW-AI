@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifySession, hasCapability } from "@/lib/auth";
+import { hasCapability } from "@/lib/auth";
 import { checkBeforeSend } from "@/lib/messaging/send";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * 발송 메시지 API
@@ -12,10 +13,10 @@ import { checkBeforeSend } from "@/lib/messaging/send";
 
 export async function GET(request: NextRequest) {
   try {
-    const user = verifySession(request.cookies.get("session")?.value);
-    if (!user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
-    }
+    const { session: user, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(user, "hospital");
+    if (areaError) return areaError;
 
     const { searchParams } = new URL(request.url);
     const approvalStatus = searchParams.get("approvalStatus"); // DRAFT, REVIEW_NEEDED, APPROVED, REJECTED
@@ -77,10 +78,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = verifySession(request.cookies.get("session")?.value);
-    if (!user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
-    }
+    const { session: user, error: authErr } = await requireSession();
+    if (authErr) return authErr;
+    const ae = requireProductArea(user, "hospital");
+    if (ae) return ae;
     if (!hasCapability(user.role, "send_message")) {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }

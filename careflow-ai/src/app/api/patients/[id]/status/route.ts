@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "hospital");
+    if (areaError) return areaError;
+
     const { id: patientId } = await params;
     const body = await request.json();
     const { ruleType, subType, status } = body as {

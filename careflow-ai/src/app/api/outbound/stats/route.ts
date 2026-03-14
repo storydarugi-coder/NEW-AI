@@ -1,18 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifySession } from "@/lib/auth";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * 발송 메시지 통계 API
  * GET /api/outbound/stats
  */
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const user = verifySession(request.cookies.get("session")?.value);
-    if (!user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
-    }
+    const { session: user, error: authErr } = await requireSession();
+    if (authErr) return authErr;
+    const areaError = requireProductArea(user, "hospital");
+    if (areaError) return areaError;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);

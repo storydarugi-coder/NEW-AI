@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifySession, hasCapability } from "@/lib/auth";
+import { hasCapability } from "@/lib/auth";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * 메시지 취소 API
@@ -12,10 +13,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = verifySession(request.cookies.get("session")?.value);
-    if (!user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
-    }
+    const { session: user, error: authErr } = await requireSession();
+    if (authErr) return authErr;
+    const areaError = requireProductArea(user, "hospital");
+    if (areaError) return areaError;
     if (!hasCapability(user.role, "send_message")) {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });
     }

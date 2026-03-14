@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifySession, hasCapability } from "@/lib/auth";
+import { hasCapability } from "@/lib/auth";
 import { startSyncJob, completeSyncJob, failSyncJob } from "@/lib/sync/pipeline";
 import { normalizeSource, dbRuleToDefinition } from "@/lib/attribution/normalizer";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * 동기화 재처리 API
@@ -11,14 +12,14 @@ import { normalizeSource, dbRuleToDefinition } from "@/lib/attribution/normalize
  */
 
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = verifySession(request.cookies.get("session")?.value);
-    if (!user) {
-      return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
-    }
+    const { session: user, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(user, "internal");
+    if (areaError) return areaError;
 
     if (!hasCapability(user.role, "import_csv")) {
       return NextResponse.json({ error: "권한이 없습니다." }, { status: 403 });

@@ -108,6 +108,11 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "변경할 내용이 없습니다." }, { status: 400 });
     }
 
+    // role, productArea, isActive 변경 시 sessionVersion 증가 → 기존 세션 무효화
+    if (data.productArea !== undefined || data.role !== undefined || data.isActive !== undefined) {
+      data.sessionVersion = (target as Record<string, unknown>).sessionVersion as number + 1 || 2;
+    }
+
     // 자기 자신의 ADMIN 권한 해제 방지
     if (target.id === session.id && data.role && data.role !== "ADMIN") {
       return NextResponse.json(

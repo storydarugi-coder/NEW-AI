@@ -12,6 +12,7 @@ import { Settings, Save, Loader2, CheckCircle, Sparkles, AlertTriangle } from "l
 import { TONE_LABELS, type MessageTone } from "@/types";
 import { useAuth } from "@/components/auth/auth-provider";
 import { UserManagement } from "./user-management";
+import { AuditLogViewer } from "./audit-log-viewer";
 
 interface RuleConfigItem {
   id: string;
@@ -227,11 +228,12 @@ export function SettingsContent({ configs: initialConfigs }: Props) {
         </CardContent>
       </Card>
 
-      {/* User Management (ADMIN only) */}
+      {/* User Management + Audit Log (ADMIN only) */}
       {user.role === "ADMIN" && (
         <>
           <Separator />
           <UserManagement />
+          <AuditLogViewer />
         </>
       )}
 

@@ -2,13 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parsePeriod } from "@/lib/reports/period";
 import { collectOutcomeMetrics } from "@/lib/ai/outcome";
+import { requireSession } from "@/lib/api-auth";
 
 /**
  * GET /api/reports/export?type=cta_settlement|message_status|unclassified|outcome|period_summary
  * CSV 내보내기
  */
+// shared: 병원(재내원 성과)과 내부(운영 분석) 양쪽에서 사용하므로 productArea 제한 없음
 export async function GET(req: NextRequest) {
   try {
+    const { error } = await requireSession();
+    if (error) return error;
+
     const sp = req.nextUrl.searchParams;
     const exportType = sp.get("type") || "period_summary";
     const { from, to } = parsePeriod(sp.get("period"), sp.get("from"), sp.get("to"));

@@ -3,9 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { evaluatePatient, buildEngineConfig } from "@/lib/engine";
 import { generateMessages, getLastGenerationContext } from "@/lib/ai/generate-message";
 import { MessageTone } from "@/types";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 export async function POST(request: NextRequest) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "hospital");
+    if (areaError) return areaError;
     const body = await request.json();
     const { patientId, detectionIndex, tone } = body as {
       patientId: string;

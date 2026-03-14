@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getMessageProvider } from "@/lib/messaging/provider";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * 메시지 발송 API
@@ -8,6 +9,10 @@ import { getMessageProvider } from "@/lib/messaging/provider";
  */
 export async function POST(request: NextRequest) {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "hospital");
+    if (areaError) return areaError;
     const body = await request.json();
     const { messageId, action } = body as {
       messageId: string;

@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parsePeriod } from "@/lib/reports/period";
+import { requireSession } from "@/lib/api-auth";
 
 /**
  * GET /api/reports/messages
  * 메시지 재내원 성과: 유형별, 승인 대기, 스케줄, 실패/재시도, 차단 사유 분포
  */
+// shared: 병원(재내원 성과)과 내부(운영 분석) 양쪽에서 사용하므로 productArea 제한 없음
 export async function GET(req: NextRequest) {
   try {
+    const { error } = await requireSession();
+    if (error) return error;
+
     const sp = req.nextUrl.searchParams;
     const { from, to } = parsePeriod(sp.get("period"), sp.get("from"), sp.get("to"));
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * 홈 대시보드 부가 통계 (CTA, 워크플로우, 방문경로, 동기화, 메시지)
@@ -7,6 +8,10 @@ import { prisma } from "@/lib/prisma";
  */
 export async function GET() {
   try {
+    const { session, error } = await requireSession();
+    if (error) return error;
+    const areaError = requireProductArea(session, "hospital");
+    if (areaError) return areaError;
     const now = new Date();
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
