@@ -267,6 +267,12 @@ export function DashboardContent({
   const [secondary, setSecondary] = useState<SecondaryStats | null>(null);
   const [secondaryLoading, setSecondaryLoading] = useState(true);
   const [aiMetrics, setAiMetrics] = useState<AIMetrics | null>(null);
+  const [outcomeMetrics, setOutcomeMetrics] = useState<{
+    conversionRate: number;
+    totalSent: number;
+    totalRevisited: number;
+    avgDaysToRevisit: number | null;
+  } | null>(null);
 
   // 부가 통계를 클라이언트에서 lazy fetch
   useEffect(() => {
@@ -280,6 +286,20 @@ export function DashboardContent({
       .then((res) => res.json())
       .then((data) => setAiMetrics(data))
       .catch(() => setAiMetrics(null));
+
+    fetch("/api/reports/outcome?period=month")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && typeof data.conversionRate === "number") {
+          setOutcomeMetrics({
+            conversionRate: data.conversionRate,
+            totalSent: data.totalSent,
+            totalRevisited: data.totalRevisited,
+            avgDaysToRevisit: data.avgDaysToRevisit,
+          });
+        }
+      })
+      .catch(() => setOutcomeMetrics(null));
   }, []);
 
   const ctaStats = secondary?.ctaStats;
@@ -581,6 +601,38 @@ export function DashboardContent({
                   <Link
                     href="/reports"
                     className="text-sm text-violet-600 hover:text-violet-700 flex items-center gap-1 font-medium"
+                  >
+                    상세 <ChevronRight size={14} />
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 메시지 → 재내원 전환율 */}
+          {outcomeMetrics && outcomeMetrics.totalSent > 0 && (
+            <Card className="border-0 shadow-sm border-l-4 border-l-emerald-400">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-emerald-50">
+                      <TrendingUp size={18} className="text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">메시지 → 재내원 전환 (이번 달)</p>
+                      <p className="text-xs text-gray-500">
+                        전환율 <span className={`font-bold ${outcomeMetrics.conversionRate >= 20 ? "text-emerald-600" : outcomeMetrics.conversionRate >= 10 ? "text-amber-600" : "text-red-600"}`}>{outcomeMetrics.conversionRate}%</span>
+                        <> · 재내원 <span className="font-medium text-emerald-600">{outcomeMetrics.totalRevisited}명</span></>
+                        <> · 발송 {outcomeMetrics.totalSent}건</>
+                        {outcomeMetrics.avgDaysToRevisit != null && (
+                          <> · 평균 {outcomeMetrics.avgDaysToRevisit}일 소요</>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/reports"
+                    className="text-sm text-emerald-600 hover:text-emerald-700 flex items-center gap-1 font-medium"
                   >
                     상세 <ChevronRight size={14} />
                   </Link>

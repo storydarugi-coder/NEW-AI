@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { patientId } = body;
+    const { patientId, memo } = body;
 
     if (!patientId) {
       return NextResponse.json({ error: "patientId가 필요합니다." }, { status: 400 });
@@ -39,12 +39,14 @@ export async function POST(request: NextRequest) {
     const taskIds = activeTasks.map((t) => t.id);
 
     // 일괄 완료 처리
+    const reasonText = memo ? `연락 완료: ${memo}` : "연락 완료";
     await prisma.workflowTask.updateMany({
       where: { id: { in: taskIds } },
       data: {
         status: "completed",
         completedAt: now,
-        reason: "연락 완료",
+        reason: reasonText,
+        ...(memo ? { note: memo } : {}),
       },
     });
 
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest) {
         action: "status_change",
         fromValue: t.status,
         toValue: "completed",
-        detail: JSON.stringify({ completedVia: "workflow_contact_complete", user: user.name }),
+        detail: JSON.stringify({ completedVia: "workflow_contact_complete", user: user.name, ...(memo ? { memo } : {}) }),
       })),
     });
 
@@ -72,6 +74,7 @@ export async function POST(request: NextRequest) {
           patientId,
           taskIds,
           completedCount: taskIds.length,
+          ...(memo ? { memo } : {}),
         }),
       },
     });

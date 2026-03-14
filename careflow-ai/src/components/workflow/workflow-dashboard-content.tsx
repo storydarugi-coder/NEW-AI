@@ -183,6 +183,8 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [contactedIds, setContactedIds] = useState<Set<string>>(new Set());
+  const [memoTarget, setMemoTarget] = useState<{ patientId: string; patientName: string } | null>(null);
+  const [memoText, setMemoText] = useState("");
 
   const showToast = useCallback((type: "success" | "error", message: string) => {
     const id = Date.now();
@@ -275,14 +277,16 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
   }, [showToast]);
 
   // 연락 완료 — 서버 연동
-  const handleContactComplete = useCallback(async (patientId: string, patientName: string) => {
+  const handleContactComplete = useCallback(async (patientId: string, patientName: string, memo?: string) => {
     // 낙관적 UI 업데이트
     setContactedIds((prev) => new Set(prev).add(patientId));
+    setMemoTarget(null);
+    setMemoText("");
     try {
       const res = await fetch("/api/workflow/tasks/complete-by-patient", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientId }),
+        body: JSON.stringify({ patientId, ...(memo ? { memo } : {}) }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -508,22 +512,49 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
                       ))}
                     </div>
                     <p className="text-xs text-gray-500 leading-relaxed line-clamp-2 mb-2">{reasonSummary}</p>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={(e) => { e.preventDefault(); handleContactComplete(p.patientId, p.patientName); }}
-                        className="flex items-center gap-1 px-2 py-1 text-[11px] bg-green-50 text-green-700 rounded-md hover:bg-green-100 transition-colors"
-                      >
-                        <Check size={10} />
-                        연락 완료
-                      </button>
-                      <Link
-                        href={`/patients/${p.patientId}`}
-                        className="flex items-center gap-1 px-2 py-1 text-[11px] text-gray-400 hover:text-gray-600"
-                      >
-                        상세
-                        <ChevronRight size={10} />
-                      </Link>
-                    </div>
+                    {memoTarget?.patientId === p.patientId ? (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={memoText}
+                          onChange={(e) => setMemoText(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleContactComplete(p.patientId, p.patientName, memoText || undefined); if (e.key === "Escape") { setMemoTarget(null); setMemoText(""); } }}
+                          placeholder="메모 (선택사항)"
+                          className="flex-1 min-w-0 px-2 py-1 text-[11px] border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-green-400"
+                        />
+                        <button
+                          onClick={() => handleContactComplete(p.patientId, p.patientName, memoText || undefined)}
+                          className="shrink-0 flex items-center gap-1 px-2 py-1 text-[11px] bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                        >
+                          <Check size={10} />
+                          완료
+                        </button>
+                        <button
+                          onClick={() => { setMemoTarget(null); setMemoText(""); }}
+                          className="shrink-0 px-1.5 py-1 text-[11px] text-gray-400 hover:text-gray-600"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={(e) => { e.preventDefault(); setMemoTarget({ patientId: p.patientId, patientName: p.patientName }); setMemoText(""); }}
+                          className="flex items-center gap-1 px-2 py-1 text-[11px] bg-green-50 text-green-700 rounded-md hover:bg-green-100 transition-colors"
+                        >
+                          <Check size={10} />
+                          연락 완료
+                        </button>
+                        <Link
+                          href={`/patients/${p.patientId}`}
+                          className="flex items-center gap-1 px-2 py-1 text-[11px] text-gray-400 hover:text-gray-600"
+                        >
+                          상세
+                          <ChevronRight size={10} />
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 );
               })}

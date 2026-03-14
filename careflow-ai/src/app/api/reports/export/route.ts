@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parsePeriod } from "@/lib/reports/period";
+import { collectOutcomeMetrics } from "@/lib/ai/outcome";
 
 /**
- * GET /api/reports/export?type=cta_settlement|message_status|unclassified|period_summary
+ * GET /api/reports/export?type=cta_settlement|message_status|unclassified|outcome|period_summary
  * CSV 내보내기
  */
 export async function GET(req: NextRequest) {
@@ -105,6 +106,34 @@ export async function GET(req: NextRequest) {
             v.matchConfidence || "",
             v.sourceReviewStatus,
           ].join(",") + "\n";
+        }
+        break;
+      }
+
+      case "outcome": {
+        const windowDays = parseInt(sp.get("windowDays") || "30", 10);
+        const metrics = await collectOutcomeMetrics(from, to, windowDays);
+        const periodLabel = `${from.toISOString().split("T")[0]} ~ ${to.toISOString().split("T")[0]}`;
+
+        fileName = `outcome-report-${sp.get("period") || "custom"}.csv`;
+        csvContent = "구분,항목,발송,재내원,전환율(%),비고\n";
+        csvContent += `전체,종합,${metrics.totalSent},${metrics.totalRevisited},${metrics.conversionRate},${periodLabel}\n`;
+        csvContent += `전체,귀속윈도우,,,,"${windowDays}일"\n`;
+        csvContent += `전체,평균재내원소요일,,,,"${metrics.avgDaysToRevisit ?? "-"}일"\n`;
+
+        const typeLabels: Record<string, string> = {
+          RECALL: "리콜", CTA_FOLLOWUP: "CTA 후속", TREATMENT_RESUME: "치료 복귀",
+          COUNSELING_FOLLOWUP: "상담 후속", SCALING_REMINDER: "스케일링 안내", GENERAL: "일반",
+        };
+        for (const [type, data] of Object.entries(metrics.byMessageType)) {
+          csvContent += `메시지유형,${typeLabels[type] || type},${data.sent},${data.revisited},${data.rate},\n`;
+        }
+
+        const genLabels: Record<string, string> = {
+          ai: "AI 생성", gemini: "AI 생성", template: "템플릿", fallback: "폴백", unknown: "미분류",
+        };
+        for (const [genBy, data] of Object.entries(metrics.byGeneratedBy)) {
+          csvContent += `생성방식,${genLabels[genBy] || genBy},${data.sent},${data.revisited},${data.rate},\n`;
         }
         break;
       }

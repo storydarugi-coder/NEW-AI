@@ -542,6 +542,9 @@ function OverviewTab({ kpi, funnel, msgReport, srcReport, outcomeData, onExport 
           <ExportButton label="CPA 정산 리스트" onClick={() => onExport("cta_settlement")} />
           <ExportButton label="메시지 현황" onClick={() => onExport("message_status")} />
           <ExportButton label="미분류 경로" onClick={() => onExport("unclassified")} />
+          {outcomeData && outcomeData.totalSent > 0 && (
+            <ExportButton label="재내원 전환 성과" onClick={() => onExport("outcome")} />
+          )}
         </div>
       </div>
     </div>
