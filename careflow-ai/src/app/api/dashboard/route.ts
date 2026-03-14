@@ -35,6 +35,9 @@ export async function GET() {
       chartNumber: string;
       isVip: boolean;
       topPriority: number;
+      priorityScore: number;
+      lastVisitDate: string | null;
+      daysSinceLastVisit: number | null;
       detections: {
         ruleType: string;
         subType: string;
@@ -57,12 +60,29 @@ export async function GET() {
         messageSuggestionCount++;
       }
 
+      // 최근 방문일 계산 (visits는 desc 정렬)
+      const lastVisit = patient.visits[0];
+      const lastVisitDate = lastVisit?.visitDate || null;
+      const daysSinceLastVisit = lastVisitDate
+        ? Math.floor((Date.now() - new Date(lastVisitDate).getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+
+      // 우선순위 점수 계산: 탐지 건수 × 긴급도 + 미내원 기간 보정 + VIP 가산
+      const topPriority = Math.min(...detections.map((d) => d.priority));
+      const urgencyBase = detections.reduce((sum, d) => sum + (5 - d.priority) * 10, 0);
+      const absencePenalty = daysSinceLastVisit ? Math.min(Math.floor(daysSinceLastVisit / 7) * 5, 30) : 0;
+      const vipBonus = patient.isVip ? 15 : 0;
+      const priorityScore = Math.min(urgencyBase + absencePenalty + vipBonus, 100);
+
       priorityPatients.push({
         patientId,
         patientName: patient.identity?.name || patient.chartNumber,
         chartNumber: patient.chartNumber,
         isVip: patient.isVip,
-        topPriority: Math.min(...detections.map((d) => d.priority)),
+        topPriority,
+        priorityScore,
+        lastVisitDate: lastVisitDate?.toISOString() || null,
+        daysSinceLastVisit,
         detections: detections.map((d) => ({
           ruleType: d.ruleType,
           subType: d.subType,
@@ -75,7 +95,7 @@ export async function GET() {
 
     priorityPatients.sort((a, b) => {
       if (a.isVip !== b.isVip) return a.isVip ? -1 : 1;
-      return a.topPriority - b.topPriority;
+      return b.priorityScore - a.priorityScore;
     });
 
     return NextResponse.json({

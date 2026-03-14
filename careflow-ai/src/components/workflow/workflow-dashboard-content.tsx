@@ -33,6 +33,9 @@ import {
   RotateCcw,
   Loader2,
   Mail,
+  XCircle,
+  TimerOff,
+  PhoneOff,
 } from "lucide-react";
 import {
   TASK_STATUS_LABELS,
@@ -85,6 +88,8 @@ interface PriorityPatient {
   isVip: boolean;
   topPriority: number;
   priorityScore: number;
+  lastVisitDate: string | null;
+  daysSinceLastVisit: number | null;
   detections: { ruleType: string; subType: string; priority: number; reason: string }[];
 }
 
@@ -100,6 +105,17 @@ interface BlockedMessage {
   doNotContactBlocked: boolean;
   createdAt: string;
 }
+
+type PresetKey = "today" | "dropout" | "long_absent" | "retry" | "blocked" | "do_not_contact";
+
+const FILTER_PRESETS: { key: PresetKey; label: string; icon: typeof PhoneCall; color: string; activeColor: string }[] = [
+  { key: "today", label: "오늘 연락", icon: PhoneCall, color: "text-red-600", activeColor: "bg-red-50 border-red-300 text-red-700" },
+  { key: "dropout", label: "치료 중단", icon: XCircle, color: "text-orange-600", activeColor: "bg-orange-50 border-orange-300 text-orange-700" },
+  { key: "long_absent", label: "장기 미내원", icon: TimerOff, color: "text-amber-600", activeColor: "bg-amber-50 border-amber-300 text-amber-700" },
+  { key: "retry", label: "재시도 필요", icon: RotateCcw, color: "text-blue-600", activeColor: "bg-blue-50 border-blue-300 text-blue-700" },
+  { key: "blocked", label: "차단됨", icon: ShieldAlert, color: "text-orange-600", activeColor: "bg-orange-50 border-orange-300 text-orange-700" },
+  { key: "do_not_contact", label: "수신거부", icon: PhoneOff, color: "text-red-600", activeColor: "bg-red-50 border-red-300 text-red-700" },
+];
 
 interface Props {
   tasks: TaskItem[];
@@ -137,9 +153,46 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
   const [statusFilter, setStatusFilter] = useState<string>("active");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("");
   const [actionTypeFilter, setActionTypeFilter] = useState<string>("");
+  const [activePreset, setActivePreset] = useState<PresetKey | null>(null);
   const [priorityPatients, setPriorityPatients] = useState<PriorityPatient[]>([]);
   const [blockedMessages, setBlockedMessages] = useState<BlockedMessage[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const handlePresetClick = useCallback((key: PresetKey) => {
+    if (activePreset === key) {
+      // 토글 해제 — 기본 필터로 복원
+      setActivePreset(null);
+      setStatusFilter("active");
+      setActionTypeFilter("");
+      return;
+    }
+    setActivePreset(key);
+    // preset별 필터 조합 적용
+    switch (key) {
+      case "today":
+        setStatusFilter("unprocessed");
+        setActionTypeFilter("");
+        break;
+      case "dropout":
+        setStatusFilter("active");
+        setActionTypeFilter("CHURN_REENGAGE");
+        break;
+      case "long_absent":
+        setStatusFilter("active");
+        setActionTypeFilter("RECALL");
+        break;
+      case "retry":
+        setStatusFilter("active");
+        setActionTypeFilter("MESSAGE_REVIEW");
+        break;
+      case "blocked":
+      case "do_not_contact":
+        // 차단/수신거부는 task 필터가 아닌 blocked messages 섹션에 포커스
+        setStatusFilter("active");
+        setActionTypeFilter("");
+        break;
+    }
+  }, [activePreset]);
 
   // 오늘 연락할 환자 + 차단 메시지 가져오기
   useEffect(() => {
@@ -183,6 +236,23 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
     if (actionTypeFilter && t.actionType !== actionTypeFilter) return false;
     return true;
   });
+
+  // preset에 따른 차단 메시지 필터링
+  const filteredBlockedMessages = activePreset === "do_not_contact"
+    ? blockedMessages.filter((m) => m.doNotContactBlocked)
+    : activePreset === "blocked"
+      ? blockedMessages.filter((m) => !m.doNotContactBlocked)
+      : blockedMessages;
+
+  // preset별 카운트
+  const presetCounts: Record<PresetKey, number> = {
+    today: tasks.filter((t) => t.status === "unprocessed").length,
+    dropout: tasks.filter((t) => t.actionType === "CHURN_REENGAGE" && t.status !== "completed" && t.status !== "excluded").length,
+    long_absent: tasks.filter((t) => t.actionType === "RECALL" && t.status !== "completed" && t.status !== "excluded").length,
+    retry: tasks.filter((t) => t.actionType === "MESSAGE_REVIEW" && t.status !== "completed" && t.status !== "excluded").length,
+    blocked: blockedMessages.filter((m) => !m.doNotContactBlocked).length,
+    do_not_contact: blockedMessages.filter((m) => m.doNotContactBlocked).length,
+  };
 
   const kpiCards = [
     {
@@ -266,8 +336,43 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
         </Card>
       )}
 
+      {/* 필터 프리셋 */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {FILTER_PRESETS.map((preset) => {
+          const isActive = activePreset === preset.key;
+          const count = presetCounts[preset.key];
+          return (
+            <button
+              key={preset.key}
+              onClick={() => handlePresetClick(preset.key)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-colors ${
+                isActive
+                  ? preset.activeColor + " font-medium"
+                  : "border-gray-200 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <preset.icon size={14} className={isActive ? "" : preset.color} />
+              {preset.label}
+              {count > 0 && (
+                <span className={`text-xs px-1.5 py-0.5 rounded-full ${isActive ? "bg-white/60" : "bg-gray-100"}`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+        {activePreset && (
+          <button
+            onClick={() => { setActivePreset(null); setStatusFilter("active"); setActionTypeFilter(""); }}
+            className="text-xs text-gray-400 hover:text-gray-600 ml-1"
+          >
+            초기화
+          </button>
+        )}
+      </div>
+
       {/* 오늘 연락할 환자 */}
-      {priorityPatients.length > 0 && (
+      {priorityPatients.length > 0 && (activePreset === null || activePreset === "today") && (
         <Card className="border-0 shadow-sm border-l-4 border-l-red-400">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2 text-red-700">
@@ -280,50 +385,63 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {priorityPatients.map((p) => (
-                <Link
-                  key={p.patientId}
-                  href={`/patients/${p.patientId}`}
-                  className="block p-3 bg-red-50/50 rounded-lg hover:bg-red-50 transition-colors"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-medium text-gray-900 text-sm">{p.patientName}</span>
-                      {p.isVip && <Star size={12} className="text-yellow-500 fill-yellow-500" />}
+              {priorityPatients.map((p) => {
+                // 사유 요약: 최근 방문 + 미내원 기간 + 탐지 사유
+                const visitInfo = p.lastVisitDate
+                  ? `최근 방문 ${formatDate(p.lastVisitDate)}`
+                  : "방문 기록 없음";
+                const absenceInfo = p.daysSinceLastVisit != null
+                  ? `${p.daysSinceLastVisit}일 미내원`
+                  : "";
+                const reasonSummary = [visitInfo, absenceInfo, p.detections[0]?.reason]
+                  .filter(Boolean)
+                  .join(" · ");
+
+                return (
+                  <Link
+                    key={p.patientId}
+                    href={`/patients/${p.patientId}`}
+                    className="block p-3 bg-red-50/50 rounded-lg hover:bg-red-50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium text-gray-900 text-sm">{p.patientName}</span>
+                        {p.isVip && <Star size={12} className="text-yellow-500 fill-yellow-500" />}
+                      </div>
+                      <span className={`text-xs font-bold ${p.priorityScore >= 50 ? "text-red-600" : p.priorityScore >= 30 ? "text-amber-600" : "text-blue-600"}`}>
+                        {p.priorityScore}점
+                      </span>
                     </div>
-                    <span className={`text-xs font-bold ${p.priorityScore >= 50 ? "text-red-600" : p.priorityScore >= 30 ? "text-amber-600" : "text-blue-600"}`}>
-                      {p.priorityScore}점
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1 mb-1">
-                    {p.detections.slice(0, 2).map((d, i) => (
-                      <Badge key={i} variant="outline" className={`text-[10px] ${getRuleColor(d.ruleType)}`}>
-                        {SUB_TYPE_LABELS[d.subType as SubType] || d.subType}
-                      </Badge>
-                    ))}
-                  </div>
-                  <p className="text-xs text-gray-500 truncate">{p.detections[0]?.reason}</p>
-                </Link>
-              ))}
+                    <div className="flex flex-wrap gap-1 mb-1">
+                      {p.detections.slice(0, 2).map((d, i) => (
+                        <Badge key={i} variant="outline" className={`text-[10px] ${getRuleColor(d.ruleType)}`}>
+                          {SUB_TYPE_LABELS[d.subType as SubType] || d.subType}
+                        </Badge>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{reasonSummary}</p>
+                  </Link>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
       )}
 
       {/* 차단된 메시지 — 즉시 액션 */}
-      {blockedMessages.length > 0 && (
+      {filteredBlockedMessages.length > 0 && (activePreset === null || activePreset === "blocked" || activePreset === "do_not_contact") && (
         <Card className="border-0 shadow-sm border-l-4 border-l-orange-400">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2 text-orange-700">
               <ShieldAlert size={18} />
               발송 차단 메시지
               <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 text-xs">
-                {blockedMessages.length}건
+                {filteredBlockedMessages.length}건
               </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {blockedMessages.map((m) => {
+            {filteredBlockedMessages.map((m) => {
               const isDoNotContact = m.doNotContactBlocked;
               const isDuplicate = m.duplicateBlocked;
               const reason = isDoNotContact

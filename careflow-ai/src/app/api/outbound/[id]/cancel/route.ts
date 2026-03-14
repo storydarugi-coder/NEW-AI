@@ -31,6 +31,13 @@ export async function POST(
       return NextResponse.json({ error: "이미 발송된 메시지는 취소할 수 없습니다." }, { status: 400 });
     }
 
+    const previousStatus = msg.sendStatus;
+    const blockReason = msg.doNotContactBlocked
+      ? "DO_NOT_CONTACT"
+      : msg.duplicateBlocked
+        ? "DUPLICATE"
+        : msg.failureReason || "UNKNOWN";
+
     await prisma.outboundMessage.update({
       where: { id },
       data: {
@@ -41,11 +48,18 @@ export async function POST(
 
     await prisma.auditLog.create({
       data: {
-        action: "message_cancelled",
+        action: "exclude_blocked_message",
         entityType: "outbound_message",
         entityId: id,
         userId: user.id,
-        detail: JSON.stringify({ cancelledBy: user.name }),
+        detail: JSON.stringify({
+          user: user.name,
+          messageId: id,
+          patientId: msg.patientId,
+          blockReason,
+          beforeState: previousStatus,
+          afterState: "CANCELLED",
+        }),
       },
     });
 
