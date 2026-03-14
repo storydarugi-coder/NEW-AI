@@ -84,6 +84,17 @@ interface SyncReportData {
   dataQuality: { totalWithSource: number; unknownSource: number; lowConfidence: number; unknownRate: number; lowConfidenceRate: number };
 }
 
+interface OutcomeData {
+  period: { from: string; to: string };
+  attributionWindowDays: number;
+  totalSent: number;
+  totalRevisited: number;
+  conversionRate: number;
+  byMessageType: Record<string, { sent: number; revisited: number; rate: number }>;
+  byGeneratedBy: Record<string, { sent: number; revisited: number; rate: number }>;
+  avgDaysToRevisit: number | null;
+}
+
 type PeriodType = "today" | "week" | "month" | "30days" | "custom";
 
 const PERIOD_OPTIONS: { value: PeriodType; label: string }[] = [
@@ -108,6 +119,7 @@ export function ReportsContent() {
   const [srcReport, setSrcReport] = useState<SourceReportData | null>(null);
   const [staffReport, setStaffReport] = useState<StaffReportData | null>(null);
   const [syncReport, setSyncReport] = useState<SyncReportData | null>(null);
+  const [outcomeData, setOutcomeData] = useState<OutcomeData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const buildQuery = useCallback(() => {
@@ -124,12 +136,14 @@ export function ReportsContent() {
     const q = buildQuery();
 
     try {
-      const [kpiRes, funnelRes] = await Promise.all([
+      const [kpiRes, funnelRes, outcomeRes] = await Promise.all([
         fetch(`/api/reports/kpi?${q}`).then((r) => r.json()),
         fetch(`/api/reports/funnel?${q}`).then((r) => r.json()),
+        fetch(`/api/reports/outcome?${q}`).then((r) => r.json()).catch(() => null),
       ]);
       setKpi(kpiRes);
       setFunnel(funnelRes);
+      setOutcomeData(outcomeRes);
 
       // 탭별 데이터는 해당 탭이 활성화될 때 로드
       if (activeTab === "messages" || activeTab === "overview") {
@@ -240,7 +254,7 @@ export function ReportsContent() {
       ) : (
         <>
           {activeTab === "overview" && kpi && funnel && (
-            <OverviewTab kpi={kpi} funnel={funnel} msgReport={msgReport} srcReport={srcReport} onExport={handleExport} />
+            <OverviewTab kpi={kpi} funnel={funnel} msgReport={msgReport} srcReport={srcReport} outcomeData={outcomeData} onExport={handleExport} />
           )}
           {activeTab === "messages" && <MessagesTab data={msgReport} onExport={handleExport} />}
           {activeTab === "sources" && <SourcesTab data={srcReport} onExport={handleExport} />}
@@ -284,11 +298,12 @@ function KpiCard({ label, value, sub, icon: Icon, color, trend }: {
 
 // ── Overview Tab ──
 
-function OverviewTab({ kpi, funnel, msgReport, srcReport, onExport }: {
+function OverviewTab({ kpi, funnel, msgReport, srcReport, outcomeData, onExport }: {
   kpi: KpiData;
   funnel: FunnelData;
   msgReport: MessageReportData | null;
   srcReport: SourceReportData | null;
+  outcomeData: OutcomeData | null;
   onExport: (type: string) => void;
 }) {
   const maxFunnel = Math.max(...funnel.funnel.map((f) => f.count), 1);
@@ -416,6 +431,108 @@ function OverviewTab({ kpi, funnel, msgReport, srcReport, onExport }: {
           )}
         </div>
       </div>
+
+      {/* 메시지 → 재내원 전환 성과 */}
+      {outcomeData && outcomeData.totalSent > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-base font-semibold text-gray-900">메시지 → 재내원 전환</h3>
+
+          {/* 전환율 KPI */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <KpiCard
+              label="전체 전환율"
+              value={`${outcomeData.conversionRate}%`}
+              sub={`${outcomeData.totalRevisited}/${outcomeData.totalSent}건`}
+              icon={TrendingUp}
+              color="bg-emerald-50 text-emerald-600"
+            />
+            <KpiCard
+              label="발송 메시지"
+              value={outcomeData.totalSent}
+              sub={`귀속 윈도우 ${outcomeData.attributionWindowDays}일`}
+              icon={Mail}
+              color="bg-blue-50 text-blue-600"
+            />
+            <KpiCard
+              label="재내원 환자"
+              value={outcomeData.totalRevisited}
+              icon={CheckCircle2}
+              color="bg-green-50 text-green-600"
+            />
+            <KpiCard
+              label="평균 재내원 소요일"
+              value={outcomeData.avgDaysToRevisit != null ? `${outcomeData.avgDaysToRevisit}일` : "-"}
+              icon={Clock}
+              color="bg-purple-50 text-purple-600"
+            />
+          </div>
+
+          {/* 유형별 + 생성방식별 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ReportCard title="메시지 유형별 전환율">
+              {Object.keys(outcomeData.byMessageType).length === 0 ? <EmptyRow /> : (
+                <div className="space-y-3">
+                  {Object.entries(outcomeData.byMessageType).map(([type, data]) => {
+                    const typeLabels: Record<string, string> = {
+                      RECALL: "리콜", CTA_FOLLOWUP: "CTA 후속", TREATMENT_RESUME: "치료 복귀",
+                      COUNSELING_FOLLOWUP: "상담 후속", SCALING_REMINDER: "스케일링 안내", GENERAL: "일반",
+                    };
+                    return (
+                      <div key={type} className="space-y-1">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">{typeLabels[type] || type}</span>
+                          <span className="font-bold text-gray-900">{data.rate}%</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-emerald-500 rounded-full transition-all"
+                              style={{ width: `${Math.max(data.rate, 2)}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-gray-400 w-16 text-right">{data.revisited}/{data.sent}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </ReportCard>
+
+            <ReportCard title="생성 방식별 전환율">
+              {Object.keys(outcomeData.byGeneratedBy).length === 0 ? <EmptyRow /> : (
+                <div className="space-y-3">
+                  {Object.entries(outcomeData.byGeneratedBy).map(([genBy, data]) => {
+                    const genLabels: Record<string, string> = {
+                      gemini: "AI 생성", ai: "AI 생성", template: "템플릿", fallback: "폴백", unknown: "미분류",
+                    };
+                    const genColors: Record<string, string> = {
+                      gemini: "bg-blue-500", ai: "bg-blue-500", template: "bg-amber-500", fallback: "bg-red-400", unknown: "bg-gray-400",
+                    };
+                    return (
+                      <div key={genBy} className="space-y-1">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">{genLabels[genBy] || genBy}</span>
+                          <span className="font-bold text-gray-900">{data.rate}%</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${genColors[genBy] || "bg-gray-500"}`}
+                              style={{ width: `${Math.max(data.rate, 2)}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-gray-400 w-16 text-right">{data.revisited}/{data.sent}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </ReportCard>
+          </div>
+        </div>
+      )}
 
       {/* CSV 내보내기 */}
       <div className="bg-gray-50 rounded-xl border border-gray-200 p-5">

@@ -274,13 +274,36 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
     }
   }, [showToast]);
 
-  // 연락 완료 처리
-  const handleContactComplete = useCallback(async (patientId: string) => {
+  // 연락 완료 — 서버 연동
+  const handleContactComplete = useCallback(async (patientId: string, patientName: string) => {
+    // 낙관적 UI 업데이트
     setContactedIds((prev) => new Set(prev).add(patientId));
-    showToast("success", "연락 완료 처리됨");
+    try {
+      const res = await fetch("/api/workflow/tasks/complete-by-patient", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patientId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        showToast("success", `${patientName} 연락 완료 (${data.completedCount}건 처리)`);
+      } else {
+        // 롤백
+        setContactedIds((prev) => { const next = new Set(prev); next.delete(patientId); return next; });
+        const data = await res.json().catch(() => null);
+        showToast("error", data?.error || "완료 처리에 실패했습니다");
+      }
+    } catch {
+      // 롤백
+      setContactedIds((prev) => { const next = new Set(prev); next.delete(patientId); return next; });
+      showToast("error", "네트워크 오류가 발생했습니다");
+    }
   }, [showToast]);
 
-  const filteredTasks = tasks.filter((t) => {
+  // contactedIds로 완료 처리된 환자의 task를 반영한 실효 task 목록
+  const effectiveTasks = tasks.filter((t) => !contactedIds.has(t.patientId));
+
+  const filteredTasks = effectiveTasks.filter((t) => {
     if (statusFilter === "active" && (t.status === "completed" || t.status === "excluded")) return false;
     if (statusFilter !== "active" && statusFilter && t.status !== statusFilter) return false;
     if (assigneeFilter && t.assigneeId !== assigneeFilter) return false;
@@ -295,12 +318,12 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
       ? blockedMessages.filter((m) => !m.doNotContactBlocked)
       : blockedMessages;
 
-  // preset별 카운트
+  // preset별 카운트 — effectiveTasks와 blockedMessages(이미 액션 후 제거됨)에서 산출
   const presetCounts: Record<PresetKey, number> = {
-    today: tasks.filter((t) => t.status === "unprocessed").length,
-    dropout: tasks.filter((t) => t.actionType === "CHURN_REENGAGE" && t.status !== "completed" && t.status !== "excluded").length,
-    long_absent: tasks.filter((t) => t.actionType === "RECALL" && t.status !== "completed" && t.status !== "excluded").length,
-    retry: tasks.filter((t) => t.actionType === "MESSAGE_REVIEW" && t.status !== "completed" && t.status !== "excluded").length,
+    today: effectiveTasks.filter((t) => t.status === "unprocessed").length,
+    dropout: effectiveTasks.filter((t) => t.actionType === "CHURN_REENGAGE" && t.status !== "completed" && t.status !== "excluded").length,
+    long_absent: effectiveTasks.filter((t) => t.actionType === "RECALL" && t.status !== "completed" && t.status !== "excluded").length,
+    retry: effectiveTasks.filter((t) => t.actionType === "MESSAGE_REVIEW" && t.status !== "completed" && t.status !== "excluded").length,
     blocked: blockedMessages.filter((m) => !m.doNotContactBlocked).length,
     do_not_contact: blockedMessages.filter((m) => m.doNotContactBlocked).length,
   };
@@ -487,7 +510,7 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
                     <p className="text-xs text-gray-500 leading-relaxed line-clamp-2 mb-2">{reasonSummary}</p>
                     <div className="flex items-center gap-1.5">
                       <button
-                        onClick={(e) => { e.preventDefault(); handleContactComplete(p.patientId); }}
+                        onClick={(e) => { e.preventDefault(); handleContactComplete(p.patientId, p.patientName); }}
                         className="flex items-center gap-1 px-2 py-1 text-[11px] bg-green-50 text-green-700 rounded-md hover:bg-green-100 transition-colors"
                       >
                         <Check size={10} />
