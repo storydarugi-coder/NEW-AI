@@ -111,13 +111,17 @@ export async function GET() {
       runningCount: syncJobs.filter((j) => j.status === "RUNNING").length,
     };
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ctaStats,
       workflowSummary,
       sourceReviewStats,
       messageStats,
       syncStats,
     });
+
+    // 부가 통계는 30초 브라우저 캐시 허용
+    response.headers.set("Cache-Control", "private, max-age=30, stale-while-revalidate=60");
+    return response;
   } catch (error) {
     console.error("[CareFlow] Secondary stats error:", error);
     return NextResponse.json(
