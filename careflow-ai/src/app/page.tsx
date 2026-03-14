@@ -4,7 +4,8 @@ import { calculatePriorityScore, calculateWeeklyChange } from "@/lib/engine/scor
 import { DashboardContent } from "@/components/dashboard/dashboard-content";
 import { DbUnavailable } from "@/components/shared/db-unavailable";
 
-export const dynamic = "force-dynamic";
+// 60초 ISR — force-dynamic 제거로 첫 응답 캐시 활용
+export const revalidate = 60;
 
 interface ScoreFactor {
   label: string;
@@ -34,11 +35,20 @@ export default async function DashboardPage() {
     const ruleConfigs = await prisma.ruleConfig.findMany();
     const engineConfig = buildEngineConfig(ruleConfigs);
 
+    // 규칙 엔진에 필요한 최소 필드만 select
     const patients = await prisma.patient.findMany({
-      include: {
-        identity: true,
+      select: {
+        id: true,
+        chartNumber: true,
+        isVip: true,
+        identity: { select: { name: true } },
         visits: {
-          include: { procedures: true, diagnoses: true },
+          select: {
+            id: true,
+            visitDate: true,
+            procedures: { select: { code: true, name: true, tooth: true } },
+            diagnoses: { select: { code: true, name: true, tooth: true } },
+          },
           orderBy: { visitDate: "desc" },
         },
       },
@@ -48,6 +58,9 @@ export default async function DashboardPage() {
       return <DbUnavailable reason="empty" />;
     }
 
+    // O(1) 조회를 위한 Map 구성
+    const patientMap = new Map(patients.map((p) => [p.id, p]));
+
     const detectionMap = evaluateAllPatients(patients, engineConfig);
 
     let treatmentDropoutCount = 0;
@@ -56,7 +69,7 @@ export default async function DashboardPage() {
     const priorityPatients: PriorityPatientItem[] = [];
 
     for (const [patientId, detections] of detectionMap.entries()) {
-      const patient = patients.find((p) => p.id === patientId);
+      const patient = patientMap.get(patientId); // O(1) — 기존 O(n) find 제거
       if (!patient) continue;
 
       for (const d of detections) {
@@ -105,92 +118,8 @@ export default async function DashboardPage() {
       .filter((p) => p.topPriority <= 2)
       .slice(0, 5);
 
-    // 업무 처리 현황 요약
-    const now = new Date();
-    const wfTodayStart = new Date(now);
-    wfTodayStart.setHours(0, 0, 0, 0);
-    const wfTodayEnd = new Date(now);
-    wfTodayEnd.setHours(23, 59, 59, 999);
-
-    const workflowTasks = await prisma.workflowTask.findMany({
-      where: { status: { notIn: ["completed", "excluded"] } },
-      select: { status: true, nextFollowUpAt: true },
-    });
-
-    const workflowSummary = {
-      totalActive: workflowTasks.length,
-      unprocessed: workflowTasks.filter((t) => t.status === "unprocessed").length,
-      todayFollowUps: workflowTasks.filter((t) =>
-        t.nextFollowUpAt && t.nextFollowUpAt >= wfTodayStart && t.nextFollowUpAt <= wfTodayEnd
-      ).length,
-      overdueFollowUps: workflowTasks.filter((t) =>
-        t.nextFollowUpAt && t.nextFollowUpAt < wfTodayStart
-      ).length,
-    };
-
-    // CTA 요약 통계
-    const ctaAttributions = await prisma.leadAttribution.findMany();
-    const ctaStats = {
-      totalLeads: ctaAttributions.length,
-      pendingReview: ctaAttributions.filter((a) => a.reviewStatus === "pending").length,
-      confirmed: ctaAttributions.filter((a) => a.reviewStatus === "confirmed").length,
-      settlementEligible: ctaAttributions.filter((a) => a.settlementEligible).length,
-    };
-
-    // 방문경로 검토 통계
-    const [srTotal, srUnreviewed, srLowConf, srUnclassified, srRecentImport] = await Promise.all([
-      prisma.visit.count({ where: { sourceRaw: { not: null } } }),
-      prisma.visit.count({ where: { sourceRaw: { not: null }, sourceReviewStatus: "unreviewed" } }),
-      prisma.visit.count({ where: { sourceRaw: { not: null }, matchConfidence: "LOW" } }),
-      prisma.visit.count({ where: { normalizedSource: "Unknown" } }),
-      prisma.importBatch.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true, fileName: true, successCount: true } }).catch(() => null),
-    ]);
-
-    const sourceReviewStats = {
-      totalWithSource: srTotal,
-      unreviewedCount: srUnreviewed,
-      lowConfidenceCount: srLowConf,
-      unclassifiedCount: srUnclassified,
-      recentImport: srRecentImport ? {
-        fileName: srRecentImport.fileName,
-        importedAt: srRecentImport.createdAt.toISOString(),
-        count: srRecentImport.successCount,
-      } : null,
-    };
-
-    // 메시지 발송 통계
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const [msgReviewNeeded, msgApproved, msgSentToday, msgFailed, msgBlocked] = await Promise.all([
-      prisma.outboundMessage.count({ where: { approvalStatus: "REVIEW_NEEDED" } }).catch(() => 0),
-      prisma.outboundMessage.count({ where: { approvalStatus: "APPROVED", sendStatus: "PENDING" } }).catch(() => 0),
-      prisma.outboundMessage.count({ where: { sendStatus: "SENT", sentAt: { gte: todayStart } } }).catch(() => 0),
-      prisma.outboundMessage.count({ where: { sendStatus: { in: ["FAILED", "RETRY_NEEDED"] } } }).catch(() => 0),
-      prisma.outboundMessage.count({ where: { OR: [{ doNotContactBlocked: true }, { duplicateBlocked: true }] } }).catch(() => 0),
-    ]);
-
-    const messageStats = {
-      reviewNeeded: msgReviewNeeded,
-      approved: msgApproved,
-      sentToday: msgSentToday,
-      failed: msgFailed,
-      blocked: msgBlocked,
-    };
-
-    // 동기화 통계
-    const syncJobs = await prisma.syncJob.findMany({
-      select: { status: true, startedAt: true },
-      orderBy: { startedAt: "desc" },
-      take: 50,
-    }).catch(() => [] as { status: string; startedAt: Date }[]);
-
-    const syncStats = {
-      lastSync: syncJobs[0]?.startedAt?.toISOString() || null,
-      lastSyncStatus: syncJobs[0]?.status || null,
-      failedCount: syncJobs.filter((j) => j.status === "FAILED").length,
-      runningCount: syncJobs.filter((j) => j.status === "RUNNING").length,
-    };
-
+    // 부가 통계(CTA, workflow, source, sync, message)는
+    // DashboardContent 클라이언트에서 /api/dashboard/secondary-stats 로 lazy fetch
     return (
       <DashboardContent
         stats={{
@@ -202,11 +131,6 @@ export default async function DashboardPage() {
         weeklyChanges={weeklyChanges}
         urgentPatients={urgentPatients}
         priorityPatients={priorityPatients.slice(0, 20)}
-        ctaStats={ctaStats}
-        workflowSummary={workflowSummary}
-        sourceReviewStats={sourceReviewStats}
-        syncStats={syncStats}
-        messageStats={messageStats}
       />
     );
   } catch (error) {

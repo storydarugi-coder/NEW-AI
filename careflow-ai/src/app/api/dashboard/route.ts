@@ -22,6 +22,9 @@ export async function GET() {
 
     const detectionMap = evaluateAllPatients(patients, engineConfig);
 
+    // O(1) 조회를 위한 Map
+    const patientMap = new Map(patients.map((p) => [p.id, p]));
+
     let treatmentDropoutCount = 0;
     let recallDueCount = 0;
     let messageSuggestionCount = 0;
@@ -44,7 +47,7 @@ export async function GET() {
     const priorityPatients: PriorityPatient[] = [];
 
     for (const [patientId, detections] of detectionMap.entries()) {
-      const patient = patients.find((p) => p.id === patientId);
+      const patient = patientMap.get(patientId);
       if (!patient) continue;
 
       for (const d of detections) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-// Custom tooltip instead of shadcn tooltip (base-ui compatibility)
 import {
   AlertTriangle,
   CalendarClock,
@@ -30,6 +29,7 @@ import {
   Search,
   Mail,
   BarChart3,
+  Loader2,
 } from "lucide-react";
 import {
   RULE_TYPE_LABELS,
@@ -102,6 +102,19 @@ interface MessageStats {
   blocked: number;
 }
 
+interface SecondaryStats {
+  ctaStats?: {
+    totalLeads: number;
+    pendingReview: number;
+    confirmed: number;
+    settlementEligible: number;
+  };
+  workflowSummary?: WorkflowSummary;
+  sourceReviewStats?: SourceReviewStats;
+  syncStats?: SyncStats;
+  messageStats?: MessageStats;
+}
+
 interface DashboardContentProps {
   stats: {
     todayActionCount: number;
@@ -117,16 +130,6 @@ interface DashboardContentProps {
   };
   urgentPatients: PriorityPatient[];
   priorityPatients: PriorityPatient[];
-  ctaStats?: {
-    totalLeads: number;
-    pendingReview: number;
-    confirmed: number;
-    settlementEligible: number;
-  };
-  workflowSummary?: WorkflowSummary;
-  sourceReviewStats?: SourceReviewStats;
-  syncStats?: SyncStats;
-  messageStats?: MessageStats;
 }
 
 const statCards = [
@@ -199,17 +202,51 @@ function ScoreTooltip({ score, factors }: { score: number; factors: ScoreFactor[
   );
 }
 
+/** 부가 통계 스켈레톤 */
+function SecondaryStatsSkeleton() {
+  return (
+    <div className="space-y-3 animate-pulse">
+      {[1, 2, 3].map((i) => (
+        <Card key={i} className="border-0 shadow-sm border-l-4 border-l-gray-200">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-gray-100" />
+              <div className="flex-1 space-y-1.5">
+                <div className="h-4 bg-gray-100 rounded w-24" />
+                <div className="h-3 bg-gray-50 rounded w-48" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
 export function DashboardContent({
   stats,
   weeklyChanges,
   urgentPatients,
   priorityPatients,
-  ctaStats,
-  workflowSummary,
-  sourceReviewStats,
-  syncStats,
-  messageStats,
 }: DashboardContentProps) {
+  const [secondary, setSecondary] = useState<SecondaryStats | null>(null);
+  const [secondaryLoading, setSecondaryLoading] = useState(true);
+
+  // 부가 통계를 클라이언트에서 lazy fetch
+  useEffect(() => {
+    fetch("/api/dashboard/secondary-stats")
+      .then((res) => res.json())
+      .then((data) => setSecondary(data))
+      .catch(() => setSecondary(null))
+      .finally(() => setSecondaryLoading(false));
+  }, []);
+
+  const ctaStats = secondary?.ctaStats;
+  const workflowSummary = secondary?.workflowSummary;
+  const sourceReviewStats = secondary?.sourceReviewStats;
+  const syncStats = secondary?.syncStats;
+  const messageStats = secondary?.messageStats;
+
   return (
     <div className="space-y-6">
       {/* 제품 소개 배너 */}
@@ -257,182 +294,189 @@ export function DashboardContent({
         ))}
       </div>
 
-      {/* CTA 광고 유입 요약 */}
-      {ctaStats && ctaStats.totalLeads > 0 && (
-        <Card className="border-0 shadow-sm border-l-4 border-l-green-400">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-50">
-                  <Megaphone size={18} className="text-green-600" />
+      {/* 부가 통계: lazy loaded */}
+      {secondaryLoading ? (
+        <SecondaryStatsSkeleton />
+      ) : (
+        <>
+          {/* CTA 광고 유입 요약 */}
+          {ctaStats && ctaStats.totalLeads > 0 && (
+            <Card className="border-0 shadow-sm border-l-4 border-l-green-400">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-green-50">
+                      <Megaphone size={18} className="text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">CTA 광고 유입</p>
+                      <p className="text-xs text-gray-500">
+                        유입 {ctaStats.totalLeads}건 · 확정 {ctaStats.confirmed}건 · 정산 대상 {ctaStats.settlementEligible}건 · 검토 필요 {ctaStats.pendingReview}건
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/cta"
+                    className="text-sm text-green-600 hover:text-green-700 flex items-center gap-1 font-medium"
+                  >
+                    관리 <ChevronRight size={14} />
+                  </Link>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">CTA 광고 유입</p>
-                  <p className="text-xs text-gray-500">
-                    유입 {ctaStats.totalLeads}건 · 확정 {ctaStats.confirmed}건 · 정산 대상 {ctaStats.settlementEligible}건 · 검토 필요 {ctaStats.pendingReview}건
-                  </p>
-                </div>
-              </div>
-              <Link
-                href="/cta"
-                className="text-sm text-green-600 hover:text-green-700 flex items-center gap-1 font-medium"
-              >
-                관리 <ChevronRight size={14} />
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              </CardContent>
+            </Card>
+          )}
 
-      {/* 업무 처리 현황 요약 */}
-      {workflowSummary && workflowSummary.totalActive > 0 && (
-        <Card className="border-0 shadow-sm border-l-4 border-l-blue-400">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-50">
-                  <ClipboardList size={18} className="text-blue-600" />
+          {/* 업무 처리 현황 요약 */}
+          {workflowSummary && workflowSummary.totalActive > 0 && (
+            <Card className="border-0 shadow-sm border-l-4 border-l-blue-400">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-blue-50">
+                      <ClipboardList size={18} className="text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">업무 처리 현황</p>
+                      <p className="text-xs text-gray-500">
+                        미처리 {workflowSummary.unprocessed}건 · 진행 중 {workflowSummary.totalActive - workflowSummary.unprocessed}건
+                        {workflowSummary.overdueFollowUps > 0 && (
+                          <span className="text-red-500 font-medium"> · 기한 초과 {workflowSummary.overdueFollowUps}건</span>
+                        )}
+                        {workflowSummary.todayFollowUps > 0 && (
+                          <span className="text-purple-500"> · 오늘 확인 {workflowSummary.todayFollowUps}건</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/workflow"
+                    className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium"
+                  >
+                    관리 <ChevronRight size={14} />
+                  </Link>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">업무 처리 현황</p>
-                  <p className="text-xs text-gray-500">
-                    미처리 {workflowSummary.unprocessed}건 · 진행 중 {workflowSummary.totalActive - workflowSummary.unprocessed}건
-                    {workflowSummary.overdueFollowUps > 0 && (
-                      <span className="text-red-500 font-medium"> · 기한 초과 {workflowSummary.overdueFollowUps}건</span>
-                    )}
-                    {workflowSummary.todayFollowUps > 0 && (
-                      <span className="text-purple-500"> · 오늘 확인 {workflowSummary.todayFollowUps}건</span>
-                    )}
-                  </p>
-                </div>
-              </div>
-              <Link
-                href="/workflow"
-                className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium"
-              >
-                관리 <ChevronRight size={14} />
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              </CardContent>
+            </Card>
+          )}
 
-      {/* 방문경로 검토 현황 */}
-      {sourceReviewStats && sourceReviewStats.totalWithSource > 0 && (
-        <Card className="border-0 shadow-sm border-l-4 border-l-purple-400">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-purple-50">
-                  <Search size={18} className="text-purple-600" />
+          {/* 방문경로 검토 현황 */}
+          {sourceReviewStats && sourceReviewStats.totalWithSource > 0 && (
+            <Card className="border-0 shadow-sm border-l-4 border-l-purple-400">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-purple-50">
+                      <Search size={18} className="text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">방문경로 분류 현황</p>
+                      <p className="text-xs text-gray-500">
+                        검토 필요 <span className="font-medium text-amber-600">{sourceReviewStats.unreviewedCount}건</span>
+                        {sourceReviewStats.unclassifiedCount > 0 && (
+                          <> · 미분류 <span className="font-medium text-orange-600">{sourceReviewStats.unclassifiedCount}건</span></>
+                        )}
+                        {sourceReviewStats.lowConfidenceCount > 0 && (
+                          <> · 저신뢰 <span className="font-medium text-red-600">{sourceReviewStats.lowConfidenceCount}건</span></>
+                        )}
+                        {sourceReviewStats.recentImport && (
+                          <> · 최근 import: {sourceReviewStats.recentImport.fileName} ({sourceReviewStats.recentImport.count}건)</>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/source-review"
+                    className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1 font-medium"
+                  >
+                    검토 <ChevronRight size={14} />
+                  </Link>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">방문경로 분류 현황</p>
-                  <p className="text-xs text-gray-500">
-                    검토 필요 <span className="font-medium text-amber-600">{sourceReviewStats.unreviewedCount}건</span>
-                    {sourceReviewStats.unclassifiedCount > 0 && (
-                      <> · 미분류 <span className="font-medium text-orange-600">{sourceReviewStats.unclassifiedCount}건</span></>
-                    )}
-                    {sourceReviewStats.lowConfidenceCount > 0 && (
-                      <> · 저신뢰 <span className="font-medium text-red-600">{sourceReviewStats.lowConfidenceCount}건</span></>
-                    )}
-                    {sourceReviewStats.recentImport && (
-                      <> · 최근 import: {sourceReviewStats.recentImport.fileName} ({sourceReviewStats.recentImport.count}건)</>
-                    )}
-                  </p>
-                </div>
-              </div>
-              <Link
-                href="/source-review"
-                className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1 font-medium"
-              >
-                검토 <ChevronRight size={14} />
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              </CardContent>
+            </Card>
+          )}
 
-      {/* 동기화 상태 위젯 */}
-      {syncStats && (
-        <Card className={`border-0 shadow-sm border-l-4 ${syncStats.failedCount > 0 ? "border-l-red-400" : "border-l-cyan-400"}`}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${syncStats.failedCount > 0 ? "bg-red-50" : "bg-cyan-50"}`}>
-                  <ClipboardList size={18} className={syncStats.failedCount > 0 ? "text-red-600" : "text-cyan-600"} />
+          {/* 동기화 상태 위젯 */}
+          {syncStats && (
+            <Card className={`border-0 shadow-sm border-l-4 ${syncStats.failedCount > 0 ? "border-l-red-400" : "border-l-cyan-400"}`}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${syncStats.failedCount > 0 ? "bg-red-50" : "bg-cyan-50"}`}>
+                      <ClipboardList size={18} className={syncStats.failedCount > 0 ? "text-red-600" : "text-cyan-600"} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">동기화 상태</p>
+                      <p className="text-xs text-gray-500">
+                        {syncStats.lastSync
+                          ? `마지막 동기화: ${new Date(syncStats.lastSync).toLocaleString("ko-KR")}`
+                          : "동기화 이력 없음"}
+                        {syncStats.lastSyncStatus && (
+                          <span className={`ml-1 px-1 py-0.5 rounded text-[10px] font-medium ${
+                            syncStats.lastSyncStatus === "SUCCESS" ? "bg-green-50 text-green-600" :
+                            syncStats.lastSyncStatus === "FAILED" ? "bg-red-50 text-red-600" :
+                            "bg-amber-50 text-amber-600"
+                          }`}>
+                            {syncStats.lastSyncStatus === "SUCCESS" ? "성공" : syncStats.lastSyncStatus === "FAILED" ? "실패" : "부분성공"}
+                          </span>
+                        )}
+                        {syncStats.failedCount > 0 && (
+                          <span className="ml-2 font-medium text-red-600">실패 {syncStats.failedCount}건</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/sync"
+                    className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center gap-1 font-medium"
+                  >
+                    관리 <ChevronRight size={14} />
+                  </Link>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">동기화 상태</p>
-                  <p className="text-xs text-gray-500">
-                    {syncStats.lastSync
-                      ? `마지막 동기화: ${new Date(syncStats.lastSync).toLocaleString("ko-KR")}`
-                      : "동기화 이력 없음"}
-                    {syncStats.lastSyncStatus && (
-                      <span className={`ml-1 px-1 py-0.5 rounded text-[10px] font-medium ${
-                        syncStats.lastSyncStatus === "SUCCESS" ? "bg-green-50 text-green-600" :
-                        syncStats.lastSyncStatus === "FAILED" ? "bg-red-50 text-red-600" :
-                        "bg-amber-50 text-amber-600"
-                      }`}>
-                        {syncStats.lastSyncStatus === "SUCCESS" ? "성공" : syncStats.lastSyncStatus === "FAILED" ? "실패" : "부분성공"}
-                      </span>
-                    )}
-                    {syncStats.failedCount > 0 && (
-                      <span className="ml-2 font-medium text-red-600">실패 {syncStats.failedCount}건</span>
-                    )}
-                  </p>
-                </div>
-              </div>
-              <Link
-                href="/sync"
-                className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center gap-1 font-medium"
-              >
-                관리 <ChevronRight size={14} />
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              </CardContent>
+            </Card>
+          )}
 
-      {/* 메시지 발송 현황 */}
-      {messageStats && (messageStats.reviewNeeded > 0 || messageStats.failed > 0 || messageStats.sentToday > 0) && (
-        <Card className={`border-0 shadow-sm border-l-4 ${messageStats.failed > 0 ? "border-l-red-400" : messageStats.reviewNeeded > 0 ? "border-l-amber-400" : "border-l-green-400"}`}>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${messageStats.failed > 0 ? "bg-red-50" : messageStats.reviewNeeded > 0 ? "bg-amber-50" : "bg-green-50"}`}>
-                  <Mail size={18} className={messageStats.failed > 0 ? "text-red-600" : messageStats.reviewNeeded > 0 ? "text-amber-600" : "text-green-600"} />
+          {/* 메시지 발송 현황 */}
+          {messageStats && (messageStats.reviewNeeded > 0 || messageStats.failed > 0 || messageStats.sentToday > 0) && (
+            <Card className={`border-0 shadow-sm border-l-4 ${messageStats.failed > 0 ? "border-l-red-400" : messageStats.reviewNeeded > 0 ? "border-l-amber-400" : "border-l-green-400"}`}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${messageStats.failed > 0 ? "bg-red-50" : messageStats.reviewNeeded > 0 ? "bg-amber-50" : "bg-green-50"}`}>
+                      <Mail size={18} className={messageStats.failed > 0 ? "text-red-600" : messageStats.reviewNeeded > 0 ? "text-amber-600" : "text-green-600"} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">메시지 발송 현황</p>
+                      <p className="text-xs text-gray-500">
+                        {messageStats.reviewNeeded > 0 && (
+                          <span className="font-medium text-amber-600">검토 필요 {messageStats.reviewNeeded}건</span>
+                        )}
+                        {messageStats.approved > 0 && (
+                          <>{messageStats.reviewNeeded > 0 && " · "}발송 대기 {messageStats.approved}건</>
+                        )}
+                        {messageStats.sentToday > 0 && (
+                          <>{(messageStats.reviewNeeded > 0 || messageStats.approved > 0) && " · "}<span className="text-green-600">오늘 발송 {messageStats.sentToday}건</span></>
+                        )}
+                        {messageStats.failed > 0 && (
+                          <> · <span className="font-medium text-red-600">실패 {messageStats.failed}건</span></>
+                        )}
+                        {messageStats.blocked > 0 && (
+                          <> · 차단 {messageStats.blocked}건</>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/messages"
+                    className={`text-sm flex items-center gap-1 font-medium ${messageStats.failed > 0 ? "text-red-600 hover:text-red-700" : messageStats.reviewNeeded > 0 ? "text-amber-600 hover:text-amber-700" : "text-green-600 hover:text-green-700"}`}
+                  >
+                    관리 <ChevronRight size={14} />
+                  </Link>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">메시지 발송 현황</p>
-                  <p className="text-xs text-gray-500">
-                    {messageStats.reviewNeeded > 0 && (
-                      <span className="font-medium text-amber-600">검토 필요 {messageStats.reviewNeeded}건</span>
-                    )}
-                    {messageStats.approved > 0 && (
-                      <>{messageStats.reviewNeeded > 0 && " · "}발송 대기 {messageStats.approved}건</>
-                    )}
-                    {messageStats.sentToday > 0 && (
-                      <>{(messageStats.reviewNeeded > 0 || messageStats.approved > 0) && " · "}<span className="text-green-600">오늘 발송 {messageStats.sentToday}건</span></>
-                    )}
-                    {messageStats.failed > 0 && (
-                      <> · <span className="font-medium text-red-600">실패 {messageStats.failed}건</span></>
-                    )}
-                    {messageStats.blocked > 0 && (
-                      <> · 차단 {messageStats.blocked}건</>
-                    )}
-                  </p>
-                </div>
-              </div>
-              <Link
-                href="/messages"
-                className={`text-sm flex items-center gap-1 font-medium ${messageStats.failed > 0 ? "text-red-600 hover:text-red-700" : messageStats.reviewNeeded > 0 ? "text-amber-600 hover:text-amber-700" : "text-green-600 hover:text-green-700"}`}
-              >
-                관리 <ChevronRight size={14} />
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
 
       {/* Urgent Contact Section */}
