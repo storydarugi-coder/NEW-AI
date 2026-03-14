@@ -144,7 +144,10 @@ function getRuleColor(ruleType: string): string {
   }
 }
 
-// generationType 라벨 — legacy "vertex" 값도 안전하게 "AI 자동 생성"으로 매핑
+// generationType 라벨 + 아이콘 + 색상
+// 정규화 로직: src/lib/ai/generation-type.ts의 normalizeGenerationType() 참조
+// API는 이미 정규화된 값("ai"|"template"|"fallback")을 반환하지만
+// 레거시 데이터 안전성을 위해 "gemini"/"vertex" 키도 유지
 const generatedByLabels: Record<string, { label: string; icon: typeof Sparkles; color: string }> = {
   ai: { label: "AI 자동 생성", icon: Sparkles, color: "text-purple-600 bg-purple-50 border-purple-200" },
   gemini: { label: "AI 자동 생성", icon: Sparkles, color: "text-purple-600 bg-purple-50 border-purple-200" },

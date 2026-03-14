@@ -100,10 +100,10 @@ export const ROLE_CAPABILITIES: Record<string, string[]> = {
     "review_workflow",
     "send_message",
     "view_patients",
-    "review_cta",
+    "review_cpa",
   ],
   VIEWER: ["view_patients"],
-  MARKETING: ["view_patients", "review_cta", "review_source", "export_data", "view_reports"],
+  MARKETING: ["view_patients", "review_cpa", "review_source", "export_data", "view_reports"],
 };
 
 export function hasCapability(role: string, cap: string): boolean {

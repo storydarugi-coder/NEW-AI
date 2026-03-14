@@ -11,6 +11,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { normalizeGenerationType } from "@/lib/ai/generation-type";
 
 export interface GenerationMetrics {
   /** 기간 내 총 생성 건수 */
@@ -106,7 +107,7 @@ async function collectGenerationMetrics(
   for (const log of logs) {
     try {
       const detail = JSON.parse(log.detail || "{}");
-      const type = detail.generatedBy === "gemini" ? "ai" : (detail.generatedBy || "fallback");
+      const type = normalizeGenerationType(detail.generatedBy);
       if (type in counts) {
         counts[type as keyof typeof counts]++;
       }

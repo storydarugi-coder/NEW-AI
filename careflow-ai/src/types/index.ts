@@ -103,7 +103,7 @@ export const LENGTH_LABELS: Record<MessageLength, string> = {
 };
 
 // ──────────────────────────────────────────────
-// CTA 광고 귀속 추적 타입
+// CPA 광고 귀속 추적 타입
 // ──────────────────────────────────────────────
 
 export type VisitChannel =
@@ -225,7 +225,7 @@ export const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
 };
 
 export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
-  CTA_REVIEW: "CTA 유입 검토",
+  CTA_REVIEW: "CPA 유입 검토",
   RECALL: "리콜 연락",
   CHURN_REENGAGE: "치료 중단 복귀",
   MESSAGE_REVIEW: "메시지 발송 검토",

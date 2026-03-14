@@ -113,8 +113,8 @@ export async function POST(request: NextRequest) {
     });
 
     // 프론트에는 구현 정보 없이 생성 유형만 전달
-    const generationType: "ai" | "template" | "fallback" =
-      messages.generatedBy === "gemini" ? "ai" : messages.generatedBy;
+    const { normalizeGenerationType } = await import("@/lib/ai/generation-type");
+    const generationType = normalizeGenerationType(messages.generatedBy);
 
     return NextResponse.json({
       messages: {

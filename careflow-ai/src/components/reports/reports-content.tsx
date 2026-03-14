@@ -467,6 +467,56 @@ function OverviewTab({ kpi, funnel, msgReport, srcReport, outcomeData, onExport 
             />
           </div>
 
+          {/* 운영 해석 요약 */}
+          {(() => {
+            const aiData = outcomeData.byGeneratedBy?.ai;
+            const tplData = outcomeData.byGeneratedBy?.template;
+            const fbData = outcomeData.byGeneratedBy?.fallback;
+            const fbRatio = fbData ? Math.round((fbData.sent / outcomeData.totalSent) * 100) : 0;
+            const insights: string[] = [];
+
+            if (aiData && tplData && aiData.sent >= 3 && tplData.sent >= 3) {
+              const diff = aiData.rate - tplData.rate;
+              if (diff > 5) insights.push(`AI 생성 메시지가 템플릿보다 전환율 ${diff}%p 높음 — AI 적극 활용 권장`);
+              else if (diff < -5) insights.push(`템플릿 메시지가 AI보다 전환율 ${Math.abs(diff)}%p 높음 — 템플릿 품질 검토 권장`);
+              else insights.push("AI 생성과 템플릿의 전환율 차이가 크지 않음");
+            }
+            if (fbRatio >= 30) insights.push(`기본 메시지(폴백) 비율이 ${fbRatio}%로 높음 — AI 프로바이더 설정 점검 필요`);
+            if (outcomeData.avgDaysToRevisit != null) {
+              if (outcomeData.avgDaysToRevisit <= 7) insights.push(`평균 ${outcomeData.avgDaysToRevisit}일 만에 재내원 — 메시지 반응이 빠른 편`);
+              else if (outcomeData.avgDaysToRevisit > 21) insights.push(`평균 ${outcomeData.avgDaysToRevisit}일 소요 — 조기 리마인더 발송 검토 권장`);
+            }
+
+            const topType = Object.entries(outcomeData.byMessageType)
+              .filter(([, d]) => d.sent >= 3)
+              .sort((a, b) => b[1].rate - a[1].rate)[0];
+            const bottomType = Object.entries(outcomeData.byMessageType)
+              .filter(([, d]) => d.sent >= 3)
+              .sort((a, b) => a[1].rate - b[1].rate)[0];
+            const msgLabels: Record<string, string> = {
+              RECALL: "리콜", CTA_FOLLOWUP: "CPA 후속", TREATMENT_RESUME: "치료 복귀",
+              COUNSELING_FOLLOWUP: "상담 후속", SCALING_REMINDER: "스케일링 안내", GENERAL: "일반",
+            };
+            if (topType && bottomType && topType[0] !== bottomType[0]) {
+              insights.push(`최고 전환: ${msgLabels[topType[0]] || topType[0]} (${topType[1].rate}%) · 최저: ${msgLabels[bottomType[0]] || bottomType[0]} (${bottomType[1].rate}%)`);
+            }
+
+            if (insights.length === 0) return null;
+            return (
+              <div className="bg-blue-50 rounded-xl border border-blue-100 p-4">
+                <p className="text-xs font-semibold text-blue-800 mb-1.5">운영 인사이트</p>
+                <ul className="space-y-1">
+                  {insights.map((text, i) => (
+                    <li key={i} className="text-xs text-blue-700 flex items-start gap-1.5">
+                      <span className="shrink-0 mt-0.5 w-1 h-1 rounded-full bg-blue-400" />
+                      {text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
+
           {/* 유형별 + 생성방식별 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <ReportCard title="메시지 유형별 전환율">
@@ -474,7 +524,7 @@ function OverviewTab({ kpi, funnel, msgReport, srcReport, outcomeData, onExport 
                 <div className="space-y-3">
                   {Object.entries(outcomeData.byMessageType).map(([type, data]) => {
                     const typeLabels: Record<string, string> = {
-                      RECALL: "리콜", CTA_FOLLOWUP: "CTA 후속", TREATMENT_RESUME: "치료 복귀",
+                      RECALL: "리콜", CTA_FOLLOWUP: "CPA 후속", TREATMENT_RESUME: "치료 복귀",
                       COUNSELING_FOLLOWUP: "상담 후속", SCALING_REMINDER: "스케일링 안내", GENERAL: "일반",
                     };
                     return (

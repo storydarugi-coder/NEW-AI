@@ -228,7 +228,7 @@ function RuleCard({
               "px-1.5 py-0.5 rounded text-[10px] font-medium",
               rule.ctaCandidate ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
             )}>
-              {rule.ctaCandidate ? "CPA 후보" : "비-CTA"}
+              {rule.ctaCandidate ? "CPA 후보" : "일반"}
             </span>
             <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-700">
               {CATEGORY_LABELS[rule.sourceCategory] || rule.sourceCategory}

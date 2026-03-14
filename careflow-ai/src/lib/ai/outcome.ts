@@ -29,6 +29,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { normalizeGenerationType } from "@/lib/ai/generation-type";
 
 /** 기본 귀속 윈도우 (일) */
 export const DEFAULT_ATTRIBUTION_WINDOW_DAYS = 30;
@@ -192,8 +193,8 @@ export async function collectOutcomeMetrics(
     byMessageType[o.messageType].sent++;
     if (o.revisited) byMessageType[o.messageType].revisited++;
 
-    // byGeneratedBy
-    const genKey = o.generatedBy || "unknown";
+    // byGeneratedBy — 정규화된 generationType 기준으로 집계
+    const genKey = normalizeGenerationType(o.generatedBy);
     if (!byGeneratedBy[genKey]) byGeneratedBy[genKey] = { sent: 0, revisited: 0 };
     byGeneratedBy[genKey].sent++;
     if (o.revisited) byGeneratedBy[genKey].revisited++;

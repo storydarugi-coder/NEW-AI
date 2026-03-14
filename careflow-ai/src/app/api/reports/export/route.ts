@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
         csvContent += `전체,평균재내원소요일,,,,"${metrics.avgDaysToRevisit ?? "-"}일"\n`;
 
         const typeLabels: Record<string, string> = {
-          RECALL: "리콜", CTA_FOLLOWUP: "CTA 후속", TREATMENT_RESUME: "치료 복귀",
+          RECALL: "리콜", CTA_FOLLOWUP: "CPA 후속", TREATMENT_RESUME: "치료 복귀",
           COUNSELING_FOLLOWUP: "상담 후속", SCALING_REMINDER: "스케일링 안내", GENERAL: "일반",
         };
         for (const [type, data] of Object.entries(metrics.byMessageType)) {
@@ -158,8 +158,8 @@ export async function GET(req: NextRequest) {
         csvContent += `기간 종료,${to.toISOString().split("T")[0]}\n`;
         csvContent += `방문 수,${visitCount}\n`;
         csvContent += `신규 환자,${patientCount}\n`;
-        csvContent += `CTA 유입,${ctaCount}\n`;
-        csvContent += `CTA 확정,${ctaConfirmed}\n`;
+        csvContent += `CPA 유입,${ctaCount}\n`;
+        csvContent += `CPA 확정,${ctaConfirmed}\n`;
         csvContent += `메시지 발송,${msgSent}\n`;
         csvContent += `메시지 실패,${msgFailed}\n`;
         csvContent += `업무 생성,${tasksCreated}\n`;

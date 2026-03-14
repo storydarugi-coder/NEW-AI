@@ -272,6 +272,7 @@ export function DashboardContent({
     totalSent: number;
     totalRevisited: number;
     avgDaysToRevisit: number | null;
+    byGeneratedBy: Record<string, { sent: number; revisited: number; rate: number }>;
   } | null>(null);
 
   // 부가 통계를 클라이언트에서 lazy fetch
@@ -296,6 +297,7 @@ export function DashboardContent({
             totalSent: data.totalSent,
             totalRevisited: data.totalRevisited,
             avgDaysToRevisit: data.avgDaysToRevisit,
+            byGeneratedBy: data.byGeneratedBy || {},
           });
         }
       })
@@ -610,36 +612,72 @@ export function DashboardContent({
           )}
 
           {/* 메시지 → 재내원 전환율 */}
-          {outcomeMetrics && outcomeMetrics.totalSent > 0 && (
-            <Card className="border-0 shadow-sm border-l-4 border-l-emerald-400">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-emerald-50">
-                      <TrendingUp size={18} className="text-emerald-600" />
+          {outcomeMetrics && outcomeMetrics.totalSent > 0 && (() => {
+            const om = outcomeMetrics;
+            const aiData = om.byGeneratedBy?.ai;
+            const tplData = om.byGeneratedBy?.template;
+            const fbData = om.byGeneratedBy?.fallback;
+            // AI vs 템플릿 성과 차이 요약
+            const aiVsTemplate = aiData && tplData && aiData.sent >= 3 && tplData.sent >= 3
+              ? aiData.rate - tplData.rate
+              : null;
+            // fallback 비율 경고
+            const fbRatio = fbData ? Math.round((fbData.sent / om.totalSent) * 100) : 0;
+            // 평균 소요일 해석
+            const daysLabel = om.avgDaysToRevisit != null
+              ? om.avgDaysToRevisit <= 7 ? "빠른 반응" : om.avgDaysToRevisit <= 14 ? "보통" : "느린 편"
+              : null;
+
+            return (
+              <Card className="border-0 shadow-sm border-l-4 border-l-emerald-400">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-emerald-50">
+                        <TrendingUp size={18} className="text-emerald-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">메시지 → 재내원 전환 (이번 달)</p>
+                        <p className="text-xs text-gray-500">
+                          전환율 <span className={`font-bold ${om.conversionRate >= 20 ? "text-emerald-600" : om.conversionRate >= 10 ? "text-amber-600" : "text-red-600"}`}>{om.conversionRate}%</span>
+                          <> · 재내원 <span className="font-medium text-emerald-600">{om.totalRevisited}명</span></>
+                          <> · 발송 {om.totalSent}건</>
+                          {om.avgDaysToRevisit != null && (
+                            <> · 평균 {om.avgDaysToRevisit}일 소요 <span className="text-gray-400">({daysLabel})</span></>
+                          )}
+                        </p>
+                        {/* 운영 해석 보조 문구 */}
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                          {aiVsTemplate !== null && (
+                            <span className={`text-[10px] ${aiVsTemplate > 0 ? "text-emerald-600" : aiVsTemplate < 0 ? "text-amber-600" : "text-gray-400"}`}>
+                              AI {aiData!.rate}% vs 템플릿 {tplData!.rate}%
+                              {aiVsTemplate > 0 ? ` (AI +${aiVsTemplate}%p)` : aiVsTemplate < 0 ? ` (템플릿 +${Math.abs(aiVsTemplate)}%p)` : " (동일)"}
+                            </span>
+                          )}
+                          {fbRatio >= 30 && (
+                            <span className="text-[10px] text-red-500 font-medium">
+                              기본 메시지 비율 {fbRatio}% — AI 설정 확인 권장
+                            </span>
+                          )}
+                          {fbRatio > 0 && fbRatio < 30 && fbData && (
+                            <span className="text-[10px] text-gray-400">
+                              기본 메시지 {fbData.sent}건 ({fbRatio}%)
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">메시지 → 재내원 전환 (이번 달)</p>
-                      <p className="text-xs text-gray-500">
-                        전환율 <span className={`font-bold ${outcomeMetrics.conversionRate >= 20 ? "text-emerald-600" : outcomeMetrics.conversionRate >= 10 ? "text-amber-600" : "text-red-600"}`}>{outcomeMetrics.conversionRate}%</span>
-                        <> · 재내원 <span className="font-medium text-emerald-600">{outcomeMetrics.totalRevisited}명</span></>
-                        <> · 발송 {outcomeMetrics.totalSent}건</>
-                        {outcomeMetrics.avgDaysToRevisit != null && (
-                          <> · 평균 {outcomeMetrics.avgDaysToRevisit}일 소요</>
-                        )}
-                      </p>
-                    </div>
+                    <Link
+                      href="/reports"
+                      className="text-sm text-emerald-600 hover:text-emerald-700 flex items-center gap-1 font-medium"
+                    >
+                      상세 <ChevronRight size={14} />
+                    </Link>
                   </div>
-                  <Link
-                    href="/reports"
-                    className="text-sm text-emerald-600 hover:text-emerald-700 flex items-center gap-1 font-medium"
-                  >
-                    상세 <ChevronRight size={14} />
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                </CardContent>
+              </Card>
+            );
+          })()}
         </>
       )}
 
