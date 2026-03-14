@@ -17,23 +17,61 @@ import {
   RefreshCw,
   Mail,
   BarChart3,
+  type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { canAccessPath } from "@/lib/auth";
 
-const allNavItems = [
-  { label: "대시보드", href: "/", icon: LayoutDashboard },
-  { label: "환자 관리", href: "/patients", icon: Users },
-  { label: "CTA 광고 관리", href: "/cta", icon: Megaphone },
-  { label: "경로 검토 큐", href: "/source-review", icon: Search },
-  { label: "CSV Import", href: "/source-import", icon: Upload },
-  { label: "분류 사전", href: "/source-rules", icon: BookOpen },
-  { label: "메시지 발송", href: "/messages", icon: Mail },
-  { label: "운영 리포트", href: "/reports", icon: BarChart3 },
-  { label: "동기화 관리", href: "/sync", icon: RefreshCw },
-  { label: "설정", href: "/settings", icon: Settings },
-  { label: "제품 소개", href: "/about", icon: Info },
+// ── 메뉴 설정 (config 기반) ──
+// group: "company" | "clinic" | "common" — 향후 제품 분리 시 필터링 키
+// 각 항목의 href는 현재 라우트 유지, 향후 /company/... /app/... prefix 전환 가능
+
+export type MenuGroup = "company" | "clinic" | "common";
+
+export interface NavItem {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  group: MenuGroup;
+}
+
+export interface NavSection {
+  group: MenuGroup;
+  title: string;
+  items: NavItem[];
+}
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    group: "company",
+    title: "회사 운영",
+    items: [
+      { label: "CPA 광고 관리", href: "/cta", icon: Megaphone, group: "company" },
+      { label: "경로 검토 큐", href: "/source-review", icon: Search, group: "company" },
+      { label: "분류 사전", href: "/source-rules", icon: BookOpen, group: "company" },
+      { label: "동기화 관리", href: "/sync", icon: RefreshCw, group: "company" },
+    ],
+  },
+  {
+    group: "clinic",
+    title: "병원 SaaS",
+    items: [
+      { label: "대시보드", href: "/", icon: LayoutDashboard, group: "clinic" },
+      { label: "환자 관리", href: "/patients", icon: Users, group: "clinic" },
+      { label: "메시지 발송", href: "/messages", icon: Mail, group: "clinic" },
+      { label: "운영 리포트", href: "/reports", icon: BarChart3, group: "clinic" },
+      { label: "설정", href: "/settings", icon: Settings, group: "clinic" },
+    ],
+  },
+  {
+    group: "common",
+    title: "공통 · 도구",
+    items: [
+      { label: "CSV Import", href: "/source-import", icon: Upload, group: "common" },
+      { label: "제품 소개", href: "/about", icon: Info, group: "common" },
+    ],
+  },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -48,9 +86,13 @@ export function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const navItems = allNavItems.filter((item) =>
-    canAccessPath(userRole, item.href)
-  );
+  // 역할별로 접근 가능한 항목만 필터링
+  const filteredSections = NAV_SECTIONS
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => canAccessPath(userRole, item.href)),
+    }))
+    .filter((section) => section.items.length > 0);
 
   return (
     <>
@@ -87,34 +129,43 @@ export function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
           </div>
         </div>
 
-        {/* Nav */}
-        <nav className="mt-4 px-3 space-y-1">
-          {navItems.map((item) => {
-            const isActive =
-              item.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(item.href);
+        {/* Nav — 그룹별 섹션 */}
+        <nav className="mt-2 px-3 space-y-4 overflow-y-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
+          {filteredSections.map((section) => (
+            <div key={section.group}>
+              <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                {section.title}
+              </p>
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const isActive =
+                    item.href === "/"
+                      ? pathname === "/"
+                      : pathname.startsWith(item.href);
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                )}
-              >
-                <item.icon
-                  size={18}
-                  className={isActive ? "text-blue-600" : "text-gray-400"}
-                />
-                {item.label}
-              </Link>
-            );
-          })}
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileOpen(false)}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-blue-50 text-blue-700"
+                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      )}
+                    >
+                      <item.icon
+                        size={18}
+                        className={isActive ? "text-blue-600" : "text-gray-400"}
+                      />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* Footer */}

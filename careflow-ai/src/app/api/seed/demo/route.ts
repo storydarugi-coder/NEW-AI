@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
       { chartNumber: "CF-0016", name: "장미경", gender: "F", birthYear: 1960, phone: "010-1234-0016", visits: [{ visitDate: monthsAgo(18), procedures: [{ code: "U2230", name: "치석제거(1/3악)" }], diagnoses: [] }] },
       { chartNumber: "CF-0017", name: "고윤성", gender: "M", birthYear: 1983, phone: "010-1234-0017", visits: [{ visitDate: monthsAgo(7), procedures: [{ code: "U1040", name: "치주치료" }, { code: "U2230", name: "치석제거(1/3악)" }], diagnoses: [{ code: "K052", name: "급성치주염" }], sourceRaw: "구글 치과 검색", channel: "cta_google", isCta: true, campaignKey: "google_scaling_q1", hasTreatment: true }] },
       { chartNumber: "CF-0018", name: "문정훈", gender: "M", birthYear: 1963, phone: "010-1234-0018", isVip: true, tags: "임플란트2개,당뇨관리중", visits: [
-        { visitDate: monthsAgo(8), procedures: [{ code: "U4451", name: "임플란트 fixture 식립", tooth: "36" }], diagnoses: [{ code: "K081", name: "치아상실", tooth: "36" }], sourceRaw: "네이버 임플란트 CTA 광고", channel: "cta_naver", isCta: true, campaignKey: "naver_implant_mar", hasTreatment: true },
+        { visitDate: monthsAgo(8), procedures: [{ code: "U4451", name: "임플란트 fixture 식립", tooth: "36" }], diagnoses: [{ code: "K081", name: "치아상실", tooth: "36" }], sourceRaw: "네이버 임플란트 CPA 광고", channel: "cta_naver", isCta: true, campaignKey: "naver_implant_mar", hasTreatment: true },
         { visitDate: monthsAgo(5), procedures: [{ code: "U4451", name: "임플란트 2차 수술", tooth: "36" }], diagnoses: [] },
         { visitDate: monthsAgo(2), memo: "최종 보철 세팅", procedures: [{ code: "U6050", name: "임플란트 보철", tooth: "36" }], diagnoses: [] },
       ] },

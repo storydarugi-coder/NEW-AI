@@ -180,10 +180,10 @@ export function CtaContent() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Megaphone className="h-6 w-6 text-blue-600" />
-            광고 유입 관리
+            CPA 광고 관리
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            CTA 광고를 통해 내원한 환자를 검토하고 정산 근거를 관리합니다
+            CPA 광고를 통해 내원한 환자를 검토하고 정산 근거를 관리합니다
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -726,7 +726,7 @@ function SettlementTab({ campaignStats, summary, monthFilter, onCsvExport }: { c
         <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
           <strong>정산 인정 기준:</strong>
           <ol className="list-decimal ml-4 mt-1 space-y-0.5">
-            <li>CTA 광고 유입으로 검토/확정됨</li>
+            <li>CPA 광고 유입으로 검토/확정됨</li>
             <li>실제 진료를 시작한 환자 (상담/예약만은 불인정)</li>
             <li>같은 환자는 1회만 인정 (중복 제외)</li>
             <li>월 기준으로 집계</li>

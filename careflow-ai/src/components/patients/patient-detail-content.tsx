@@ -289,7 +289,7 @@ export function PatientDetailContent({ data }: Props) {
         </Card>
       )}
 
-      {/* CTA 광고 유입 + CRM 통합 요약 */}
+      {/* CPA 광고 유입 + CRM 통합 요약 */}
       {visits.some((v) => v.isCta) && (
         <Card className="border-0 shadow-sm border-l-4 border-l-green-400">
           <CardContent className="p-4 space-y-3">

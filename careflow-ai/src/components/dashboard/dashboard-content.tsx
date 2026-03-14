@@ -299,7 +299,7 @@ export function DashboardContent({
         <SecondaryStatsSkeleton />
       ) : (
         <>
-          {/* CTA 광고 유입 요약 */}
+          {/* CPA 광고 유입 요약 */}
           {ctaStats && ctaStats.totalLeads > 0 && (
             <Card className="border-0 shadow-sm border-l-4 border-l-green-400">
               <CardContent className="p-4">
@@ -309,7 +309,7 @@ export function DashboardContent({
                       <Megaphone size={18} className="text-green-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">CTA 광고 유입</p>
+                      <p className="text-sm font-medium text-gray-900">CPA 광고 유입</p>
                       <p className="text-xs text-gray-500">
                         유입 {ctaStats.totalLeads}건 · 확정 {ctaStats.confirmed}건 · 정산 대상 {ctaStats.settlementEligible}건 · 검토 필요 {ctaStats.pendingReview}건
                       </p>
