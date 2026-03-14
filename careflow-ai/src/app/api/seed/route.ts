@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { DEFAULT_SOURCE_RULES } from "@/lib/attribution/rules";
 import { normalizeSource, type NormalizationResult } from "@/lib/attribution/normalizer";
 import { hashPassword, verifySession } from "@/lib/auth";
+import { onDashboardDataChanged } from "@/lib/cache/dashboard-engine";
 
 /**
  * 최소 초기화 시드 (Fast Minimal Seed)
@@ -346,6 +347,8 @@ export async function POST(request: NextRequest) {
         data: { action: "seed_minimal", entityType: "system", entityId: "seed", detail: JSON.stringify({ patientCount: patients.length, phase: "minimal" }) },
       });
     } catch { /* non-fatal */ }
+
+    onDashboardDataChanged();
 
     return NextResponse.json({
       success: true,

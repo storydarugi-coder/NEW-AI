@@ -4,6 +4,7 @@ import { normalizeSource, dbRuleToDefinition } from "@/lib/attribution/normalize
 import { randomUUID } from "crypto";
 import { verifySession } from "@/lib/auth";
 import { startSyncJob, completeSyncJob, failSyncJob } from "@/lib/sync/pipeline";
+import { onDashboardDataChanged } from "@/lib/cache/dashboard-engine";
 
 /**
  * CSV Import API
@@ -296,6 +297,8 @@ export async function POST(request: NextRequest) {
         detail: JSON.stringify({ fileName, totalRows: rows.length, successCount, failCount, unclassifiedCount, reviewNeededCount }),
       },
     });
+
+    onDashboardDataChanged();
 
     return NextResponse.json({
       success: true,

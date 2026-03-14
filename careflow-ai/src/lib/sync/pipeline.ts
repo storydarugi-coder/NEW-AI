@@ -10,6 +10,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { onDashboardDataChanged } from "@/lib/cache/dashboard-engine";
 
 export type SyncType = "CSV_IMPORT" | "EMR_PULL" | "MANUAL_REPROCESS" | "SEED";
 export type SourceSystem = "csv" | "mock-emr" | "api" | "seed";
@@ -69,7 +70,7 @@ export async function completeSyncJob(
         ? "FAILED"
         : "PARTIAL_SUCCESS";
 
-  return prisma.syncJob.update({
+  const job = await prisma.syncJob.update({
     where: { id: jobId },
     data: {
       status,
@@ -83,6 +84,10 @@ export async function completeSyncJob(
       errorSummary: result.errorSummary,
     },
   });
+
+  onDashboardDataChanged();
+
+  return job;
 }
 
 /**

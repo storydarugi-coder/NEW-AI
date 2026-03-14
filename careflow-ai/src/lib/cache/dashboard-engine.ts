@@ -1,20 +1,24 @@
 /**
- * 대시보드 엔진 결과 서버 사이드 캐시
+ * 대시보드 엔진 결과 캐시 + Read Model
  *
- * 환자 전체 조회 + 규칙 엔진 실행은 가장 무거운 연산입니다.
- * 이 모듈은 결과를 메모리에 TTL 기반으로 캐시하여
- * 동일 시간대 반복 요청 시 DB/엔진 재실행을 방지합니다.
+ * 3계층 읽기 전략:
+ *   1. 메모리 캐시 (TTL 30초, 가장 빠름)
+ *   2. DB Read Model - DashboardSummary 테이블 (5분 이내면 유효)
+ *   3. Live 계산 (DB 조회 + 규칙 엔진 실행, 가장 느림)
  *
- * - TTL: 30초 (운영 데이터 신선도 유지)
- * - 캐시 miss 시에만 DB 조회 + 엔진 실행
- * - 서버 프로세스 단위 (serverless에서는 cold start마다 리셋)
+ * 쓰기 전략 (이벤트 기반):
+ *   - invalidateDashboardCache(): 메모리 캐시 즉시 무효화
+ *   - refreshDashboardSummary(): DB Read Model 갱신 (비동기, fire-and-forget)
+ *   - 주요 데이터 mutation 후 invalidate → refresh 호출
+ *
+ * Thundering herd 방지: 동시 요청 시 하나의 Promise만 실행
  */
 
 import { prisma } from "@/lib/prisma";
 import { evaluateAllPatients, buildEngineConfig } from "@/lib/engine";
 import { calculatePriorityScore, calculateWeeklyChange } from "@/lib/engine/scoring";
 
-const CACHE_TTL_MS = 30_000; // 30초
+// ── 타입 ──
 
 interface ScoreFactor {
   label: string;
@@ -61,29 +65,35 @@ export interface DashboardEngineResult {
   priorityPatients: PriorityPatientItem[];
 }
 
+// ── 메모리 캐시 ──
+
+const MEMORY_TTL_MS = 30_000; // 30초
+const READ_MODEL_MAX_AGE_MS = 5 * 60_000; // 5분
+
 let cachedResult: DashboardEngineResult | null = null;
 let cachedAt = 0;
 let pendingPromise: Promise<DashboardEngineResult | null> | null = null;
 
+// ── Public API ──
+
 /**
- * 캐시된 대시보드 엔진 결과를 반환합니다.
- * TTL 내라면 캐시 히트, 아니면 DB + 엔진을 실행합니다.
- * 동시 요청 시 하나의 Promise만 실행됩니다 (thundering herd 방지).
+ * 대시보드 엔진 결과를 3계층에서 읽습니다.
+ * 메모리 → DB Read Model → Live 계산 순으로 시도합니다.
  */
 export async function getCachedDashboardEngine(): Promise<DashboardEngineResult | null> {
   const now = Date.now();
 
-  // 캐시 히트
-  if (cachedResult && now - cachedAt < CACHE_TTL_MS) {
+  // Layer 1: 메모리 캐시
+  if (cachedResult && now - cachedAt < MEMORY_TTL_MS) {
     return cachedResult;
   }
 
-  // 이미 다른 요청이 실행 중이면 그 결과를 대기
+  // Thundering herd 방지
   if (pendingPromise) {
     return pendingPromise;
   }
 
-  pendingPromise = computeDashboardEngine();
+  pendingPromise = loadWithFallback();
 
   try {
     const result = await pendingPromise;
@@ -93,6 +103,103 @@ export async function getCachedDashboardEngine(): Promise<DashboardEngineResult 
   } finally {
     pendingPromise = null;
   }
+}
+
+/**
+ * 메모리 캐시를 즉시 무효화합니다.
+ * 다음 요청 시 DB Read Model 또는 Live 계산이 실행됩니다.
+ */
+export function invalidateDashboardCache(): void {
+  cachedResult = null;
+  cachedAt = 0;
+}
+
+/**
+ * DB Read Model (DashboardSummary)을 갱신합니다.
+ * 데이터 변경 후 fire-and-forget으로 호출합니다.
+ * 실패해도 무시합니다 (다음 요청 시 live 계산으로 fallback).
+ */
+export async function refreshDashboardSummary(): Promise<void> {
+  try {
+    const result = await computeDashboardEngine();
+    if (!result) return;
+
+    await prisma.dashboardSummary.upsert({
+      where: { id: "singleton" },
+      create: {
+        id: "singleton",
+        statsJson: JSON.stringify(result.stats),
+        patientsJson: JSON.stringify({
+          weeklyChanges: result.weeklyChanges,
+          urgentPatients: result.urgentPatients,
+          priorityPatients: result.priorityPatients.slice(0, 25),
+        }),
+        computedAt: new Date(),
+      },
+      update: {
+        statsJson: JSON.stringify(result.stats),
+        patientsJson: JSON.stringify({
+          weeklyChanges: result.weeklyChanges,
+          urgentPatients: result.urgentPatients,
+          priorityPatients: result.priorityPatients.slice(0, 25),
+        }),
+        computedAt: new Date(),
+      },
+    });
+
+    // 메모리 캐시도 갱신
+    cachedResult = result;
+    cachedAt = Date.now();
+  } catch (error) {
+    console.error("[CareFlow] DashboardSummary refresh failed:", error);
+  }
+}
+
+/**
+ * 이벤트 기반 캐시 무효화 + 비동기 갱신
+ * 데이터 mutation 후 호출하세요.
+ */
+export function onDashboardDataChanged(): void {
+  invalidateDashboardCache();
+  // fire-and-forget: 비동기로 read model 갱신
+  refreshDashboardSummary().catch(() => {});
+}
+
+// ── 내부 함수 ──
+
+async function loadWithFallback(): Promise<DashboardEngineResult | null> {
+  // Layer 2: DB Read Model
+  try {
+    const summary = await prisma.dashboardSummary.findUnique({
+      where: { id: "singleton" },
+    });
+
+    if (summary) {
+      const age = Date.now() - summary.computedAt.getTime();
+      if (age < READ_MODEL_MAX_AGE_MS) {
+        const stats = JSON.parse(summary.statsJson);
+        const patientsData = JSON.parse(summary.patientsJson);
+        return {
+          stats,
+          weeklyChanges: patientsData.weeklyChanges,
+          urgentPatients: patientsData.urgentPatients,
+          priorityPatients: patientsData.priorityPatients,
+        };
+      }
+    }
+  } catch {
+    // DashboardSummary 테이블이 없거나 파싱 실패 — fallthrough
+  }
+
+  // Layer 3: Live 계산
+  const result = await computeDashboardEngine();
+
+  // 계산 성공 시 read model도 비동기 갱신
+  if (result) {
+    refreshDashboardSummary().catch(() => {});
+  }
+
+  return result;
 }
 
 async function computeDashboardEngine(): Promise<DashboardEngineResult | null> {

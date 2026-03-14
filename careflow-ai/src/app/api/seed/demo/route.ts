@@ -3,6 +3,7 @@ import { prisma, isDatabaseAvailable } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { normalizeSource, type NormalizationResult } from "@/lib/attribution/normalizer";
 import { verifySession } from "@/lib/auth";
+import { onDashboardDataChanged } from "@/lib/cache/dashboard-engine";
 
 /**
  * 확장 데모 시드 (Extended Demo Seed)
@@ -447,6 +448,8 @@ export async function POST(request: NextRequest) {
     try {
       await prisma.auditLog.create({ data: { action: "seed_demo", entityType: "system", entityId: "seed", detail: JSON.stringify({ addedPatients: newPatients.length, phase: "demo" }) } });
     } catch { /* non-fatal */ }
+
+    onDashboardDataChanged();
 
     return NextResponse.json({
       success: true,

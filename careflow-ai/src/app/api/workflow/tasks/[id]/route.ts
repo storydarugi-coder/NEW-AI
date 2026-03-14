@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { VALID_TASK_STATUSES } from "@/types";
+import { onDashboardDataChanged } from "@/lib/cache/dashboard-engine";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -139,6 +140,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (activities.length > 0) {
       await prisma.activityLog.createMany({ data: activities });
     }
+
+    onDashboardDataChanged();
 
     return NextResponse.json(updated);
   } catch {

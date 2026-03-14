@@ -334,6 +334,20 @@ model ActivityLog {
 }
 
 // ──────────────────────────────────────────────
+// 대시보드 집계 Read Model
+// 홈 대시보드에 표시할 사전 계산된 통계 + 우선순위 환자 목록
+// 규칙 엔진 재실행 없이 단일 행 읽기로 즉시 렌더링
+// ──────────────────────────────────────────────
+
+model DashboardSummary {
+  id        String   @id @default("singleton")
+  statsJson String   // JSON: { todayActionCount, treatmentDropoutCount, recallDueCount, messageSuggestionCount }
+  patientsJson String // JSON: PriorityPatientItem[] (top 25)
+  computedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ──────────────────────────────────────────────
 // 방문경로 분류 사전 (Source Rule Dictionary)
 // ──────────────────────────────────────────────
 

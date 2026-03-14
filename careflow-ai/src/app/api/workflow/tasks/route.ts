@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { VALID_TASK_STATUSES, VALID_ACTION_TYPES } from "@/types";
+import { onDashboardDataChanged } from "@/lib/cache/dashboard-engine";
 
 // GET: 업무 목록 조회 (필터링, 정렬)
 export async function GET(request: NextRequest) {
@@ -115,6 +116,8 @@ export async function POST(request: NextRequest) {
         detail: JSON.stringify({ actionType }),
       },
     });
+
+    onDashboardDataChanged();
 
     return NextResponse.json(task, { status: 201 });
   } catch {
