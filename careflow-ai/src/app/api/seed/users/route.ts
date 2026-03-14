@@ -17,12 +17,12 @@ import { hashPassword, verifySession } from "@/lib/auth";
 export const maxDuration = 30;
 
 const DEFAULT_USERS = [
-  { username: "admin", password: "admin123", name: "관리자 홍길동", role: "ADMIN" },
-  { username: "desk01", password: "desk123", name: "데스크 김소연", role: "DESK" },
-  { username: "desk02", password: "desk123", name: "데스크 이지은", role: "DESK" },
-  { username: "counsel01", password: "counsel123", name: "상담실장 박미영", role: "COUNSELOR" },
-  { username: "viewer01", password: "view123", name: "원장 최진수", role: "VIEWER" },
-  { username: "mkt01", password: "mkt123", name: "마케팅 정하늘", role: "MARKETING" },
+  { username: "admin", password: "admin123", name: "관리자 홍길동", role: "ADMIN", productArea: "all" },
+  { username: "desk01", password: "desk123", name: "데스크 김소연", role: "DESK", productArea: "hospital" },
+  { username: "desk02", password: "desk123", name: "데스크 이지은", role: "DESK", productArea: "all" },
+  { username: "counsel01", password: "counsel123", name: "상담실장 박미영", role: "COUNSELOR", productArea: "hospital" },
+  { username: "viewer01", password: "view123", name: "원장 최진수", role: "VIEWER", productArea: "hospital" },
+  { username: "mkt01", password: "mkt123", name: "마케팅 정하늘", role: "MARKETING", productArea: "internal" },
 ];
 
 export async function POST(request: NextRequest) {
@@ -54,8 +54,8 @@ export async function POST(request: NextRequest) {
     for (const u of DEFAULT_USERS) {
       await prisma.user.upsert({
         where: { username: u.username },
-        update: { passwordHash: hashPassword(u.password), name: u.name, role: u.role, isActive: true, updatedAt: now },
-        create: { id: randomUUID(), username: u.username, passwordHash: hashPassword(u.password), name: u.name, role: u.role, updatedAt: now },
+        update: { passwordHash: hashPassword(u.password), name: u.name, role: u.role, productArea: u.productArea, isActive: true, updatedAt: now },
+        create: { id: randomUUID(), username: u.username, passwordHash: hashPassword(u.password), name: u.name, role: u.role, productArea: u.productArea, updatedAt: now },
       });
       results.push(`${u.username} (${u.role})`);
     }

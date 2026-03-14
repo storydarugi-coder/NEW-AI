@@ -23,6 +23,7 @@ import {
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { canAccessPath } from "@/lib/auth";
+import type { ProductArea } from "@/lib/auth";
 
 // ── 메뉴 설정 (config 기반) ──
 // group: "company" | "clinic" | "common" — 향후 제품 분리 시 필터링 키
@@ -84,15 +85,30 @@ const ROLE_LABELS: Record<string, string> = {
   MARKETING: "마케팅",
 };
 
-export function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
+/**
+ * 제품 영역별 그룹 노출 제어
+ * - hospital: clinic 그룹 우선, company 숨김
+ * - internal: company 그룹 우선, clinic은 공유 항목만
+ * - all: 모든 그룹 노출
+ */
+const AREA_GROUP_VISIBILITY: Record<ProductArea, MenuGroup[]> = {
+  hospital: ["clinic", "common"],
+  internal: ["company", "common"],
+  all: ["company", "clinic", "common"],
+};
+
+export function Sidebar({ userRole = "ADMIN", productArea = "all" as ProductArea }: { userRole?: string; productArea?: ProductArea }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // 역할별로 접근 가능한 항목만 필터링
+  const visibleGroups = AREA_GROUP_VISIBILITY[productArea] || AREA_GROUP_VISIBILITY.all;
+
+  // 제품 영역 + 역할 기반 필터링
   const filteredSections = NAV_SECTIONS
+    .filter((section) => visibleGroups.includes(section.group))
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => canAccessPath(userRole, item.href)),
+      items: section.items.filter((item) => canAccessPath(userRole, item.href, productArea)),
     }))
     .filter((section) => section.items.length > 0);
 
@@ -127,7 +143,13 @@ export function Sidebar({ userRole = "ADMIN" }: { userRole?: string }) {
           <Activity className="h-7 w-7 text-blue-600 mr-2" />
           <div>
             <h1 className="text-lg font-bold text-gray-900">CareFlow AI</h1>
-            <p className="text-[10px] text-gray-400 -mt-0.5">재내원 유도 · 후속관리 · 카카오톡 운영</p>
+            <p className="text-[10px] text-gray-400 -mt-0.5">
+              {productArea === "internal"
+                ? "CPA 운영 · 유입 경로 관리"
+                : productArea === "hospital"
+                  ? "재내원 유도 · 후속관리"
+                  : "재내원 유도 · 후속관리 · CPA 운영"}
+            </p>
           </div>
         </div>
 

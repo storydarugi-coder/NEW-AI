@@ -7,6 +7,7 @@ export interface AuthUser {
   username: string;
   name: string;
   role: string;
+  productArea: "hospital" | "internal" | "all";
 }
 
 interface AuthContextType {

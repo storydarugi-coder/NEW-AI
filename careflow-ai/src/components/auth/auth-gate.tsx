@@ -89,7 +89,7 @@ export async function AuthGate({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthProvider user={session}>
-      <Sidebar userRole={session.role} />
+      <Sidebar userRole={session.role} productArea={session.productArea} />
       <div className="md:ml-64 min-h-screen flex flex-col">
         <Header userName={session.name} userRole={session.role} />
         <main className="flex-1 p-4 md:p-6">{children}</main>

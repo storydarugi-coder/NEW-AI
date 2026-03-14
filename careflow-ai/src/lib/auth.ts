@@ -3,6 +3,16 @@ import { createHmac } from "crypto";
 const AUTH_SECRET =
   process.env.AUTH_SECRET || "careflow-dev-secret-change-in-production";
 
+// ── Product Area ──
+
+/**
+ * 제품 영역 구분
+ * - hospital: 병원 SaaS (재내원 유도, 후속관리, 메시지)
+ * - internal: 회사 내부용 (CPA 운영, 유입 경로 관리)
+ * - all: 양쪽 모두 (관리자 전용)
+ */
+export type ProductArea = "hospital" | "internal" | "all";
+
 // ── Session Types ──
 
 export interface SessionUser {
@@ -10,6 +20,7 @@ export interface SessionUser {
   username: string;
   name: string;
   role: string; // ADMIN, DESK, COUNSELOR, VIEWER, MARKETING
+  productArea: ProductArea;
 }
 
 // ── Token (HMAC-signed cookie) ──
@@ -31,7 +42,12 @@ export function verifySession(token?: string): SessionUser | null {
   const signature = token.slice(dot + 1);
   if (sign(payload) !== signature) return null;
   try {
-    return JSON.parse(Buffer.from(payload, "base64url").toString());
+    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString());
+    // 하위 호환: productArea가 없는 레거시 토큰 처리
+    if (!parsed.productArea) {
+      parsed.productArea = inferProductArea(parsed.role);
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -75,11 +91,60 @@ export const ROLE_NAV_ACCESS: Record<string, string[]> = {
   MARKETING: ["/", "/cta", "/source-review", "/reports", "/about"],
 };
 
-export function canAccessPath(role: string, path: string): boolean {
+/**
+ * 제품 영역별 경로 분류
+ * 메뉴 필터링과 접근 제어에 사용
+ */
+export const PRODUCT_AREA_PATHS: Record<ProductArea, string[]> = {
+  hospital: ["/", "/workflow", "/patients", "/messages", "/reports", "/settings", "/about"],
+  internal: ["/cta", "/source-review", "/source-rules", "/sync", "/source-import", "/reports", "/about"],
+  all: ["*"],
+};
+
+/**
+ * 역할에서 기본 productArea 추론 (User.productArea가 없는 레거시 데이터용)
+ */
+export function inferProductArea(role: string): ProductArea {
+  switch (role) {
+    case "ADMIN": return "all";
+    case "MARKETING": return "internal";
+    case "VIEWER": return "hospital";
+    case "COUNSELOR": return "hospital";
+    case "DESK": return "all";
+    default: return "hospital";
+  }
+}
+
+/**
+ * 제품 영역 기본 랜딩 경로
+ */
+export function getDefaultLandingPath(productArea: ProductArea): string {
+  switch (productArea) {
+    case "internal": return "/cta";
+    case "hospital": return "/";
+    case "all": return "/";
+    default: return "/";
+  }
+}
+
+/**
+ * 경로 접근 가능 여부 판단 (role + productArea)
+ */
+export function canAccessPath(role: string, path: string, productArea?: ProductArea): boolean {
+  // 1. 역할 기반 접근 체크
   const allowed = ROLE_NAV_ACCESS[role];
   if (!allowed) return false;
-  if (allowed.includes("*")) return true;
-  return allowed.some((p) => (p === "/" ? path === "/" : path.startsWith(p)));
+  const roleAllowed = allowed.includes("*") || allowed.some((p) => (p === "/" ? path === "/" : path.startsWith(p)));
+  if (!roleAllowed) return false;
+
+  // 2. productArea가 없으면 역할만으로 판단 (하위 호환)
+  if (!productArea) return true;
+  if (productArea === "all") return true;
+
+  // 3. 제품 영역 필터
+  const areaPaths = PRODUCT_AREA_PATHS[productArea];
+  if (!areaPaths) return true;
+  return areaPaths.some((p) => (p === "/" ? path === "/" : path.startsWith(p)));
 }
 
 /**

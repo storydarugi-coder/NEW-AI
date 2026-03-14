@@ -395,11 +395,31 @@ model User {
   passwordHash String
   name         String
   role         String   @default("DESK") // ADMIN, DESK, COUNSELOR, VIEWER, MARKETING
+  productArea  String   @default("all") // hospital, internal, all — 제품 영역 접근 범위
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@index([role])
+  @@index([isActive])
+  @@index([productArea])
+}
+
+// ──────────────────────────────────────────────
+// 테넌트 (향후 멀티테넌트 분리 대비)
+// 현재는 스키마만 정의 — 실제 데이터 격리는 P2에서 적용
+// ──────────────────────────────────────────────
+
+model Tenant {
+  id          String   @id @default(cuid())
+  name        String   // "OO치과", "CareFlow 본사"
+  slug        String   @unique // URL-safe 식별자
+  productArea String   @default("hospital") // hospital, internal
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
   @@index([isActive])
 }
 

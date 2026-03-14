@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma, isDatabaseAvailable } from "@/lib/prisma";
-import { verifyPassword, createSessionToken } from "@/lib/auth";
+import { verifyPassword, createSessionToken, inferProductArea } from "@/lib/auth";
+import type { ProductArea } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,12 +60,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. 세션 토큰 생성
+    // 5. 세션 토큰 생성 (productArea: DB에 있으면 사용, 없으면 role에서 추론)
+    const rawArea = (user as Record<string, unknown>).productArea as string | undefined;
+    const productArea: ProductArea =
+      (rawArea === "hospital" || rawArea === "internal" || rawArea === "all")
+        ? rawArea
+        : inferProductArea(user.role);
+
     const token = createSessionToken({
       id: user.id,
       username: user.username,
       name: user.name,
       role: user.role,
+      productArea,
     });
 
     // 6. 응답 + 쿠키 설정
@@ -75,6 +83,7 @@ export async function POST(request: NextRequest) {
         username: user.username,
         name: user.name,
         role: user.role,
+        productArea,
       },
     });
 

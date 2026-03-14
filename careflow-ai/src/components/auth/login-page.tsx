@@ -28,8 +28,14 @@ export function LoginPage() {
         return;
       }
 
-      // 쿠키 설정 완료 → 페이지 새로고침으로 서버 컴포넌트 재실행
-      window.location.reload();
+      // 제품 영역별 기본 랜딩 페이지로 이동
+      const landingMap: Record<string, string> = {
+        internal: "/cta",
+        hospital: "/",
+        all: "/",
+      };
+      const landing = landingMap[data.user?.productArea] || "/";
+      window.location.href = landing;
     } catch {
       setError("서버에 연결할 수 없습니다.");
     } finally {
