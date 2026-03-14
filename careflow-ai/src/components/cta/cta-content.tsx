@@ -188,14 +188,14 @@ export function CtaContent() {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href="/source-review"
+            href="/internal/source-review"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-gray-50 text-purple-700"
           >
             <ListChecks size={14} />
             유입 경로 검토
           </Link>
           <Link
-            href="/source-rules"
+            href="/internal/source-rules"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-gray-50 text-indigo-700"
           >
             유입 경로 규칙

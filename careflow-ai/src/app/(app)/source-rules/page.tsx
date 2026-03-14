@@ -1,5 +1,5 @@
-import { SourceRulesContent } from "@/components/source-rules/source-rules-content";
+import { redirect } from "next/navigation";
 
-export default function SourceRulesPage() {
-  return <SourceRulesContent />;
+export default function SourceRulesLegacyRedirect() {
+  redirect("/internal/source-rules");
 }

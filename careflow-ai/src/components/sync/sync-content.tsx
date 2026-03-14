@@ -428,7 +428,7 @@ export function SyncContent() {
                             )}
                           {job.unclassifiedCount > 0 && (
                             <a
-                              href="/source-review"
+                              href="/internal/source-review"
                               className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100"
                             >
                               <ArrowRight size={12} />
@@ -437,7 +437,7 @@ export function SyncContent() {
                           )}
                           {job.importBatchId && (
                             <a
-                              href="/source-import"
+                              href="/internal/import"
                               className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100"
                             >
                               <ArrowRight size={12} />

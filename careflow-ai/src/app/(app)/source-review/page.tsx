@@ -1,5 +1,5 @@
-import { SourceReviewContent } from "@/components/source-review/source-review-content";
+import { redirect } from "next/navigation";
 
-export default function SourceReviewPage() {
-  return <SourceReviewContent />;
+export default function SourceReviewLegacyRedirect() {
+  redirect("/internal/source-review");
 }

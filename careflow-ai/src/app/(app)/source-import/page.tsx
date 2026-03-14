@@ -1,7 +1,5 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { SourceImportContent } from "@/components/source-import/source-import-content";
-
-export default function SourceImportPage() {
-  return <SourceImportContent />;
+export default function SourceImportLegacyRedirect() {
+  redirect("/internal/import");
 }

@@ -184,14 +184,14 @@ export function SourceReviewContent() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Link
-            href="/source-import"
+            href="/internal/import"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-gray-50"
           >
             <Upload size={14} />
             CSV Import
           </Link>
           <Link
-            href="/source-rules"
+            href="/internal/source-rules"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-gray-50"
           >
             <BookOpen size={14} />

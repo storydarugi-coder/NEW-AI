@@ -141,19 +141,45 @@ test.describe("관리자 (admin)", () => {
   });
 });
 
-// ── 4. /cta → /internal/cpa 리다이렉트 ──
+// ── 4. 레거시 → /internal/* 리다이렉트 ──
 
-test.describe("CTA → Internal/CPA 리다이렉트", () => {
-  test("레거시 /cta 접근 시 /internal/cpa 로 리다이렉트", async ({ page }) => {
+test.describe("레거시 경로 → /internal/* 리다이렉트", () => {
+  test.beforeEach(async ({ page }) => {
     await login(page, "mkt01", "mkt123");
+  });
+
+  test("레거시 /cta → /internal/cpa", async ({ page }) => {
     await page.goto(`${BASE}/cta`);
     await page.waitForURL((url) => url.pathname === "/internal/cpa", { timeout: 5000 });
     expect(page.url()).toContain("/internal/cpa");
   });
 
+  test("레거시 /source-review → /internal/source-review", async ({ page }) => {
+    await page.goto(`${BASE}/source-review`);
+    await page.waitForURL((url) => url.pathname === "/internal/source-review", { timeout: 5000 });
+    expect(page.url()).toContain("/internal/source-review");
+  });
+
+  test("레거시 /source-rules → /internal/source-rules", async ({ page }) => {
+    await page.goto(`${BASE}/source-rules`);
+    await page.waitForURL((url) => url.pathname === "/internal/source-rules", { timeout: 5000 });
+    expect(page.url()).toContain("/internal/source-rules");
+  });
+
+  test("레거시 /sync → /internal/sync", async ({ page }) => {
+    await page.goto(`${BASE}/sync`);
+    await page.waitForURL((url) => url.pathname === "/internal/sync", { timeout: 5000 });
+    expect(page.url()).toContain("/internal/sync");
+  });
+
+  test("레거시 /source-import → /internal/import", async ({ page }) => {
+    await page.goto(`${BASE}/source-import`);
+    await page.waitForURL((url) => url.pathname === "/internal/import", { timeout: 5000 });
+    expect(page.url()).toContain("/internal/import");
+  });
+
   test("내부 계정 로그인 → /internal/cpa 랜딩", async ({ page }) => {
-    await login(page, "mkt01", "mkt123");
-    // 로그인 후 /internal/cpa로 이동해야 함
+    // beforeEach에서 이미 로그인됨
     expect(page.url()).toContain("/internal/cpa");
   });
 });

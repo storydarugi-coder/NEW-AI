@@ -147,7 +147,7 @@ export function SourceImportContent() {
             샘플 CSV
           </button>
           <Link
-            href="/source-review"
+            href="/internal/source-review"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-600 text-white hover:bg-purple-700"
           >
             유입 경로 검토 <ArrowRight size={14} />
@@ -312,7 +312,7 @@ export function SourceImportContent() {
           {result.success && (
             <div className="flex gap-2 mt-3">
               <Link
-                href="/source-review"
+                href="/internal/source-review"
                 className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700"
               >
                 유입 경로 검토에서 확인하기 <ArrowRight size={14} />

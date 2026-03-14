@@ -448,7 +448,7 @@ export function DashboardContent({
                     </div>
                   </div>
                   <Link
-                    href="/source-review"
+                    href="/internal/source-review"
                     className="text-sm text-purple-600 hover:text-purple-700 flex items-center gap-1 font-medium"
                   >
                     검토 <ChevronRight size={14} />
@@ -489,7 +489,7 @@ export function DashboardContent({
                     </div>
                   </div>
                   <Link
-                    href="/sync"
+                    href="/internal/sync"
                     className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center gap-1 font-medium"
                   >
                     관리 <ChevronRight size={14} />
