@@ -81,8 +81,12 @@ export async function POST(request: NextRequest) {
     const chartToPatientId = new Map(existingPatients.map(p => [p.chartNumber, p.id]));
 
     // ── 추가 환자 77명 (CF-0011 ~ CF-0087) ──
+    // 멀티테넌시: 테넌트 ID
+    const TENANT_A = "tenant_a";
+    const TENANT_B = "tenant_b";
+
     interface SeedVisit { visitDate: Date; memo?: string; sourceRaw?: string; channel?: string; isCta?: boolean; campaignKey?: string; hasTreatment?: boolean; procedures: { code: string; name: string; tooth?: string }[]; diagnoses: { code: string; name: string; tooth?: string }[] }
-    interface SeedPatient { chartNumber: string; name: string; gender: string; birthYear: number; phone: string; tags?: string; isVip?: boolean; visits: SeedVisit[] }
+    interface SeedPatient { chartNumber: string; name: string; gender: string; birthYear: number; phone: string; tags?: string; isVip?: boolean; tenantId?: string | null; visits: SeedVisit[] }
 
     const demoPatients: SeedPatient[] = [
       { chartNumber: "CF-0011", name: "임재현", gender: "M", birthYear: 1970, phone: "010-1234-0011", tags: "매년스케일링", visits: [{ visitDate: monthsAgo(14), procedures: [{ code: "U2230", name: "치석제거(1/3악)" }], diagnoses: [], channel: "phone" }] },
@@ -233,7 +237,7 @@ export async function POST(request: NextRequest) {
 
     // 환자/방문/처치/진단/CTA 행 빌드
     currentStep = "데모 환자 데이터 빌드";
-    const patientRows: { id: string; chartNumber: string; gender: string; birthYear: number; isVip: boolean; tags: string | null; updatedAt: Date }[] = [];
+    const patientRows: { id: string; chartNumber: string; gender: string; birthYear: number; isVip: boolean; tags: string | null; tenantId: string | null; updatedAt: Date }[] = [];
     const identityRows: { id: string; patientId: string; name: string; phone: string; updatedAt: Date }[] = [];
     const visitRows: Record<string, unknown>[] = [];
     const procedureRows: { id: string; visitId: string; code: string; name: string; tooth: string | null }[] = [];
@@ -243,7 +247,10 @@ export async function POST(request: NextRequest) {
     for (const p of newPatients) {
       const patientId = randomUUID();
       chartToPatientId.set(p.chartNumber, patientId);
-      patientRows.push({ id: patientId, chartNumber: p.chartNumber, gender: p.gender, birthYear: p.birthYear, isVip: p.isVip || false, tags: p.tags || null, updatedAt: now });
+      // 데모 환자: 홀수 번호 → tenant_a, 짝수 번호 → tenant_b
+      const chartNum = parseInt(p.chartNumber.replace("CF-", ""), 10);
+      const assignedTenant = p.tenantId !== undefined ? p.tenantId : (chartNum % 2 === 1 ? TENANT_A : TENANT_B);
+      patientRows.push({ id: patientId, chartNumber: p.chartNumber, gender: p.gender, birthYear: p.birthYear, isVip: p.isVip || false, tags: p.tags || null, tenantId: assignedTenant, updatedAt: now });
       identityRows.push({ id: randomUUID(), patientId, name: p.name, phone: p.phone, updatedAt: now });
 
       const campaignsSeen = new Set<string>();

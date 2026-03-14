@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { requireSessionWithScope, requireProductArea, guardTenantAccess } from "@/lib/api-auth";
 
 export async function GET() {
   try {
-    const { session, error } = await requireSession();
+    const { session, scope, error } = await requireSessionWithScope();
     if (error) return error;
     const areaError = requireProductArea(session, "hospital");
     if (areaError) return areaError;
     const configs = await prisma.ruleConfig.findMany({
+      where: { ...scope },
       orderBy: { ruleType: "asc" },
     });
     return NextResponse.json({ configs });
@@ -23,7 +24,7 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { session, error } = await requireSession();
+    const { session, error } = await requireSessionWithScope();
     if (error) return error;
     const areaError = requireProductArea(session, "hospital");
     if (areaError) return areaError;
@@ -40,6 +41,14 @@ export async function PUT(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // 테넌트 접근 검증
+    const config = await prisma.ruleConfig.findUnique({ where: { id } });
+    if (!config) {
+      return NextResponse.json({ error: "규칙을 찾을 수 없습니다." }, { status: 404 });
+    }
+    const tenantError = guardTenantAccess(session, config);
+    if (tenantError) return tenantError;
 
     const updateData: { enabled?: boolean; parameters?: string } = {};
     if (typeof enabled === "boolean") updateData.enabled = enabled;

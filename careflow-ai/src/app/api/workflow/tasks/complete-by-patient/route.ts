@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { onDashboardDataChanged } from "@/lib/cache/dashboard-engine";
-import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { requireSession, requireProductArea, guardTenantAccess } from "@/lib/api-auth";
 
 /**
  * POST /api/workflow/tasks/complete-by-patient
@@ -21,6 +21,17 @@ export async function POST(request: NextRequest) {
     if (!patientId) {
       return NextResponse.json({ error: "patientId가 필요합니다." }, { status: 400 });
     }
+
+    // 환자 테넌트 접근 검증
+    const patient = await prisma.patient.findUnique({
+      where: { id: patientId },
+      select: { tenantId: true },
+    });
+    if (!patient) {
+      return NextResponse.json({ error: "환자를 찾을 수 없습니다." }, { status: 404 });
+    }
+    const tenantError = guardTenantAccess(user, patient);
+    if (tenantError) return tenantError;
 
     // 해당 환자의 미완료 업무 조회
     const activeTasks = await prisma.workflowTask.findMany({

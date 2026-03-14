@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { VALID_TASK_STATUSES, VALID_ACTION_TYPES } from "@/types";
 import { onDashboardDataChanged } from "@/lib/cache/dashboard-engine";
-import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { requireSession, requireProductArea, guardTenantAccess } from "@/lib/api-auth";
+import { getTenantScope } from "@/lib/tenant";
 
 // GET: 업무 목록 조회 (필터링, 정렬)
 export async function GET(request: NextRequest) {
@@ -18,6 +19,12 @@ export async function GET(request: NextRequest) {
     const dueSoon = searchParams.get("dueSoon"); // "today" | "week"
 
     const where: Record<string, unknown> = {};
+
+    // 테넌트 스코프: patient.tenantId 기준 필터링
+    const scope = getTenantScope(session);
+    if (scope.tenantId) {
+      where.patient = { tenantId: scope.tenantId };
+    }
 
     if (status && VALID_TASK_STATUSES.includes(status as typeof VALID_TASK_STATUSES[number])) {
       where.status = status;
@@ -85,11 +92,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "유효하지 않은 액션 유형입니다." }, { status: 400 });
     }
 
-    // 환자 존재 확인
+    // 환자 존재 확인 + 테넌트 접근 검증
     const patient = await prisma.patient.findUnique({ where: { id: patientId } });
     if (!patient) {
       return NextResponse.json({ error: "존재하지 않는 환자입니다." }, { status: 404 });
     }
+    const tenantError = guardTenantAccess(sess, patient);
+    if (tenantError) return tenantError;
 
     // 담당자 존재 확인
     if (assigneeId) {

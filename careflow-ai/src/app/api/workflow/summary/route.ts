@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { requireSessionWithScope, requireProductArea } from "@/lib/api-auth";
 
 export async function GET() {
   try {
-    const { session, error } = await requireSession();
+    const { session, scope, error } = await requireSessionWithScope();
     if (error) return error;
     const areaError = requireProductArea(session, "hospital");
     if (areaError) return areaError;
@@ -16,6 +16,9 @@ export async function GET() {
     const weekEnd = new Date(todayStart);
     weekEnd.setDate(weekEnd.getDate() + 7);
     weekEnd.setHours(23, 59, 59, 999);
+
+    // 테넌트 스코프: patient.tenantId 기준 필터링
+    const tenantWhere = scope.tenantId ? { patient: { tenantId: scope.tenantId } } : {};
 
     const [
       totalUnprocessed,
@@ -29,29 +32,32 @@ export async function GET() {
       weekFollowUps,
       overdueFollowUps,
     ] = await Promise.all([
-      prisma.workflowTask.count({ where: { status: "unprocessed" } }),
-      prisma.workflowTask.count({ where: { status: "reviewing" } }),
-      prisma.workflowTask.count({ where: { status: "waiting_contact" } }),
-      prisma.workflowTask.count({ where: { status: "on_hold" } }),
-      prisma.workflowTask.count({ where: { status: "completed" } }),
-      prisma.workflowTask.count({ where: { status: "excluded" } }),
-      prisma.workflowTask.count({ where: { status: "recheck_scheduled" } }),
+      prisma.workflowTask.count({ where: { status: "unprocessed", ...tenantWhere } }),
+      prisma.workflowTask.count({ where: { status: "reviewing", ...tenantWhere } }),
+      prisma.workflowTask.count({ where: { status: "waiting_contact", ...tenantWhere } }),
+      prisma.workflowTask.count({ where: { status: "on_hold", ...tenantWhere } }),
+      prisma.workflowTask.count({ where: { status: "completed", ...tenantWhere } }),
+      prisma.workflowTask.count({ where: { status: "excluded", ...tenantWhere } }),
+      prisma.workflowTask.count({ where: { status: "recheck_scheduled", ...tenantWhere } }),
       prisma.workflowTask.count({
         where: {
           nextFollowUpAt: { gte: todayStart, lte: todayEnd },
           status: { notIn: ["completed", "excluded"] },
+          ...tenantWhere,
         },
       }),
       prisma.workflowTask.count({
         where: {
           nextFollowUpAt: { gte: todayStart, lte: weekEnd },
           status: { notIn: ["completed", "excluded"] },
+          ...tenantWhere,
         },
       }),
       prisma.workflowTask.count({
         where: {
           nextFollowUpAt: { lt: todayStart },
           status: { notIn: ["completed", "excluded"] },
+          ...tenantWhere,
         },
       }),
     ]);
@@ -59,7 +65,7 @@ export async function GET() {
     // 담당자별 미처리 현황
     const assigneeSummary = await prisma.workflowTask.groupBy({
       by: ["assigneeId"],
-      where: { status: { notIn: ["completed", "excluded"] } },
+      where: { status: { notIn: ["completed", "excluded"] }, ...tenantWhere },
       _count: true,
     });
 

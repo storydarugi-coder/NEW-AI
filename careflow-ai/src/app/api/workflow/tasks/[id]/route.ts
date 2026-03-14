@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { VALID_TASK_STATUSES } from "@/types";
 import { onDashboardDataChanged } from "@/lib/cache/dashboard-engine";
-import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { requireSession, requireProductArea, guardTenantAccessViaPatient } from "@/lib/api-auth";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -32,6 +32,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     if (!task) {
       return NextResponse.json({ error: "존재하지 않는 업무입니다." }, { status: 404 });
     }
+    const tenantError = guardTenantAccessViaPatient(session, task.patient);
+    if (tenantError) return tenantError;
     return NextResponse.json(task);
   } catch {
     return NextResponse.json({ error: "업무를 불러올 수 없습니다." }, { status: 500 });
@@ -50,10 +52,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const { status, assigneeId, note, reason, nextFollowUpAt, staffId } = body;
 
-    const existing = await prisma.workflowTask.findUnique({ where: { id } });
+    const existing = await prisma.workflowTask.findUnique({
+      where: { id },
+      include: { patient: { select: { tenantId: true } } },
+    });
     if (!existing) {
       return NextResponse.json({ error: "존재하지 않는 업무입니다." }, { status: 404 });
     }
+    const tenantErr = guardTenantAccessViaPatient(s, existing.patient);
+    if (tenantErr) return tenantErr;
 
     const updateData: Record<string, unknown> = {};
     const activities: {

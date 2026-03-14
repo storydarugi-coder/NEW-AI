@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { requireSessionWithScope, requireProductArea } from "@/lib/api-auth";
 
 /**
  * 홈 대시보드 부가 통계 (CTA, 워크플로우, 방문경로, 동기화, 메시지)
@@ -8,7 +8,7 @@ import { requireSession, requireProductArea } from "@/lib/api-auth";
  */
 export async function GET() {
   try {
-    const { session, error } = await requireSession();
+    const { session, scope, error } = await requireSessionWithScope();
     if (error) return error;
     const areaError = requireProductArea(session, "hospital");
     if (areaError) return areaError;
@@ -17,6 +17,10 @@ export async function GET() {
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(now);
     todayEnd.setHours(23, 59, 59, 999);
+
+    // 테넌트 스코프: patient.tenantId 기준 필터링
+    const tenantWhere = scope.tenantId ? { patient: { tenantId: scope.tenantId } } : {};
+    const patientTenantWhere = scope.tenantId ? { tenantId: scope.tenantId } : {};
 
     // 모든 독립 쿼리를 병렬 실행
     const [
@@ -34,31 +38,32 @@ export async function GET() {
       msgBlocked,
       syncJobs,
     ] = await Promise.all([
-      // 워크플로우
+      // 워크플로우 (patient.tenantId 기준)
       prisma.workflowTask.findMany({
-        where: { status: { notIn: ["completed", "excluded"] } },
+        where: { status: { notIn: ["completed", "excluded"] }, ...tenantWhere },
         select: { status: true, nextFollowUpAt: true },
       }),
-      // CTA
+      // CTA (visit→patient.tenantId 기준)
       prisma.leadAttribution.findMany({
+        where: scope.tenantId ? { visit: { patient: { tenantId: scope.tenantId } } } : {},
         select: { reviewStatus: true, settlementEligible: true },
       }),
-      // 방문경로
-      prisma.visit.count({ where: { sourceRaw: { not: null } } }),
-      prisma.visit.count({ where: { sourceRaw: { not: null }, sourceReviewStatus: "unreviewed" } }),
-      prisma.visit.count({ where: { sourceRaw: { not: null }, matchConfidence: "LOW" } }),
-      prisma.visit.count({ where: { normalizedSource: "Unknown" } }),
+      // 방문경로 (patient.tenantId 기준)
+      prisma.visit.count({ where: { sourceRaw: { not: null }, patient: patientTenantWhere } }),
+      prisma.visit.count({ where: { sourceRaw: { not: null }, sourceReviewStatus: "unreviewed", patient: patientTenantWhere } }),
+      prisma.visit.count({ where: { sourceRaw: { not: null }, matchConfidence: "LOW", patient: patientTenantWhere } }),
+      prisma.visit.count({ where: { normalizedSource: "Unknown", patient: patientTenantWhere } }),
       prisma.importBatch.findFirst({
         orderBy: { createdAt: "desc" },
         select: { createdAt: true, fileName: true, successCount: true },
       }).catch(() => null),
-      // 메시지
-      prisma.outboundMessage.count({ where: { approvalStatus: "REVIEW_NEEDED" } }).catch(() => 0),
-      prisma.outboundMessage.count({ where: { approvalStatus: "APPROVED", sendStatus: "PENDING" } }).catch(() => 0),
-      prisma.outboundMessage.count({ where: { sendStatus: "SENT", sentAt: { gte: todayStart } } }).catch(() => 0),
-      prisma.outboundMessage.count({ where: { sendStatus: { in: ["FAILED", "RETRY_NEEDED"] } } }).catch(() => 0),
-      prisma.outboundMessage.count({ where: { OR: [{ doNotContactBlocked: true }, { duplicateBlocked: true }] } }).catch(() => 0),
-      // 동기화
+      // 메시지 (patient.tenantId 기준)
+      prisma.outboundMessage.count({ where: { approvalStatus: "REVIEW_NEEDED", ...tenantWhere } }).catch(() => 0),
+      prisma.outboundMessage.count({ where: { approvalStatus: "APPROVED", sendStatus: "PENDING", ...tenantWhere } }).catch(() => 0),
+      prisma.outboundMessage.count({ where: { sendStatus: "SENT", sentAt: { gte: todayStart }, ...tenantWhere } }).catch(() => 0),
+      prisma.outboundMessage.count({ where: { sendStatus: { in: ["FAILED", "RETRY_NEEDED"] }, ...tenantWhere } }).catch(() => 0),
+      prisma.outboundMessage.count({ where: { OR: [{ doNotContactBlocked: true }, { duplicateBlocked: true }], ...tenantWhere } }).catch(() => 0),
+      // 동기화 (전역 — 테넌트 무관)
       prisma.syncJob.findMany({
         select: { status: true, startedAt: true },
         orderBy: { startedAt: "desc" },

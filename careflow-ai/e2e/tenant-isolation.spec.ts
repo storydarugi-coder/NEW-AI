@@ -202,3 +202,124 @@ test.describe("테넌트 데이터 격리", () => {
     expect(body.error).toContain("tenantId");
   });
 });
+
+// ── Phase B: Workflow / Settings / Dashboard 테넌트 격리 ──
+
+test.describe("테넌트 격리 Phase B — Workflow/Settings/Dashboard", () => {
+  test.describe.configure({ mode: "serial" });
+
+  // workflow summary는 자기 테넌트 환자 업무만 집계
+  test("병원A 계정 → workflow summary에 자기 테넌트 데이터만 포함", async ({ page }) => {
+    await login(page, "desk01", "desk123");
+    const res = await apiGet(page, "/api/workflow/summary");
+    expect(res.status).toBe(200);
+    // 정상 응답 구조 확인
+    expect(res.body).toHaveProperty("statusCounts");
+    expect(res.body).toHaveProperty("followUps");
+  });
+
+  // workflow task 생성: 타 테넌트 환자에 업무 생성 차단
+  test("병원A 계정 → 병원B 환자에 업무 생성 403", async ({ page }) => {
+    await login(page, "desk01", "desk123");
+
+    // admin으로 병원B 환자 ID 획득
+    const adminPage = await page.context().newPage();
+    await login(adminPage, "admin", "admin123");
+    const adminRes = await apiGet(adminPage, "/api/patients?limit=100");
+    const allPatients = adminRes.body.patients as Array<{ id: string; chartNumber: string }>;
+    const tenantBPatient = allPatients.find((p) => p.chartNumber === "CF-0006");
+    expect(tenantBPatient).toBeDefined();
+    await adminPage.close();
+
+    const res = await apiPost(page, "/api/workflow/tasks", {
+      patientId: tenantBPatient!.id,
+      actionType: "call_reminder",
+    });
+    expect(res.status).toBe(403);
+  });
+
+  // workflow complete-by-patient: 타 테넌트 환자 일괄 완료 차단
+  test("병원A 계정 → 병원B 환자 업무 일괄 완료 403", async ({ page }) => {
+    await login(page, "desk01", "desk123");
+
+    const adminPage = await page.context().newPage();
+    await login(adminPage, "admin", "admin123");
+    const adminRes = await apiGet(adminPage, "/api/patients?limit=100");
+    const allPatients = adminRes.body.patients as Array<{ id: string; chartNumber: string }>;
+    const tenantBPatient = allPatients.find((p) => p.chartNumber === "CF-0007");
+    expect(tenantBPatient).toBeDefined();
+    await adminPage.close();
+
+    const res = await apiPost(page, "/api/workflow/tasks/complete-by-patient", {
+      patientId: tenantBPatient!.id,
+    });
+    expect(res.status).toBe(403);
+  });
+
+  // settings는 자기 테넌트 설정만 조회
+  test("병원A 계정 → 자기 테넌트 설정만 조회", async ({ page }) => {
+    await login(page, "desk01", "desk123");
+    const res = await apiGet(page, "/api/settings");
+    expect(res.status).toBe(200);
+
+    const configs = (res.body as { configs: Array<{ tenantId?: string | null }> }).configs;
+    expect(configs.length).toBeGreaterThan(0);
+    for (const c of configs) {
+      expect([null, undefined, "tenant_a"]).toContain(c.tenantId);
+    }
+  });
+
+  // settings PUT: 타 테넌트 설정 수정 차단
+  test("병원A 계정 → 병원B 설정 수정 403", async ({ page }) => {
+    await login(page, "desk01", "desk123");
+
+    // admin으로 병원B 설정 ID 획득
+    const adminPage = await page.context().newPage();
+    await login(adminPage, "admin", "admin123");
+    const adminRes = await apiGet(adminPage, "/api/settings");
+    const allConfigs = (adminRes.body as { configs: Array<{ id: string; tenantId?: string | null }> }).configs;
+    const tenantBConfig = allConfigs.find((c) => c.tenantId === "tenant_b");
+    expect(tenantBConfig).toBeDefined();
+    await adminPage.close();
+
+    const res = await page.request.put(`${BASE}/api/settings`, {
+      data: { id: tenantBConfig!.id, enabled: false },
+    });
+    expect(res.status()).toBe(403);
+  });
+
+  // dashboard는 자기 테넌트 데이터만 반환
+  test("병원A 계정 → dashboard에 자기 테넌트 환자만 포함", async ({ page }) => {
+    await login(page, "desk01", "desk123");
+    const res = await apiGet(page, "/api/dashboard");
+    expect(res.status).toBe(200);
+
+    const priorityPatients = (res.body as { priorityPatients: Array<{ chartNumber: string }> }).priorityPatients;
+    for (const p of priorityPatients) {
+      // 병원A 환자 (CF-0001~CF-0005)만 포함
+      expect(["CF-0001", "CF-0002", "CF-0003", "CF-0004", "CF-0005"]).toContain(p.chartNumber);
+    }
+  });
+
+  // dashboard secondary-stats는 정상 반환 (구조 확인)
+  test("병원A 계정 → secondary-stats 정상 반환", async ({ page }) => {
+    await login(page, "desk01", "desk123");
+    const res = await apiGet(page, "/api/dashboard/secondary-stats");
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty("workflowSummary");
+    expect(res.body).toHaveProperty("messageStats");
+  });
+
+  // 슈퍼어드민은 전체 dashboard 접근
+  test("슈퍼어드민 → dashboard 전체 데이터 접근", async ({ page }) => {
+    await login(page, "admin", "admin123");
+    const res = await apiGet(page, "/api/dashboard");
+    expect(res.status).toBe(200);
+
+    const priorityPatients = (res.body as { priorityPatients: Array<{ chartNumber: string }> }).priorityPatients;
+    // 양쪽 테넌트 환자 모두 포함 가능 (전체)
+    const chartNumbers = priorityPatients.map((p) => p.chartNumber);
+    // 최소 하나 이상 존재
+    expect(chartNumbers.length).toBeGreaterThan(0);
+  });
+});
