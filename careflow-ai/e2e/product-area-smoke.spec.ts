@@ -141,7 +141,24 @@ test.describe("관리자 (admin)", () => {
   });
 });
 
-// ── 4. 비인증 접근 차단 ──
+// ── 4. /cta → /internal/cpa 리다이렉트 ──
+
+test.describe("CTA → Internal/CPA 리다이렉트", () => {
+  test("레거시 /cta 접근 시 /internal/cpa 로 리다이렉트", async ({ page }) => {
+    await login(page, "mkt01", "mkt123");
+    await page.goto(`${BASE}/cta`);
+    await page.waitForURL((url) => url.pathname === "/internal/cpa", { timeout: 5000 });
+    expect(page.url()).toContain("/internal/cpa");
+  });
+
+  test("내부 계정 로그인 → /internal/cpa 랜딩", async ({ page }) => {
+    await login(page, "mkt01", "mkt123");
+    // 로그인 후 /internal/cpa로 이동해야 함
+    expect(page.url()).toContain("/internal/cpa");
+  });
+});
+
+// ── 5. 비인증 접근 차단 ──
 
 test.describe("비인증 접근", () => {
   test("API 호출 시 401", async ({ page }) => {
@@ -153,7 +170,7 @@ test.describe("비인증 접근", () => {
   });
 });
 
-// ── 5. 세션 무효화 (관리자가 productArea 변경 후) ──
+// ── 6. 세션 무효화 (관리자가 productArea 변경 후) ──
 
 test.describe("세션 무효화", () => {
   test("관리자가 productArea 변경 → 기존 세션 401", async ({ browser }) => {

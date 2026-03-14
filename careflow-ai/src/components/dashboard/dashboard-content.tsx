@@ -379,7 +379,7 @@ export function DashboardContent({
                     </div>
                   </div>
                   <Link
-                    href="/cta"
+                    href="/internal/cpa"
                     className="text-sm text-green-600 hover:text-green-700 flex items-center gap-1 font-medium"
                   >
                     관리 <ChevronRight size={14} />

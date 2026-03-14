@@ -304,7 +304,7 @@ export function PatientDetailContent({ data }: Props) {
                 <Megaphone size={16} className="text-green-600" />
                 <span className="font-medium text-gray-900">광고 유입 환자</span>
               </div>
-              <Link href="/cta" className="text-xs text-green-600 hover:text-green-700">
+              <Link href="/internal/cpa" className="text-xs text-green-600 hover:text-green-700">
                 광고 관리 →
               </Link>
             </div>

@@ -30,7 +30,7 @@ export function LoginPage() {
 
       // 제품 영역별 기본 랜딩 페이지로 이동
       const landingMap: Record<string, string> = {
-        internal: "/cta",
+        internal: "/internal/cpa",
         hospital: "/",
         all: "/",
       };

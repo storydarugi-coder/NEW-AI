@@ -103,7 +103,7 @@ export function SourceRulesContent() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Link href="/cta" className="text-gray-400 hover:text-gray-600">
+            <Link href="/internal/cpa" className="text-gray-400 hover:text-gray-600">
               <ArrowLeft size={16} />
             </Link>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">

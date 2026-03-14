@@ -88,9 +88,9 @@ export const ROLE_NAV_ACCESS: Record<string, string[]> = {
     "/settings",
     "/about",
   ],
-  COUNSELOR: ["/", "/workflow", "/patients", "/messages", "/cta", "/about"],
+  COUNSELOR: ["/", "/workflow", "/patients", "/messages", "/internal/cpa", "/about"],
   VIEWER: ["/", "/patients", "/about"],
-  MARKETING: ["/", "/cta", "/source-review", "/reports", "/about"],
+  MARKETING: ["/", "/internal/cpa", "/source-review", "/reports", "/about"],
 };
 
 /**
@@ -99,7 +99,7 @@ export const ROLE_NAV_ACCESS: Record<string, string[]> = {
  */
 export const PRODUCT_AREA_PATHS: Record<ProductArea, string[]> = {
   hospital: ["/", "/workflow", "/patients", "/messages", "/reports", "/settings", "/about"],
-  internal: ["/cta", "/source-review", "/source-rules", "/sync", "/source-import", "/reports", "/about"],
+  internal: ["/internal/cpa", "/source-review", "/source-rules", "/sync", "/source-import", "/reports", "/about"],
   all: ["*"],
 };
 // /reports, /about 은 양쪽 모두에 포함 — 의도적 공유 항목
@@ -123,7 +123,7 @@ export function inferProductArea(role: string): ProductArea {
  */
 export function getDefaultLandingPath(productArea: ProductArea): string {
   switch (productArea) {
-    case "internal": return "/cta";
+    case "internal": return "/internal/cpa";
     case "hospital": return "/";
     case "all": return "/";
     default: return "/";
