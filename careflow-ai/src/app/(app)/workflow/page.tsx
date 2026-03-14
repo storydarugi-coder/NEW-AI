@@ -2,8 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { WorkflowDashboardContent } from "@/components/workflow/workflow-dashboard-content";
 import { DbUnavailable } from "@/components/shared/db-unavailable";
 
-export const dynamic = "force-dynamic";
-
 export default async function WorkflowPage() {
   try {
     const now = new Date();

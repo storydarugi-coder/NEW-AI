@@ -4,8 +4,6 @@ import { PatientDetailContent } from "@/components/patients/patient-detail-conte
 import { notFound } from "next/navigation";
 import { DbUnavailable } from "@/components/shared/db-unavailable";
 
-export const dynamic = "force-dynamic";
-
 interface PageProps {
   params: Promise<{ id: string }>;
 }

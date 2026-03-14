@@ -3,8 +3,6 @@ import { evaluateAllPatients, buildEngineConfig } from "@/lib/engine";
 import { PatientListContent } from "@/components/patients/patient-list-content";
 import { DbUnavailable } from "@/components/shared/db-unavailable";
 
-export const dynamic = "force-dynamic";
-
 export default async function PatientsPage() {
   try {
     const ruleConfigs = await prisma.ruleConfig.findMany();

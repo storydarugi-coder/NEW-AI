@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +37,8 @@ import {
   XCircle,
   TimerOff,
   PhoneOff,
+  Check,
+  Info,
 } from "lucide-react";
 import {
   TASK_STATUS_LABELS,
@@ -149,25 +152,60 @@ const statusIcons: Record<string, typeof CheckCircle2> = {
   recheck_scheduled: CalendarClock,
 };
 
+interface Toast {
+  id: number;
+  type: "success" | "error";
+  message: string;
+}
+
 export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
-  const [statusFilter, setStatusFilter] = useState<string>("active");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // URL query param에서 초기 preset 복원
+  const initialPreset = (searchParams.get("preset") as PresetKey) || null;
+
+  const [statusFilter, setStatusFilter] = useState<string>(() => {
+    if (initialPreset === "today") return "unprocessed";
+    if (initialPreset === "dropout" || initialPreset === "long_absent" || initialPreset === "retry") return "active";
+    return "active";
+  });
   const [assigneeFilter, setAssigneeFilter] = useState<string>("");
-  const [actionTypeFilter, setActionTypeFilter] = useState<string>("");
-  const [activePreset, setActivePreset] = useState<PresetKey | null>(null);
+  const [actionTypeFilter, setActionTypeFilter] = useState<string>(() => {
+    if (initialPreset === "dropout") return "CHURN_REENGAGE";
+    if (initialPreset === "long_absent") return "RECALL";
+    if (initialPreset === "retry") return "MESSAGE_REVIEW";
+    return "";
+  });
+  const [activePreset, setActivePreset] = useState<PresetKey | null>(initialPreset);
   const [priorityPatients, setPriorityPatients] = useState<PriorityPatient[]>([]);
   const [blockedMessages, setBlockedMessages] = useState<BlockedMessage[]>([]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [contactedIds, setContactedIds] = useState<Set<string>>(new Set());
 
-  const handlePresetClick = useCallback((key: PresetKey) => {
-    if (activePreset === key) {
-      // 토글 해제 — 기본 필터로 복원
-      setActivePreset(null);
+  const showToast = useCallback((type: "success" | "error", message: string) => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, type, message }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
+  }, []);
+
+  const applyPreset = useCallback((key: PresetKey | null) => {
+    setActivePreset(key);
+    // URL query param 동기화
+    const url = new URL(window.location.href);
+    if (key) {
+      url.searchParams.set("preset", key);
+    } else {
+      url.searchParams.delete("preset");
+    }
+    router.replace(url.pathname + url.search, { scroll: false });
+
+    if (!key) {
       setStatusFilter("active");
       setActionTypeFilter("");
       return;
     }
-    setActivePreset(key);
-    // preset별 필터 조합 적용
     switch (key) {
       case "today":
         setStatusFilter("unprocessed");
@@ -187,12 +225,15 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
         break;
       case "blocked":
       case "do_not_contact":
-        // 차단/수신거부는 task 필터가 아닌 blocked messages 섹션에 포커스
         setStatusFilter("active");
         setActionTypeFilter("");
         break;
     }
-  }, [activePreset]);
+  }, [router]);
+
+  const handlePresetClick = useCallback((key: PresetKey) => {
+    applyPreset(activePreset === key ? null : key);
+  }, [activePreset, applyPreset]);
 
   // 오늘 연락할 환자 + 차단 메시지 가져오기
   useEffect(() => {
@@ -221,13 +262,23 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
       const res = await fetch(`/api/outbound/${msgId}/${action}`, { method: "POST" });
       if (res.ok) {
         setBlockedMessages((prev) => prev.filter((m) => m.id !== msgId));
+        showToast("success", action === "retry" ? "재시도 요청 완료" : "메시지 제외 완료");
+      } else {
+        const data = await res.json().catch(() => null);
+        showToast("error", data?.error || "처리에 실패했습니다");
       }
     } catch {
-      // 실패 시 무시
+      showToast("error", "네트워크 오류가 발생했습니다");
     } finally {
       setActionLoading(null);
     }
-  }, []);
+  }, [showToast]);
+
+  // 연락 완료 처리
+  const handleContactComplete = useCallback(async (patientId: string) => {
+    setContactedIds((prev) => new Set(prev).add(patientId));
+    showToast("success", "연락 완료 처리됨");
+  }, [showToast]);
 
   const filteredTasks = tasks.filter((t) => {
     if (statusFilter === "active" && (t.status === "completed" || t.status === "excluded")) return false;
@@ -363,7 +414,7 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
         })}
         {activePreset && (
           <button
-            onClick={() => { setActivePreset(null); setStatusFilter("active"); setActionTypeFilter(""); }}
+            onClick={() => applyPreset(null)}
             className="text-xs text-gray-400 hover:text-gray-600 ml-1"
           >
             초기화
@@ -385,8 +436,10 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {priorityPatients.map((p) => {
-                // 사유 요약: 최근 방문 + 미내원 기간 + 탐지 사유
+              {priorityPatients
+                .filter((p) => !contactedIds.has(p.patientId))
+                .map((p) => {
+                // 사유 요약
                 const visitInfo = p.lastVisitDate
                   ? `최근 방문 ${formatDate(p.lastVisitDate)}`
                   : "방문 기록 없음";
@@ -397,19 +450,31 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
                   .filter(Boolean)
                   .join(" · ");
 
+                // 점수 tooltip 상세
+                const scoreTooltip = [
+                  `우선순위 점수: ${p.priorityScore}점`,
+                  `탐지 ${p.detections.length}건`,
+                  p.daysSinceLastVisit != null ? `미내원 ${p.daysSinceLastVisit}일` : null,
+                  p.isVip ? "VIP 가산 +15" : null,
+                  ...p.detections.slice(0, 3).map((d) => `• ${SUB_TYPE_LABELS[d.subType as SubType] || d.subType}`),
+                ].filter(Boolean).join("\n");
+
                 return (
-                  <Link
+                  <div
                     key={p.patientId}
-                    href={`/patients/${p.patientId}`}
-                    className="block p-3 bg-red-50/50 rounded-lg hover:bg-red-50 transition-colors"
+                    className="p-3 bg-red-50/50 rounded-lg hover:bg-red-50 transition-colors"
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-medium text-gray-900 text-sm">{p.patientName}</span>
+                      <Link href={`/patients/${p.patientId}`} className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-medium text-gray-900 text-sm truncate">{p.patientName}</span>
                         {p.isVip && <Star size={12} className="text-yellow-500 fill-yellow-500" />}
-                      </div>
-                      <span className={`text-xs font-bold ${p.priorityScore >= 50 ? "text-red-600" : p.priorityScore >= 30 ? "text-amber-600" : "text-blue-600"}`}>
+                      </Link>
+                      <span
+                        title={scoreTooltip}
+                        className={`text-xs font-bold cursor-help flex items-center gap-0.5 ${p.priorityScore >= 50 ? "text-red-600" : p.priorityScore >= 30 ? "text-amber-600" : "text-blue-600"}`}
+                      >
                         {p.priorityScore}점
+                        <Info size={10} className="opacity-50" />
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-1 mb-1">
@@ -419,8 +484,24 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
                         </Badge>
                       ))}
                     </div>
-                    <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{reasonSummary}</p>
-                  </Link>
+                    <p className="text-xs text-gray-500 leading-relaxed line-clamp-2 mb-2">{reasonSummary}</p>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={(e) => { e.preventDefault(); handleContactComplete(p.patientId); }}
+                        className="flex items-center gap-1 px-2 py-1 text-[11px] bg-green-50 text-green-700 rounded-md hover:bg-green-100 transition-colors"
+                      >
+                        <Check size={10} />
+                        연락 완료
+                      </button>
+                      <Link
+                        href={`/patients/${p.patientId}`}
+                        className="flex items-center gap-1 px-2 py-1 text-[11px] text-gray-400 hover:text-gray-600"
+                      >
+                        상세
+                        <ChevronRight size={10} />
+                      </Link>
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -650,6 +731,25 @@ export function WorkflowDashboardContent({ tasks, staff, summary }: Props) {
           );
         })}
       </div>
+
+      {/* Toast 알림 */}
+      {toasts.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-50 space-y-2">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-lg text-sm font-medium animate-in slide-in-from-bottom-2 fade-in duration-200 ${
+                toast.type === "success"
+                  ? "bg-green-600 text-white"
+                  : "bg-red-600 text-white"
+              }`}
+            >
+              {toast.type === "success" ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+              {toast.message}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

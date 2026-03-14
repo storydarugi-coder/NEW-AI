@@ -1,23 +1,47 @@
 /**
  * 메시지 → 재내원 성과 추적 (Outcome Tracking)
  *
- * 발송된 메시지가 실제 재내원으로 이어졌는지 추적하는 구조.
- * - OutboundMessage(SENT) → 일정 기간 내 동일 환자 Visit 존재 여부
- * - 메시지 유형별, AI/template별 전환율 비교 가능
+ * ── 귀속 규칙 (Attribution Rules) ──
  *
- * 현재는 조회/집계 전용 (별도 테이블 없이 기존 모델 활용).
- * 향후 MessageOutcome 테이블로 확장 가능.
+ * 1. 추적 대상: sendStatus === "SENT"인 메시지만 성과 추적.
+ *    BLOCKED, FAILED, CANCELLED, PENDING 등은 제외.
+ *
+ * 2. 재내원 판정 기간 (Attribution Window):
+ *    기본 30일. 메시지 발송일(sentAt) 이후 ~ windowDays 이내에
+ *    동일 환자의 Visit 기록이 존재하면 "재내원 전환"으로 판정.
+ *
+ * 3. 다중 메시지 귀속 (Multi-Message Attribution):
+ *    한 환자에게 여러 메시지가 발송된 경우 → "최종 접촉(Last-Touch)" 규칙 적용.
+ *    재내원 직전에 가장 가까운 시점에 발송된 메시지 1건에만 전환을 귀속.
+ *    (동일 방문을 여러 메시지에 중복 귀속하지 않음)
+ *
+ * 4. 방문 중복 귀속 방지:
+ *    하나의 Visit은 최대 1건의 메시지에만 귀속.
+ *    여러 메시지가 같은 Visit을 타겟하더라도 Last-Touch 1건만 인정.
+ *
+ * 5. 발송 당일 방문 제외:
+ *    sentAt과 visitDate가 같은 날인 경우 → 메시지 효과로 보기 어려우므로 제외.
+ *    최소 1일(다음날) 이상 경과한 방문만 귀속.
+ *
+ * 6. 생성 방식 식별:
+ *    AuditLog(generate_message)의 generatedBy 필드 → "ai" | "template" | "fallback"
+ *    AuditLog에 없으면 OutboundMessage.templateType을 fallback으로 사용.
  */
 
 import { prisma } from "@/lib/prisma";
+
+/** 기본 귀속 윈도우 (일) */
+export const DEFAULT_ATTRIBUTION_WINDOW_DAYS = 30;
+
+/** 발송 당일 방문 제외를 위한 최소 경과일 */
+const MIN_DAYS_TO_REVISIT = 1;
 
 export interface MessageOutcome {
   messageId: string;
   patientId: string;
   messageType: string;
-  generatedBy: string | null; // ai, template, fallback
+  generatedBy: string | null;
   sentAt: Date;
-  // 재내원 결과
   revisited: boolean;
   revisitDate: Date | null;
   daysToRevisit: number | null;
@@ -25,31 +49,25 @@ export interface MessageOutcome {
 
 export interface OutcomeMetrics {
   period: { from: Date; to: Date };
-  /** 발송 → 재내원 전환율 전체 */
+  attributionWindowDays: number;
   totalSent: number;
   totalRevisited: number;
   conversionRate: number;
-  /** 메시지 유형별 전환율 */
   byMessageType: Record<string, { sent: number; revisited: number; rate: number }>;
-  /** 생성 방식별 전환율 (AI vs template vs fallback) */
   byGeneratedBy: Record<string, { sent: number; revisited: number; rate: number }>;
-  /** 평균 재내원 소요일 */
   avgDaysToRevisit: number | null;
 }
 
 /**
- * 발송 메시지 → 재내원 여부를 매칭하여 개별 결과 목록 반환
- *
- * @param from 조회 시작일
- * @param to 조회 종료일
- * @param revisitWindowDays 재내원 판정 기간 (기본 30일)
+ * 발송 메시지 → 재내원 여부를 매칭하여 개별 결과 목록 반환.
+ * Last-Touch 귀속 + 방문 중복 방지 적용.
  */
 export async function collectMessageOutcomes(
   from: Date,
   to: Date,
-  revisitWindowDays = 30
+  revisitWindowDays = DEFAULT_ATTRIBUTION_WINDOW_DAYS
 ): Promise<MessageOutcome[]> {
-  // 기간 내 발송 성공 메시지
+  // SENT 상태만 대상
   const sentMessages = await prisma.outboundMessage.findMany({
     where: {
       sendStatus: "SENT",
@@ -62,37 +80,33 @@ export async function collectMessageOutcomes(
       sentAt: true,
       templateType: true,
     },
+    orderBy: { sentAt: "desc" }, // Last-Touch 우선을 위해 최신순
   });
 
   if (sentMessages.length === 0) return [];
 
-  // 대상 환자 ID 목록
   const patientIds = [...new Set(sentMessages.map((m) => m.patientId))];
 
-  // 발송일 이후 ~ revisitWindowDays 내 방문 조회
+  // 발송 기간 + 귀속 윈도우까지의 방문 조회
   const windowEnd = new Date(to.getTime() + revisitWindowDays * 24 * 60 * 60 * 1000);
   const visits = await prisma.visit.findMany({
     where: {
       patientId: { in: patientIds },
       visitDate: { gte: from, lte: windowEnd },
     },
-    select: {
-      patientId: true,
-      visitDate: true,
-    },
+    select: { id: true, patientId: true, visitDate: true },
     orderBy: { visitDate: "asc" },
   });
 
-  // 환자별 방문 목록 인덱싱
-  const visitsByPatient = new Map<string, Date[]>();
+  // 환자별 방문 인덱싱
+  const visitsByPatient = new Map<string, { id: string; date: Date }[]>();
   for (const v of visits) {
-    const dates = visitsByPatient.get(v.patientId) || [];
-    dates.push(v.visitDate);
-    visitsByPatient.set(v.patientId, dates);
+    const list = visitsByPatient.get(v.patientId) || [];
+    list.push({ id: v.id, date: v.visitDate });
+    visitsByPatient.set(v.patientId, list);
   }
 
-  // 생성 방식 정보 (AuditLog에서 추출)
-  const messageIds = sentMessages.map((m) => m.id);
+  // 생성 방식 정보 (AuditLog)
   const auditLogs = await prisma.auditLog.findMany({
     where: {
       action: "generate_message",
@@ -100,12 +114,13 @@ export async function collectMessageOutcomes(
       entityId: { in: patientIds },
       createdAt: { gte: new Date(from.getTime() - 7 * 24 * 60 * 60 * 1000), lte: to },
     },
-    select: { entityId: true, detail: true },
+    select: { entityId: true, detail: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
   });
 
-  // 환자별 최신 생성 방식
   const generatedByPatient = new Map<string, string>();
   for (const log of auditLogs) {
+    if (generatedByPatient.has(log.entityId)) continue; // 최신 것만
     try {
       const detail = JSON.parse(log.detail || "{}");
       if (detail.generatedBy) {
@@ -114,67 +129,72 @@ export async function collectMessageOutcomes(
     } catch { /* skip */ }
   }
 
-  // 매칭
-  return sentMessages.map((msg) => {
+  // ── Last-Touch 귀속 + 방문 중복 방지 ──
+  // 이미 귀속된 Visit ID 추적
+  const claimedVisitIds = new Set<string>();
+  // sentMessages는 sentAt desc 정렬 → 최신 메시지부터 처리
+  const outcomes: MessageOutcome[] = [];
+
+  for (const msg of sentMessages) {
     const sentDate = msg.sentAt!;
     const patientVisits = visitsByPatient.get(msg.patientId) || [];
     const windowLimit = new Date(sentDate.getTime() + revisitWindowDays * 24 * 60 * 60 * 1000);
+    const minDate = new Date(sentDate.getTime() + MIN_DAYS_TO_REVISIT * 24 * 60 * 60 * 1000);
 
-    // 발송 이후 방문 중 첫 번째
-    const revisit = patientVisits.find(
-      (vd) => vd > sentDate && vd <= windowLimit
+    // 발송일 +1일 ~ windowLimit 사이, 아직 귀속되지 않은 첫 방문
+    const revisitEntry = patientVisits.find(
+      (v) => v.date >= minDate && v.date <= windowLimit && !claimedVisitIds.has(v.id)
     );
 
-    const daysToRevisit = revisit
-      ? Math.floor((revisit.getTime() - sentDate.getTime()) / (1000 * 60 * 60 * 24))
+    if (revisitEntry) {
+      claimedVisitIds.add(revisitEntry.id);
+    }
+
+    const daysToRevisit = revisitEntry
+      ? Math.floor((revisitEntry.date.getTime() - sentDate.getTime()) / (1000 * 60 * 60 * 24))
       : null;
 
-    return {
+    outcomes.push({
       messageId: msg.id,
       patientId: msg.patientId,
       messageType: msg.messageType,
       generatedBy: generatedByPatient.get(msg.patientId) || msg.templateType || null,
       sentAt: sentDate,
-      revisited: !!revisit,
-      revisitDate: revisit || null,
+      revisited: !!revisitEntry,
+      revisitDate: revisitEntry?.date || null,
       daysToRevisit,
-    };
-  });
+    });
+  }
+
+  return outcomes;
 }
 
 /**
- * 집계된 성과 메트릭 반환
+ * 집계된 성과 메트릭
  */
 export async function collectOutcomeMetrics(
   from: Date,
   to: Date,
-  revisitWindowDays = 30
+  revisitWindowDays = DEFAULT_ATTRIBUTION_WINDOW_DAYS
 ): Promise<OutcomeMetrics> {
   const outcomes = await collectMessageOutcomes(from, to, revisitWindowDays);
 
   const totalSent = outcomes.length;
   const totalRevisited = outcomes.filter((o) => o.revisited).length;
 
-  // 메시지 유형별
   const byMessageType: Record<string, { sent: number; revisited: number }> = {};
-  // 생성 방식별
   const byGeneratedBy: Record<string, { sent: number; revisited: number }> = {};
-
   const revisitDays: number[] = [];
 
   for (const o of outcomes) {
     // byMessageType
-    if (!byMessageType[o.messageType]) {
-      byMessageType[o.messageType] = { sent: 0, revisited: 0 };
-    }
+    if (!byMessageType[o.messageType]) byMessageType[o.messageType] = { sent: 0, revisited: 0 };
     byMessageType[o.messageType].sent++;
     if (o.revisited) byMessageType[o.messageType].revisited++;
 
     // byGeneratedBy
     const genKey = o.generatedBy || "unknown";
-    if (!byGeneratedBy[genKey]) {
-      byGeneratedBy[genKey] = { sent: 0, revisited: 0 };
-    }
+    if (!byGeneratedBy[genKey]) byGeneratedBy[genKey] = { sent: 0, revisited: 0 };
     byGeneratedBy[genKey].sent++;
     if (o.revisited) byGeneratedBy[genKey].revisited++;
 
@@ -191,6 +211,7 @@ export async function collectOutcomeMetrics(
 
   return {
     period: { from, to },
+    attributionWindowDays: revisitWindowDays,
     totalSent,
     totalRevisited,
     conversionRate: totalSent > 0 ? Math.round((totalRevisited / totalSent) * 100) : 0,

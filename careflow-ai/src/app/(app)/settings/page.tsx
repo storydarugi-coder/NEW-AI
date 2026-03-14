@@ -2,8 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { SettingsContent } from "@/components/settings/settings-content";
 import { DbUnavailable } from "@/components/shared/db-unavailable";
 
-export const dynamic = "force-dynamic";
-
 export default async function SettingsPage() {
   try {
     const configs = await prisma.ruleConfig.findMany({

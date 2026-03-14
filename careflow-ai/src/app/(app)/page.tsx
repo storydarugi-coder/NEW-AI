@@ -5,9 +5,6 @@ import { DashboardContent } from "@/components/dashboard/dashboard-content";
 import { DbUnavailable } from "@/components/shared/db-unavailable";
 import { getCachedDashboardEngine } from "@/lib/cache/dashboard-engine";
 
-// 사용자별 세션 데이터가 AuthGate에서 처리되므로 page-level ISR 불가
-export const dynamic = "force-dynamic";
-
 interface ScoreFactor {
   label: string;
   score: number;
