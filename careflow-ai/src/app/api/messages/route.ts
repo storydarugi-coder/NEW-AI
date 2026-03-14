@@ -109,8 +109,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // generatedBy: 프론트에는 일반화된 값만 전달 (모델명/프로바이더명 비노출)
-    const publicGeneratedBy = messages.generatedBy === "gemini" ? "ai" : messages.generatedBy;
+    // 프론트에는 구현 정보 없이 생성 유형만 전달
+    const generationType: "ai" | "template" | "fallback" =
+      messages.generatedBy === "gemini" ? "ai" : messages.generatedBy;
 
     return NextResponse.json({
       messages: {
@@ -119,12 +120,14 @@ export async function POST(request: NextRequest) {
         warmMessage: messages.warmMessage,
       },
       drafts,
-      generatedBy: publicGeneratedBy,
+      generationType,
     });
   } catch (error) {
-    console.error("Message generation error:", error);
+    // 내부 로그에는 상세 에러 유지
+    console.error("[CareFlow] 메시지 생성 API 오류:", error instanceof Error ? error.message : error);
+    // 사용자에게는 일반화된 메시지만 전달 (내부 구현 정보 차단)
     return NextResponse.json(
-      { error: "메시지 생성 중 오류가 발생했습니다." },
+      { error: "메시지를 생성할 수 없습니다. 잠시 후 다시 시도해 주세요." },
       { status: 500 }
     );
   }

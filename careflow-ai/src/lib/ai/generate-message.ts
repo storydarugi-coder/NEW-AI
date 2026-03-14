@@ -58,13 +58,14 @@ export async function generateMessages(
       const isAvailable = await provider.isAvailable();
       if (isAvailable) {
         const result = await provider.generate(input);
-        console.log(`[CareFlow] 메시지 생성: ${provider.name} 프로바이더 사용`);
+        console.log("[CareFlow] AI 메시지 생성 완료");
         return result;
       }
-      console.log(`[CareFlow] ${provider.name} 프로바이더를 사용할 수 없어 fallback합니다.`);
-    } catch {
-      // 민감 정보 노출 방지: 에러 메시지 간소화
-      console.log(`[CareFlow] AI 메시지 생성 실패, 기본 메시지로 전환합니다.`);
+      console.log("[CareFlow] AI 프로바이더 미설정, 템플릿으로 전환합니다.");
+    } catch (err) {
+      // 상세 에러는 gemini.ts에서 이미 console.error로 기록됨
+      // 여기서는 fallback 전환 사실만 기록
+      console.log("[CareFlow] AI 메시지 생성 실패, 템플릿으로 전환합니다.");
     }
   }
 

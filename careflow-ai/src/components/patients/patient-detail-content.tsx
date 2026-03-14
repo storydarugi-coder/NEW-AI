@@ -144,9 +144,11 @@ function getRuleColor(ruleType: string): string {
   }
 }
 
+// generationType 라벨 — legacy "vertex" 값도 안전하게 "AI 자동 생성"으로 매핑
 const generatedByLabels: Record<string, { label: string; icon: typeof Sparkles; color: string }> = {
   ai: { label: "AI 자동 생성", icon: Sparkles, color: "text-purple-600 bg-purple-50 border-purple-200" },
   gemini: { label: "AI 자동 생성", icon: Sparkles, color: "text-purple-600 bg-purple-50 border-purple-200" },
+  vertex: { label: "AI 자동 생성", icon: Sparkles, color: "text-purple-600 bg-purple-50 border-purple-200" },
   template: { label: "템플릿 생성", icon: FileCode, color: "text-blue-600 bg-blue-50 border-blue-200" },
   fallback: { label: "기본 메시지", icon: Bot, color: "text-gray-600 bg-gray-50 border-gray-200" },
 };
@@ -168,7 +170,7 @@ export function PatientDetailContent({ data }: Props) {
     shortMessage: string;
     standardMessage: string;
     warmMessage: string;
-    generatedBy: string;
+    generationType: string;
   } | null>(null);
   const [drafts, setDrafts] = useState(initialDrafts);
   const [detectionStatuses, setDetectionStatuses] = useState<Record<string, string>>({});
@@ -198,7 +200,7 @@ export function PatientDetailContent({ data }: Props) {
           shortMessage: result.messages.shortMessage,
           standardMessage: result.messages.standardMessage,
           warmMessage: result.messages.warmMessage,
-          generatedBy: result.generatedBy,
+          generationType: result.generationType || result.generatedBy || "fallback",
         });
         if (result.drafts) {
           const newDrafts = result.drafts.map((d: MessageDraft) => ({
@@ -460,7 +462,7 @@ export function PatientDetailContent({ data }: Props) {
                   <CardTitle className="text-sm font-medium text-gray-700">생성된 문자 초안 (3가지 버전)</CardTitle>
                   <div className="flex items-center gap-2">
                     {(() => {
-                      const info = generatedByLabels[generatedMessages.generatedBy] || generatedByLabels.fallback;
+                      const info = generatedByLabels[generatedMessages.generationType] || generatedByLabels.fallback;
                       const Icon = info.icon;
                       return (
                         <Badge variant="outline" className={`text-[10px] ${info.color}`}>
