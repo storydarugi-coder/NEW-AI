@@ -1,7 +1,7 @@
 /**
  * AI 메시지 생성 프로바이더 인터페이스
  *
- * 모든 LLM 프로바이더(Vertex AI, OpenAI, Claude 등)는 이 인터페이스를 구현합니다.
+ * 모든 LLM 프로바이더는 이 인터페이스를 구현합니다.
  * 프로바이더 교체/추가 시 이 인터페이스만 구현하면 됩니다.
  */
 
@@ -21,7 +21,7 @@ export interface GeneratedMessages {
   standardMessage: string; // 기본 버전 (150자 내외)
   warmMessage: string;     // 따뜻한 버전 (200자 내외)
   safetyNotes?: string;    // 안전 관련 참고 사항
-  generatedBy: "vertex" | "template" | "fallback";
+  generatedBy: "gemini" | "template" | "fallback";
 }
 
 export interface AIProvider {
@@ -40,8 +40,8 @@ export interface AIProviderConfig {
 
 export function getDefaultAIConfig(): AIProviderConfig {
   return {
-    provider: "vertex",
-    modelName: process.env.VERTEX_MODEL || "gemini-3.1-pro-preview",
+    provider: "gemini",
+    modelName: process.env.GEMINI_MODEL || "gemini-3.1-pro-preview",
     temperature: 0.7,
     maxOutputTokens: 1024,
     enabled: process.env.ENABLE_LLM_MESSAGE_GENERATION === "true",

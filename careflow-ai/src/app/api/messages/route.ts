@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     });
 
     // generatedBy: 프론트에는 일반화된 값만 전달 (모델명/프로바이더명 비노출)
-    const publicGeneratedBy = messages.generatedBy === "vertex" ? "ai" : messages.generatedBy;
+    const publicGeneratedBy = messages.generatedBy === "gemini" ? "ai" : messages.generatedBy;
 
     return NextResponse.json({
       messages: {

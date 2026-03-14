@@ -11,7 +11,7 @@ import {
   GeneratedMessages,
   getDefaultAIConfig,
 } from "./provider";
-import { VertexAIProvider } from "./vertex";
+import { GeminiProvider } from "./gemini";
 import { TemplateFallbackProvider } from "./template-fallback";
 import { getRecommendedAction, getPurposeFromSubType } from "./prompts";
 import { DetectionResult, MessageTone } from "@/types";
@@ -21,7 +21,7 @@ const templateProvider = new TemplateFallbackProvider();
 function getAIProvider(): AIProvider {
   const config = getDefaultAIConfig();
   if (config.enabled) {
-    return new VertexAIProvider(config);
+    return new GeminiProvider(config);
   }
   return templateProvider;
 }

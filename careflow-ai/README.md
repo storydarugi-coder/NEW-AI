@@ -253,7 +253,7 @@ careflow-ai/
 │   │   │   └── rules/         # 개별 규칙
 │   │   ├── ai/                # AI 메시지 생성
 │   │   │   ├── provider.ts    # AIProvider 인터페이스
-│   │   │   ├── vertex.ts      # Vertex AI 프로바이더
+│   │   │   ├── gemini.ts      # Google AI Studio 프로바이더
 │   │   │   ├── template-fallback.ts
 │   │   │   ├── generate-message.ts
 │   │   │   └── prompts.ts     # 프롬프트 설계
@@ -396,24 +396,16 @@ datasource db {
 
 ## AI 메시지 생성 연동 방법
 
-> 내부적으로 Vertex AI를 사용합니다. 모델명/프로바이더명은 사용자 화면에 노출되지 않습니다.
+> Google AI Studio (Gemini API)를 사용합니다. 모델명/프로바이더명은 사용자 화면에 노출되지 않습니다.
 
-### 1. 환경변수 설정 (.env)
+### 1. API Key 발급
+[Google AI Studio](https://aistudio.google.com/apikey)에서 API Key를 발급받습니다.
+
+### 2. 환경변수 설정 (.env)
 ```env
 ENABLE_LLM_MESSAGE_GENERATION=true
-GOOGLE_CLOUD_PROJECT=your-project-id
-GOOGLE_CLOUD_LOCATION=us-central1
-VERTEX_MODEL=gemini-3.1-pro-preview
-```
-
-### 2. 인증 설정
-```bash
-# 방법 A: gcloud CLI (로컬 개발)
-gcloud auth login
-gcloud auth application-default login
-
-# 방법 B: 서비스 계정 (프로덕션)
-export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+GEMINI_API_KEY=your-api-key
+GEMINI_MODEL=gemini-3.1-pro-preview
 ```
 
 ### 3. LLM 없이 실행
@@ -430,10 +422,8 @@ ENABLE_LLM_MESSAGE_GENERATION=false  # 또는 변수 미설정
 |------|------|--------|------|
 | `DATABASE_URL` | O | `file:./dev.db` | DB 경로 |
 | `ENABLE_LLM_MESSAGE_GENERATION` | X | `false` | LLM 메시지 생성 활성화 |
-| `GOOGLE_CLOUD_PROJECT` | X | - | GCP 프로젝트 ID |
-| `GOOGLE_CLOUD_LOCATION` | X | `us-central1` | AI 서비스 리전 |
-| `VERTEX_MODEL` | X | `gemini-3.1-pro-preview` | AI 모델 (내부용) |
-| `GOOGLE_APPLICATION_CREDENTIALS` | X | - | 서비스 계정 키 경로 |
+| `GEMINI_API_KEY` | X | - | Google AI Studio API Key |
+| `GEMINI_MODEL` | X | `gemini-3.1-pro-preview` | AI 모델 (내부용) |
 | `AUTH_SECRET` | X | (dev fallback) | 세션 쿠키 서명 키 (프로덕션 필수) |
 | `MESSAGE_PROVIDER` | X | `mock` | 메시지 발송 프로바이더 (mock/kakao) |
 | `KAKAO_API_KEY` | X | - | 카카오 알림톡 API 키 |
@@ -456,7 +446,7 @@ ENABLE_LLM_MESSAGE_GENERATION=false  # 또는 변수 미설정
 | 규칙 엔진 | ✅ 실제 작동 (규칙 기반) | 그대로 사용 + ML 확장 |
 | 우선순위 점수 | ✅ 실제 작동 | 그대로 사용 |
 | 문자 생성 (템플릿) | ✅ 실제 작동 | 그대로 사용 (fallback) |
-| 문자 생성 (AI) | 🔧 Vertex AI 구조 준비 | 환경변수 설정만 하면 작동 |
+| 문자 생성 (AI) | 🔧 Google AI Studio 구조 준비 | 환경변수 설정만 하면 작동 |
 | LLM 안전성 | ✅ sanitizeForLLM 적용 | 그대로 사용 |
 | CTA 광고 귀속 | ✅ 반자동 분류 + 검토 워크플로우 | 광고 플랫폼 API 연동 |
 | CTA 정산 | ✅ CPC 기반 정산 계산 | 실제 광고비 데이터 연동 |
