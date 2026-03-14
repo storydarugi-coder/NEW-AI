@@ -3,7 +3,7 @@
 > ⚕️ **본 시스템은 병원 운영 보조 및 리콜 추천 도구이며, 의료적 판단을 대신하지 않습니다.**
 
 환자 재내원 관리, 치료 중단 탐지, 리콜 자동화, AI 개인화 메시지 생성, **CTA 광고 유입 추적 및 정산 관리**,
-**자유입력 방문경로 대량 처리/CSV Import/검토 큐/정규화 이력 추적**을 통해
+**자유입력 방문경로 대량 처리/CSV Import/유입 경로 검토/정규화 이력 추적**을 통해
 병원의 매출과 환자 관리 품질을 높이는 운영 보조 웹앱입니다.
 
 ### 주요 사용자
@@ -108,11 +108,11 @@ npm run dev       # http://localhost:3000
   - 상태: PENDING → RUNNING → SUCCESS / PARTIAL_SUCCESS / FAILED
   - 성공/실패/중복/미분류 건수, 에러 요약, 실행자 기록
   - ImportBatch와 연결 (`importBatchId`) — CSV Import 시 상위 추적 개념
-- **동기화 관리 화면** (`/sync`): 운영 신뢰도 화면
+- **데이터 가져오기 화면** (`/sync`): 운영 신뢰도 화면
   - 마지막 동기화 시각 + 최근 이력 목록
   - 상태별 요약 (성공/부분성공/실패/실행중)
   - 작업별 상세 보기 (에러, 건수, 비고)
-  - 검토 큐/Import 이력 바로가기
+  - 유입 경로 검토/Import 이력 바로가기
   - 미분류/실패 건 재처리 버튼 (ADMIN 전용)
 - **EMR 파이프라인 구조** (`lib/sync/pipeline.ts`): EMR 원본 → 정제/정규화 → 운영 DB
   - 향후 EMR API 직접 연동 시 동일 SyncJob 파이프라인 사용
@@ -122,11 +122,11 @@ npm run dev       # http://localhost:3000
 - **Cookie 기반 세션**: HMAC-SHA256 서명 토큰, httpOnly 쿠키 (7일 유효)
 - **로그인/로그아웃**: `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`
 - **역할(Role)**: ADMIN, DESK, COUNSELOR, VIEWER, MARKETING
-  - ADMIN: 전체 기능 (설정, 분류 사전, Export, Sync 관리, 재처리)
-  - DESK: 환자 처리, 검토 큐, CSV Import, 메시지 검토, 동기화 조회
+  - ADMIN: 전체 기능 (설정, 유입 경로 규칙, Export, 데이터 가져오기, 재처리)
+  - DESK: 환자 처리, 유입 경로 검토, CSV Import, 메시지 검토, 데이터 조회
   - COUNSELOR: 환자 관리, CTA 검토, 워크플로우
   - VIEWER: 조회 전용 (대시보드, 환자 목록)
-  - MARKETING: CTA/정산 관련 조회, 검토 큐
+  - MARKETING: CTA/정산 관련 조회, 유입 경로 검토
 - **역할별 메뉴 제한**: 사이드바에 권한별로 접근 가능한 메뉴만 표시
 - **사용자 추적**: `changedBy`, `reviewedBy`, `triggeredBy` 등에 실제 로그인 사용자 이름 반영
 - **데모 계정**: admin/admin123, desk01/desk123, counsel01/counsel123, viewer01/view123, mkt01/mkt123
@@ -147,7 +147,7 @@ npm run dev       # http://localhost:3000
 - **Provider 추상화**: MockMessageProvider (95% 성공 시뮬), KakaoAlimtalkProvider (stub)
 - **대시보드 연동**: 메시지 발송 현황 카드 (검토 필요/발송 대기/오늘 발송/실패/차단)
 
-### 11. 운영 리포트 및 성과 대시보드 (NEW)
+### 11. 재내원 성과 대시보드 (NEW)
 
 - **KPI 카드**: CTA 유입/확정/진료개시/정산대상, 메시지 발송/실패/차단, 방문 수/신규 환자, 업무 생성/완료
 - **기간 필터**: 오늘/이번 주/이번 달/최근 30일/직접 지정(custom range)
@@ -223,11 +223,11 @@ careflow-ai/
 │   │       ├── messages/      # AI 문자 생성
 │   │       ├── outbound/      # 아웃바운드 메시지 API (생성/승인/발송/재시도/취소/통계)
 │   │       ├── cta/           # CTA 유입 조회 + 검토 + 정산
-│   │       ├── source-review/ # 검토 큐 API (개별/일괄/통계/내보내기)
+│   │       ├── source-review/ # 유입 경로 검토 API (개별/일괄/통계/내보내기)
 │   │       ├── source-import/ # CSV Import API (업로드/이력)
 │   │       ├── auth/          # 인증 API (login/logout/me)
-│   │       ├── sync/          # 동기화 관리 API (목록/상세/재처리)
-│   │       ├── reports/        # 운영 리포트 API (kpi/funnel/messages/sources/staff/sync/export)
+│   │       ├── sync/          # 데이터 가져오기 API (목록/상세/재처리)
+│   │       ├── reports/        # 재내원 성과 API (kpi/funnel/messages/sources/staff/sync/export)
 │   │       └── seed/          # 데모 데이터 생성
 │   ├── components/
 │   │   ├── auth/              # 인증 (AuthGate, AuthProvider, LoginPage)
@@ -437,7 +437,7 @@ ENABLE_LLM_MESSAGE_GENERATION=false  # 또는 변수 미설정
 |------|-----------|-------------|
 | 환자 데이터 | ✅ Mock 87명 seed (중복 방문경로 포함) | EMR ETL 파이프라인 연동 |
 | CSV Import | ✅ 업로드/파싱/검증/정규화/이력 | EMR 직접 연동 시 불필요 |
-| 검토 큐 | ✅ 3뷰 모드 (개별/원문묶음/추천값별) | 그대로 사용 |
+| 유입 경로 검토 | ✅ 3뷰 모드 (개별/원문묶음/추천값별) | 그대로 사용 |
 | 일괄 검토 | ✅ 확정/반려/수정 묶음 처리 | 그대로 사용 |
 | 정규화 이력 | ✅ 모든 변경 추적 (누가/언제/무엇을/왜) | 그대로 사용 |
 | CSV Export | ✅ UTF-8 BOM (Excel 호환) | 그대로 사용 |
@@ -460,10 +460,10 @@ ENABLE_LLM_MESSAGE_GENERATION=false  # 또는 변수 미설정
 | 발송 안전 체크 | ✅ 수신거부/중복/전화번호/승인 4단계 | 그대로 사용 |
 | 메시지 운영 화면 | ✅ 필터/통계/인라인 액션 | 그대로 사용 |
 | 카카오 알림톡 | 🔧 Provider stub 준비됨 | API 키 + 템플릿 등록 |
-| 운영 리포트 | ✅ KPI/퍼널/메시지/방문경로/담당자/동기화 6개 리포트 | 그대로 사용 |
+| 재내원 성과 | ✅ KPI/퍼널/메시지/방문경로/담당자/동기화 6개 리포트 | 그대로 사용 |
 | CSV 리포트 내보내기 | ✅ 4종 CSV Export (정산/메시지/미분류/요약) | 그대로 사용 |
 | 기간 필터 | ✅ 오늘/주/월/30일/직접지정 5종 | 그대로 사용 |
-| 동기화 관리 | ✅ SyncJob 추적 + 관리 화면 | 그대로 사용 |
+| 데이터 가져오기 | ✅ SyncJob 추적 + 관리 화면 | 그대로 사용 |
 | 인증/세션 | ✅ Cookie 기반 HMAC 세션 (6 demo 계정) | 프로덕션: NextAuth/OAuth 확장 |
 | 역할 기반 권한 | ✅ 5역할 + 메뉴/기능 분기 | 그대로 사용 + 세분화 |
 | 사용자 추적 | ✅ changedBy/triggeredBy에 실제 사용자 반영 | 그대로 사용 |

@@ -4,7 +4,7 @@ import { parsePeriod } from "@/lib/reports/period";
 
 /**
  * GET /api/reports/staff
- * 담당자별 운영 리포트: 처리 건수, 완료 수, 보류 수
+ * 담당자별 재내원 성과: 처리 건수, 완료 수, 보류 수
  */
 export async function GET(req: NextRequest) {
   try {

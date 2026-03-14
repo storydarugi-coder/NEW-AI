@@ -1,5 +1,5 @@
 /**
- * 방문경로 분류 사전 (Source Rule Dictionary)
+ * 유입 경로 규칙 (Source Rule Dictionary)
  *
  * DB에 저장된 SourceRule 테이블을 기반으로 매칭하되,
  * DB가 비어있거나 접근 불가능한 경우 이 기본 규칙을 fallback으로 사용.

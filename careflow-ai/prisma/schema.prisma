@@ -348,7 +348,7 @@ model DashboardSummary {
 }
 
 // ──────────────────────────────────────────────
-// 방문경로 분류 사전 (Source Rule Dictionary)
+// 유입 경로 규칙 (Source Rule Dictionary)
 // ──────────────────────────────────────────────
 
 model SourceRule {

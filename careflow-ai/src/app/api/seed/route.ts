@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
       return seedError(currentStep, err);
     }
 
-    // 방문경로 분류 사전 (16개)
+    // 유입 경로 규칙 (16개)
     currentStep = "SourceRule 생성";
     const sourceRuleMap = new Map<string, string>();
     const sourceRuleRows = DEFAULT_SOURCE_RULES.map((r) => {

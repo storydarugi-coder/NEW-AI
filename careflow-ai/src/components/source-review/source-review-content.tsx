@@ -327,7 +327,7 @@ export function SourceReviewContent() {
   );
 }
 
-/* ── 검토 큐 (기존 뷰 강화) ── */
+/* ── 유입 경로 검토 (기존 뷰 강화) ── */
 function QueueView({ items, displayName, expandedId, setExpandedId, onReview, statusFilter }: {
   items: ReviewItem[];
   displayName: (n: string) => string;

@@ -597,7 +597,7 @@ export function DashboardContent({
         </CardContent>
       </Card>
 
-      {/* 운영 리포트 바로가기 */}
+      {/* 재내원 성과 바로가기 */}
       <Card>
         <CardContent className="p-4">
           <Link
@@ -609,7 +609,7 @@ export function DashboardContent({
                 <BarChart3 size={18} className="text-indigo-600" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">운영 리포트</p>
+                <p className="text-sm font-semibold text-gray-900">재내원 성과</p>
                 <p className="text-xs text-gray-500">KPI, 퍼널, 메시지, 방문경로, 담당자별 성과를 확인하세요</p>
               </div>
             </div>

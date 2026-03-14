@@ -4,7 +4,7 @@ import { parsePeriod } from "@/lib/reports/period";
 
 /**
  * GET /api/reports/messages
- * 메시지 운영 리포트: 유형별, 승인 대기, 스케줄, 실패/재시도, 차단 사유 분포
+ * 메시지 재내원 성과: 유형별, 승인 대기, 스케줄, 실패/재시도, 차단 사유 분포
  */
 export async function GET(req: NextRequest) {
   try {

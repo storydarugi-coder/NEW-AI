@@ -14,6 +14,7 @@ import {
 import { GeminiProvider } from "./gemini";
 import { TemplateFallbackProvider } from "./template-fallback";
 import { getRecommendedAction, getPurposeFromSubType } from "./prompts";
+import { validateAIOutput } from "./validate-output";
 import { DetectionResult, MessageTone } from "@/types";
 
 const templateProvider = new TemplateFallbackProvider();
@@ -58,6 +59,19 @@ export async function generateMessages(
       const isAvailable = await provider.isAvailable();
       if (isAvailable) {
         const result = await provider.generate(input);
+        // AI 출력 후처리 검증
+        const validation = validateAIOutput(result);
+        if (validation.issues.length > 0) {
+          console.log(`[CareFlow] AI 출력 검증: ${validation.issues.join(", ")}`);
+        }
+        if (!validation.valid) {
+          console.log("[CareFlow] AI 출력 검증 실패, 템플릿으로 전환합니다.");
+          throw new Error("AI 출력 검증 실패");
+        }
+        if (validation.corrected) {
+          console.log("[CareFlow] AI 출력 자동 보정 적용");
+          return { ...validation.messages, generatedBy: result.generatedBy };
+        }
         console.log("[CareFlow] AI 메시지 생성 완료");
         return result;
       }

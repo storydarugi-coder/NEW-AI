@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 /**
- * 검토 큐 CSV Export
+ * 유입 경로 검토 CSV Export
  *
  * GET /api/source-review/export?filter=unreviewed|low_confidence|unclassified|all
  */
