@@ -261,7 +261,7 @@ export function SyncContent() {
               <ArrowRight size={12} />
               <span className="px-2 py-0.5 bg-blue-100 rounded">운영 DB</span>
               <ArrowRight size={12} />
-              <span className="px-2 py-0.5 bg-blue-100 rounded">검토 큐</span>
+              <span className="px-2 py-0.5 bg-blue-100 rounded">유입 경로 검토</span>
             </div>
           </div>
         </div>
@@ -432,7 +432,7 @@ export function SyncContent() {
                               className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100"
                             >
                               <ArrowRight size={12} />
-                              검토 큐 이동
+                              유입 경로 검토
                             </a>
                           )}
                           {job.importBatchId && (

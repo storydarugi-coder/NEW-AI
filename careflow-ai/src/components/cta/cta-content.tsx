@@ -192,7 +192,7 @@ export function CtaContent() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-gray-50 text-purple-700"
           >
             <ListChecks size={14} />
-            경로 검토
+            유입 경로 검토
           </Link>
           <Link
             href="/source-rules"
@@ -702,7 +702,7 @@ function SettlementTab({ campaignStats, summary, monthFilter, onCsvExport }: { c
           </button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-          <div><div className="text-xs text-gray-500">CTA 전체 유입</div><div className="text-xl font-bold">{summary.totalLeads}명</div></div>
+          <div><div className="text-xs text-gray-500">CPA 전체 유입</div><div className="text-xl font-bold">{summary.totalLeads}명</div></div>
           <div><div className="text-xs text-gray-500">확정</div><div className="text-xl font-bold text-green-700">{summary.confirmed}명</div></div>
           <div><div className="text-xs text-gray-500">진료 시작</div><div className="text-xl font-bold text-purple-700">{summary.treatmentStarted}명</div></div>
           <div><div className="text-xs text-gray-500">최종 정산 대상</div><div className="text-xl font-bold text-emerald-700">{summary.settlementEligible}명</div></div>

@@ -48,7 +48,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: "회사 운영",
     items: [
       { label: "CPA 광고 관리", href: "/cta", icon: Megaphone, group: "company" },
-      { label: "경로 검토 큐", href: "/source-review", icon: Search, group: "company" },
+      { label: "유입 경로 검토", href: "/source-review", icon: Search, group: "company" },
       { label: "분류 사전", href: "/source-rules", icon: BookOpen, group: "company" },
       { label: "동기화 관리", href: "/sync", icon: RefreshCw, group: "company" },
     ],

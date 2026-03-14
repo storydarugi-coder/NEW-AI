@@ -298,7 +298,7 @@ function OverviewTab({ kpi, funnel, msgReport, srcReport, onExport }: {
       {/* KPI 카드 그리드 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
-          label="CTA 유입"
+          label="CPA 유입"
           value={kpi.cta.total}
           sub={`확정률 ${kpi.cta.confirmRate}%`}
           icon={TrendingUp}
@@ -404,11 +404,11 @@ function OverviewTab({ kpi, funnel, msgReport, srcReport, onExport }: {
                   <span className="font-medium text-red-600">{srcReport.unclassified}건</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">CTA 후보</span>
+                  <span className="text-gray-500">CPA 후보</span>
                   <span className="font-medium">{srcReport.ctaFunnel.candidates}건</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">CTA 확정률</span>
+                  <span className="text-gray-500">CPA 확정률</span>
                   <span className="font-medium text-green-600">{srcReport.ctaFunnel.conversionRate}%</span>
                 </div>
               </div>
@@ -422,7 +422,7 @@ function OverviewTab({ kpi, funnel, msgReport, srcReport, onExport }: {
         <h3 className="text-sm font-semibold text-gray-900 mb-3">CSV 내보내기</h3>
         <div className="flex flex-wrap gap-2">
           <ExportButton label="기간 요약" onClick={() => onExport("period_summary")} />
-          <ExportButton label="CTA 정산 리스트" onClick={() => onExport("cta_settlement")} />
+          <ExportButton label="CPA 정산 리스트" onClick={() => onExport("cta_settlement")} />
           <ExportButton label="메시지 현황" onClick={() => onExport("message_status")} />
           <ExportButton label="미분류 경로" onClick={() => onExport("unclassified")} />
         </div>
@@ -560,13 +560,13 @@ function SourcesTab({ data, onExport }: { data: SourceReportData | null; onExpor
           )}
         </ReportCard>
 
-        {/* CTA 후보 vs 확정 */}
-        <ReportCard title="CTA 후보 → 확정 전환">
+        {/* CPA 후보 vs 확정 */}
+        <ReportCard title="CPA 후보 → 확정 전환">
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
                 <p className="text-2xl font-bold text-indigo-600">{data.ctaFunnel.candidates}</p>
-                <p className="text-xs text-gray-500">CTA 후보</p>
+                <p className="text-xs text-gray-500">CPA 후보</p>
               </div>
               <div className="flex items-center justify-center">
                 <ArrowRight size={20} className="text-gray-300" />
@@ -692,7 +692,7 @@ function StaffTab({ data }: { data: StaffReportData | null }) {
             <div className="space-y-2">
               {data.byActionType.map((a) => {
                 const typeLabels: Record<string, string> = {
-                  CTA_REVIEW: "CTA 검토", RECALL: "리콜", CHURN_REENGAGE: "중단 복귀",
+                  CTA_REVIEW: "CPA 검토", RECALL: "리콜", CHURN_REENGAGE: "중단 복귀",
                   MESSAGE_REVIEW: "메시지 검토", PERIO_RECALL: "치주 리콜",
                   IMPLANT_FOLLOWUP: "임플란트 점검", GENERAL: "일반",
                 };

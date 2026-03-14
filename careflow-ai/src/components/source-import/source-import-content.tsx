@@ -150,7 +150,7 @@ export function SourceImportContent() {
             href="/source-review"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-600 text-white hover:bg-purple-700"
           >
-            검토 큐 이동 <ArrowRight size={14} />
+            유입 경로 검토 <ArrowRight size={14} />
           </Link>
         </div>
       </div>
@@ -315,7 +315,7 @@ export function SourceImportContent() {
                 href="/source-review"
                 className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700"
               >
-                검토 큐에서 확인하기 <ArrowRight size={14} />
+                유입 경로 검토에서 확인하기 <ArrowRight size={14} />
               </Link>
               <button
                 onClick={() => {

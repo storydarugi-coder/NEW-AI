@@ -63,7 +63,7 @@ interface Stats {
 
 const TYPE_LABELS: Record<string, string> = {
   RECALL: "리콜 안내",
-  CTA_FOLLOWUP: "CTA 후속",
+  CTA_FOLLOWUP: "CPA 후속",
   TREATMENT_RESUME: "치료 복귀 유도",
   COUNSELING_FOLLOWUP: "상담 후속",
   SCALING_REMINDER: "스케일링 안내",

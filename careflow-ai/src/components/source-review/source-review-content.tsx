@@ -175,7 +175,7 @@ export function SourceReviewContent() {
             </Link>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <Search className="h-6 w-6 text-purple-600" />
-              방문경로 검토 큐
+              유입 경로 검토
             </h1>
           </div>
           <p className="text-sm text-gray-500 mt-1">
@@ -215,7 +215,7 @@ export function SourceReviewContent() {
           <StatCard label="자동 확정" value={stats.autoConfirmed} color="blue" onClick={() => setStatusFilter("auto_confirmed")} active={statusFilter === "auto_confirmed"} />
           <StatCard label="수동 확정" value={stats.manuallyConfirmed} color="green" onClick={() => setStatusFilter("manually_confirmed")} active={statusFilter === "manually_confirmed"} />
           <StatCard label="저신뢰" value={stats.lowConfidence} color="red" />
-          <StatCard label="CTA 후보" value={stats.ctaCandidates} color="purple" />
+          <StatCard label="CPA 후보" value={stats.ctaCandidates} color="purple" />
           <StatCard label="미분류" value={stats.unknownSource} color="orange" />
         </div>
       )}
@@ -232,7 +232,7 @@ export function SourceReviewContent() {
             )}
           >
             <List size={14} />
-            검토 큐
+            검토 목록
           </button>
           <button
             onClick={() => setViewMode("grouped")}
@@ -446,7 +446,7 @@ function GroupedView({ groups, displayName, onBatchAction, batchProcessing }: {
                       "px-1 py-0.5 rounded text-[10px] font-medium",
                       recommendedCta ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
                     )}>
-                      {recommendedCta ? "CTA" : "비-CTA"}
+                      {recommendedCta ? "CPA" : "비-CPA"}
                     </span>
                   </div>
                 </div>
@@ -528,7 +528,7 @@ function GroupedView({ groups, displayName, onBatchAction, batchProcessing }: {
                           onChange={(e) => setEditCta(e.target.checked)}
                           className="rounded"
                         />
-                        <span className="text-sm text-gray-700">CTA 후보</span>
+                        <span className="text-sm text-gray-700">CPA 후보</span>
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -638,7 +638,7 @@ function GroupedBySourceView({ groups, onBatchAction, batchProcessing }: {
                   </span>
                   {ctaCount > 0 && (
                     <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">
-                      CTA {ctaCount}건
+                      CPA {ctaCount}건
                     </span>
                   )}
                   {unreviewedCount > 0 && (
@@ -808,7 +808,7 @@ function ReviewCard({ item, displayName, expanded, onToggle, onReview }: {
               "px-1.5 py-0.5 rounded text-[10px] font-medium",
               item.finalCtaFlag ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
             )}>
-              {item.finalCtaFlag ? "CTA" : "비-CTA"}
+              {item.finalCtaFlag ? "CPA" : "비-CPA"}
             </span>
             <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-700">
               {CATEGORY_LABELS[item.finalCategory] || item.finalCategory}
@@ -887,7 +887,7 @@ function ReviewCard({ item, displayName, expanded, onToggle, onReview }: {
                 </div>
                 <div className="flex items-center gap-2">
                   <input type="checkbox" checked={editCta} onChange={(e) => setEditCta(e.target.checked)} className="rounded" />
-                  <span className="text-sm text-gray-700">CTA 후보</span>
+                  <span className="text-sm text-gray-700">CPA 후보</span>
                 </div>
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">메모</label>

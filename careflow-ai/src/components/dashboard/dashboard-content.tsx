@@ -359,7 +359,7 @@ export function DashboardContent({
             </Card>
           )}
 
-          {/* 방문경로 검토 현황 */}
+          {/* 유입 경로 검토 현황 */}
           {sourceReviewStats && sourceReviewStats.totalWithSource > 0 && (
             <Card className="border-0 shadow-sm border-l-4 border-l-purple-400">
               <CardContent className="p-4">
@@ -369,7 +369,7 @@ export function DashboardContent({
                       <Search size={18} className="text-purple-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">방문경로 분류 현황</p>
+                      <p className="text-sm font-medium text-gray-900">유입 경로 검토 현황</p>
                       <p className="text-xs text-gray-500">
                         검토 필요 <span className="font-medium text-amber-600">{sourceReviewStats.unreviewedCount}건</span>
                         {sourceReviewStats.unclassifiedCount > 0 && (

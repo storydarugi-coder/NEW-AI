@@ -121,7 +121,7 @@ export function SourceRulesContent() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-gray-50"
           >
             <Search size={14} />
-            검토 큐
+            유입 경로 검토
           </Link>
           <button
             onClick={() => setShowAdd(!showAdd)}
@@ -228,7 +228,7 @@ function RuleCard({
               "px-1.5 py-0.5 rounded text-[10px] font-medium",
               rule.ctaCandidate ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
             )}>
-              {rule.ctaCandidate ? "CTA 후보" : "비-CTA"}
+              {rule.ctaCandidate ? "CPA 후보" : "비-CTA"}
             </span>
             <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-700">
               {CATEGORY_LABELS[rule.sourceCategory] || rule.sourceCategory}
@@ -324,7 +324,7 @@ function AddRuleForm({ onSave, onCancel }: { onSave: () => void; onCancel: () =>
         <FormField label="우선순위 (낮을수록 먼저)" value={String(form.priority)} onChange={(v) => setForm({ ...form, priority: parseInt(v) || 50 })} placeholder="50" />
         <div className="flex items-center gap-2 mt-4">
           <input type="checkbox" checked={form.ctaCandidate} onChange={(e) => setForm({ ...form, ctaCandidate: e.target.checked })} className="rounded" />
-          <span className="text-sm text-gray-700">CTA 후보</span>
+          <span className="text-sm text-gray-700">CPA 후보</span>
         </div>
         <FormField label="설명" value={form.description} onChange={(v) => setForm({ ...form, description: v })} placeholder="규칙 설명..." className="col-span-2" />
       </div>
@@ -383,7 +383,7 @@ function EditRuleForm({ rule, onSave, onCancel }: { rule: SourceRule; onSave: ()
         <FormField label="우선순위" value={String(form.priority)} onChange={(v) => setForm({ ...form, priority: parseInt(v) || 50 })} />
         <div className="flex items-center gap-2 mt-4">
           <input type="checkbox" checked={form.ctaCandidate} onChange={(e) => setForm({ ...form, ctaCandidate: e.target.checked })} className="rounded" />
-          <span className="text-sm text-gray-700">CTA 후보</span>
+          <span className="text-sm text-gray-700">CPA 후보</span>
         </div>
         <FormField label="설명" value={form.description} onChange={(v) => setForm({ ...form, description: v })} className="col-span-2" />
       </div>
