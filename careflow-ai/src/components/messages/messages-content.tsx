@@ -279,7 +279,13 @@ export function MessagesContent() {
                         {item.approvedBy && <span>승인: {item.approvedBy}</span>}
                         {item.sentBy && <span>발송: {item.sentBy}</span>}
                         {item.sentAt && <span>발송일: {new Date(item.sentAt).toLocaleString("ko-KR")}</span>}
-                        {item.failureReason && (
+                        {item.sendStatus === "BLOCKED" && item.doNotContactBlocked && (
+                          <span className="text-red-500">차단: 수신거부</span>
+                        )}
+                        {item.sendStatus === "BLOCKED" && item.duplicateBlocked && item.duplicateReason && (
+                          <span className="text-orange-500">차단: {item.duplicateReason}</span>
+                        )}
+                        {item.failureReason && item.sendStatus !== "BLOCKED" && (
                           <span className="text-red-500">실패: {item.failureReason}</span>
                         )}
                         {item.sendAttemptCount > 1 && (
@@ -325,9 +331,19 @@ export function MessagesContent() {
                           <ShieldAlert size={14} /> 수신 거부 환자 — 발송이 차단됩니다
                         </div>
                       )}
-                      {item.failureReason && (
+                      {item.duplicateBlocked && item.duplicateReason && (
+                        <div className="flex items-center gap-2 p-2 bg-orange-50 rounded-lg text-xs text-orange-700">
+                          <Copy size={14} /> 차단 사유: {item.duplicateReason}
+                        </div>
+                      )}
+                      {item.failureReason && !item.duplicateBlocked && !item.doNotContactBlocked && (
                         <div className="flex items-center gap-2 p-2 bg-red-50 rounded-lg text-xs text-red-700">
                           <XCircle size={14} /> {item.failureReason}
+                        </div>
+                      )}
+                      {item.sendStatus === "BLOCKED" && !item.duplicateBlocked && !item.doNotContactBlocked && !item.failureReason && (
+                        <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg text-xs text-gray-600">
+                          <Ban size={14} /> 발송이 차단되었습니다. 상세 사유를 확인하세요.
                         </div>
                       )}
 

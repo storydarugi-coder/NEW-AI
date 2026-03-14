@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Mail,
   BarChart3,
+  ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -58,6 +59,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: "병원 SaaS",
     items: [
       { label: "대시보드", href: "/", icon: LayoutDashboard, group: "clinic" },
+      { label: "후속관리 업무", href: "/workflow", icon: ClipboardCheck, group: "clinic" },
       { label: "환자 관리", href: "/patients", icon: Users, group: "clinic" },
       { label: "리콜/후속 메시지", href: "/messages", icon: Mail, group: "clinic" },
       { label: "재내원 성과", href: "/reports", icon: BarChart3, group: "clinic" },

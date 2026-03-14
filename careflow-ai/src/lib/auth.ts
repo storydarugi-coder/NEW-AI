@@ -59,6 +59,7 @@ export const ROLE_NAV_ACCESS: Record<string, string[]> = {
   ADMIN: ["*"],
   DESK: [
     "/",
+    "/workflow",
     "/patients",
     "/messages",
     "/reports",
@@ -69,7 +70,7 @@ export const ROLE_NAV_ACCESS: Record<string, string[]> = {
     "/settings",
     "/about",
   ],
-  COUNSELOR: ["/", "/patients", "/messages", "/cta", "/about"],
+  COUNSELOR: ["/", "/workflow", "/patients", "/messages", "/cta", "/about"],
   VIEWER: ["/", "/patients", "/about"],
   MARKETING: ["/", "/cta", "/source-review", "/reports", "/about"],
 };

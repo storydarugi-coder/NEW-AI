@@ -30,6 +30,7 @@ import {
   Mail,
   BarChart3,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import {
   RULE_TYPE_LABELS,
@@ -100,6 +101,25 @@ interface MessageStats {
   sentToday: number;
   failed: number;
   blocked: number;
+}
+
+interface AIMetrics {
+  generation: {
+    totalGenerated: number;
+    byType: { ai: number; template: number; fallback: number };
+    fallbackRate: number;
+  };
+  send: {
+    totalAttempted: number;
+    sent: number;
+    failed: number;
+    blocked: number;
+    successRate: number;
+    blockReasons: Record<string, number>;
+  };
+  byType: {
+    byMessageType: Record<string, { total: number; sent: number; failed: number; blocked: number }>;
+  };
 }
 
 interface SecondaryStats {
@@ -231,6 +251,7 @@ export function DashboardContent({
 }: DashboardContentProps) {
   const [secondary, setSecondary] = useState<SecondaryStats | null>(null);
   const [secondaryLoading, setSecondaryLoading] = useState(true);
+  const [aiMetrics, setAiMetrics] = useState<AIMetrics | null>(null);
 
   // 부가 통계를 클라이언트에서 lazy fetch
   useEffect(() => {
@@ -239,6 +260,11 @@ export function DashboardContent({
       .then((data) => setSecondary(data))
       .catch(() => setSecondary(null))
       .finally(() => setSecondaryLoading(false));
+
+    fetch("/api/reports/ai-metrics?period=30days")
+      .then((res) => res.json())
+      .then((data) => setAiMetrics(data))
+      .catch(() => setAiMetrics(null));
   }, []);
 
   const ctaStats = secondary?.ctaStats;
@@ -260,7 +286,7 @@ export function DashboardContent({
           </div>
           <div className="flex gap-2 shrink-0">
             <Link href="/workflow" className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors">
-              업무 처리
+              후속관리 업무
             </Link>
             <Link href="/patients" className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors">
               환자 목록
@@ -336,7 +362,7 @@ export function DashboardContent({
                       <ClipboardList size={18} className="text-blue-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">업무 처리 현황</p>
+                      <p className="text-sm font-medium text-gray-900">후속관리 업무 현황</p>
                       <p className="text-xs text-gray-500">
                         미처리 {workflowSummary.unprocessed}건 · 진행 중 {workflowSummary.totalActive - workflowSummary.unprocessed}건
                         {workflowSummary.overdueFollowUps > 0 && (
@@ -471,6 +497,54 @@ export function DashboardContent({
                     className={`text-sm flex items-center gap-1 font-medium ${messageStats.failed > 0 ? "text-red-600 hover:text-red-700" : messageStats.reviewNeeded > 0 ? "text-amber-600 hover:text-amber-700" : "text-green-600 hover:text-green-700"}`}
                   >
                     관리 <ChevronRight size={14} />
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* AI 메시지 품질 메트릭 */}
+          {aiMetrics && aiMetrics.generation.totalGenerated > 0 && (
+            <Card className="border-0 shadow-sm border-l-4 border-l-violet-400">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-violet-50">
+                      <Sparkles size={18} className="text-violet-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">AI 메시지 품질 (30일)</p>
+                      <p className="text-xs text-gray-500">
+                        생성 {aiMetrics.generation.totalGenerated}건
+                        <> · AI <span className="font-medium text-violet-600">{aiMetrics.generation.byType.ai}건</span></>
+                        <> · 템플릿 {aiMetrics.generation.byType.template}건</>
+                        {aiMetrics.generation.byType.fallback > 0 && (
+                          <> · <span className="font-medium text-amber-600">fallback {aiMetrics.generation.byType.fallback}건 ({aiMetrics.generation.fallbackRate}%)</span></>
+                        )}
+                        {aiMetrics.send.totalAttempted > 0 && (
+                          <> · 발송 성공률 <span className={`font-medium ${aiMetrics.send.successRate >= 90 ? "text-green-600" : aiMetrics.send.successRate >= 70 ? "text-amber-600" : "text-red-600"}`}>{aiMetrics.send.successRate}%</span></>
+                        )}
+                        {Object.entries(aiMetrics.send.blockReasons).map(([reason, count]) => (
+                          <span key={reason}> · {reason} {count}건</span>
+                        ))}
+                      </p>
+                      {Object.keys(aiMetrics.byType.byMessageType).length > 0 && (
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                          {Object.entries(aiMetrics.byType.byMessageType).map(([type, m]) => (
+                            <span key={type} className="text-[10px] text-gray-400">
+                              {type}: {m.sent}/{m.total}건
+                              {m.blocked > 0 && <span className="text-orange-500"> (차단{m.blocked})</span>}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <Link
+                    href="/reports"
+                    className="text-sm text-violet-600 hover:text-violet-700 flex items-center gap-1 font-medium"
+                  >
+                    상세 <ChevronRight size={14} />
                   </Link>
                 </div>
               </CardContent>
