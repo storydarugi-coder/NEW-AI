@@ -515,7 +515,14 @@ END $$;
 `.trim();
 
 export async function GET() {
-  return new NextResponse(SCHEMA_SQL, {
+  const WARNING = `-- ⚠️ 경고: 이 SQL은 과거 버전 기준으로 하드코딩되어 있습니다.
+-- 최신 스키마(tenantId, productArea, Tenant 테이블 등)가 포함되어 있지 않습니다.
+-- 가능하면 로컬에서 npx prisma db push 를 실행하세요.
+-- 또는 Vercel 재배포 시 자동으로 prisma db push가 실행됩니다.
+-- ================================================================
+
+`;
+  return new NextResponse(WARNING + SCHEMA_SQL, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
     },
