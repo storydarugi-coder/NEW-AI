@@ -278,18 +278,18 @@ export function DashboardContent({
   // 부가 통계를 클라이언트에서 lazy fetch
   useEffect(() => {
     fetch("/api/dashboard/secondary-stats")
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => setSecondary(data))
       .catch(() => setSecondary(null))
       .finally(() => setSecondaryLoading(false));
 
     fetch("/api/reports/ai-metrics?period=30days")
-      .then((res) => res.json())
-      .then((data) => setAiMetrics(data))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setAiMetrics(data?.generation ? data : null))
       .catch(() => setAiMetrics(null));
 
     fetch("/api/reports/outcome?period=month")
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data && typeof data.conversionRate === "number") {
           setOutcomeMetrics({
