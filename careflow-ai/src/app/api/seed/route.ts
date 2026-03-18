@@ -140,15 +140,15 @@ export async function POST(request: NextRequest) {
     currentStep = "Campaign 생성";
     const campaignMap = new Map<string, string>();
     const campaigns = [
-      { key: "naver_implant_mar", name: "2026년 3월 네이버 임플란트", platform: "naver", adType: "cta", startDate: monthsAgo(1), budgetWon: 3000000, costPerClick: 1500, status: "active" },
-      { key: "google_scaling_q1", name: "2026년 Q1 구글 스케일링", platform: "google", adType: "cta", startDate: monthsAgo(3), budgetWon: 1500000, costPerClick: 800, status: "active" },
-      { key: "kakao_general_feb", name: "2026년 2월 카카오 일반치료", platform: "kakao", adType: "cta", startDate: monthsAgo(2), endDate: monthsAgo(1), budgetWon: 2000000, costPerClick: 1200, status: "ended" },
-      { key: "insta_ortho_mar", name: "2026년 3월 인스타 교정", platform: "instagram", adType: "cta", startDate: monthsAgo(1), budgetWon: 1000000, costPerClick: 2000, status: "active" },
+      { key: "naver_implant_mar", name: "2026년 3월 네이버 임플란트", platform: "naver", adType: "cta", startDate: monthsAgo(1), budgetWon: 3000000, costPerClick: 1500, status: "active", tenantId: TENANT_A },
+      { key: "google_scaling_q1", name: "2026년 Q1 구글 스케일링", platform: "google", adType: "cta", startDate: monthsAgo(3), budgetWon: 1500000, costPerClick: 800, status: "active", tenantId: TENANT_A },
+      { key: "kakao_general_feb", name: "2026년 2월 카카오 일반치료", platform: "kakao", adType: "cta", startDate: monthsAgo(2), endDate: monthsAgo(1), budgetWon: 2000000, costPerClick: 1200, status: "ended", tenantId: TENANT_B },
+      { key: "insta_ortho_mar", name: "2026년 3월 인스타 교정", platform: "instagram", adType: "cta", startDate: monthsAgo(1), budgetWon: 1000000, costPerClick: 2000, status: "active", tenantId: TENANT_B },
     ];
     const campaignRows = campaigns.map((c) => {
       const id = randomUUID();
       campaignMap.set(c.key, id);
-      return { id, name: c.name, platform: c.platform, adType: c.adType, startDate: c.startDate, endDate: c.endDate || null, budgetWon: c.budgetWon || null, costPerClick: c.costPerClick || null, status: c.status, updatedAt: now };
+      return { id, tenantId: c.tenantId, name: c.name, platform: c.platform, adType: c.adType, startDate: c.startDate, endDate: c.endDate || null, budgetWon: c.budgetWon || null, costPerClick: c.costPerClick || null, status: c.status, updatedAt: now };
     });
     try {
       await prisma.campaign.createMany({ data: campaignRows });
@@ -288,7 +288,7 @@ export async function POST(request: NextRequest) {
         const isHighConfidence = norm?.matchConfidence === "HIGH";
 
         visitRows.push({
-          id: visitId, patientId, visitDate: v.visitDate, memo: v.memo || null,
+          id: visitId, patientId, tenantId: p.tenantId, visitDate: v.visitDate, memo: v.memo || null,
           sourceRaw: v.sourceRaw || null, channel: v.channel || null, isCta: v.isCta || false, campaignId,
           normalizedSource: norm?.normalizedSource || null, sourceCategory: norm?.sourceCategory || null,
           ctaCandidate: norm?.ctaCandidate ?? null, matchConfidence: norm?.matchConfidence || null,

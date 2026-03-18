@@ -62,6 +62,7 @@ model PatientIdentity {
 model Visit {
   id         String   @id @default(cuid())
   patientId  String
+  tenantId   String?  // 멀티테넌시: Patient.tenantId에서 복제 (직접 스코핑용)
   visitDate  DateTime
   memo       String?  // 운영 메모 (차트 원문 아님)
   // 유입 경로 추적 필드
@@ -87,6 +88,7 @@ model Visit {
   createdAt  DateTime @default(now())
 
   patient         Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  tenant          Tenant?          @relation(fields: [tenantId], references: [id])
   diagnoses       Diagnosis[]
   procedures      Procedure[]
   campaign        Campaign?        @relation(fields: [campaignId], references: [id])
@@ -94,6 +96,7 @@ model Visit {
   matchedRule     SourceRule?      @relation(fields: [matchedRuleId], references: [id])
 
   @@index([patientId])
+  @@index([tenantId])
   @@index([visitDate])
   @@index([channel])
   @@index([isCta])
@@ -201,6 +204,7 @@ model MessageDelivery {
 
 model Campaign {
   id          String    @id @default(cuid())
+  tenantId    String?   // 멀티테넌시: 특정 병원 소유 캠페인 (null = 레거시)
   name        String    // 캠페인명: "2026년 3월 네이버 임플란트"
   platform    String    // naver, google, kakao, instagram, etc.
   adType      String    @default("cta") // cta, display, search
@@ -212,9 +216,11 @@ model Campaign {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  tenant           Tenant?  @relation(fields: [tenantId], references: [id])
   visits           Visit[]
   leadAttributions LeadAttribution[]
 
+  @@index([tenantId])
   @@index([platform])
   @@index([status])
 }
@@ -450,6 +456,8 @@ model Tenant {
 
   users       User[]
   patients    Patient[]
+  visits      Visit[]
+  campaigns   Campaign[]
   staff       Staff[]
   ruleConfigs RuleConfig[]
 

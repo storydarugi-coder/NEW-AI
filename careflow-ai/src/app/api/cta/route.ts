@@ -56,8 +56,10 @@ export async function GET(request: NextRequest) {
       filtered = filtered.filter((a) => !a.settlementEligible);
     }
 
-    // 캠페인별 통계 (tenant 스코핑된 attribution 기반)
+    // 캠페인별 통계 (tenant 스코핑: Campaign.tenantId + attribution)
+    const campaignTenantFilter = scope.tenantId ? { tenantId: scope.tenantId } : {};
     const campaigns = await prisma.campaign.findMany({
+      where: campaignTenantFilter,
       include: {
         leadAttributions: scope.tenantId
           ? { where: { visit: { patient: { tenantId: scope.tenantId } } } }

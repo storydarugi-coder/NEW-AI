@@ -149,25 +149,25 @@ export async function POST(request: NextRequest) {
 
     // 차트번호 → 환자 매핑
     const chartNumbers = rows.map((r) => r.chartNumber).filter(Boolean) as string[];
-    const patientsMap = new Map<string, string>();
+    const patientsMap = new Map<string, { id: string; tenantId: string | null }>();
     if (chartNumbers.length > 0) {
       const patients = await prisma.patient.findMany({
         where: { chartNumber: { in: chartNumbers }, ...tenantPatientFilter },
-        select: { id: true, chartNumber: true },
+        select: { id: true, chartNumber: true, tenantId: true },
       });
       for (const p of patients) {
-        patientsMap.set(p.chartNumber, p.id);
+        patientsMap.set(p.chartNumber, { id: p.id, tenantId: p.tenantId });
       }
     }
 
     // 기존 환자가 없는 경우 같은 테넌트의 첫 번째 환자를 기본값으로 사용
-    let defaultPatientId: string | null = null;
+    let defaultPatient: { id: string; tenantId: string | null } | null = null;
     if (patientsMap.size === 0) {
       const firstPatient = await prisma.patient.findFirst({
         where: tenantPatientFilter,
-        select: { id: true },
+        select: { id: true, tenantId: true },
       });
-      defaultPatientId = firstPatient?.id || null;
+      defaultPatient = firstPatient ? { id: firstPatient.id, tenantId: firstPatient.tenantId } : null;
     }
 
     const userName = session.name;
@@ -211,11 +211,11 @@ export async function POST(request: NextRequest) {
 
     for (const row of rows) {
       try {
-        const patientId = row.chartNumber
-          ? patientsMap.get(row.chartNumber) || defaultPatientId
-          : defaultPatientId;
+        const patientInfo = row.chartNumber
+          ? patientsMap.get(row.chartNumber) || defaultPatient
+          : defaultPatient;
 
-        if (!patientId) {
+        if (!patientInfo) {
           failCount++;
           continue;
         }
@@ -234,7 +234,8 @@ export async function POST(request: NextRequest) {
         await prisma.visit.create({
           data: {
             id: visitId,
-            patientId,
+            patientId: patientInfo.id,
+            tenantId: patientInfo.tenantId,
             visitDate,
             memo: row.memo || `CSV import: ${fileName}`,
             sourceRaw: row.sourceRaw,
