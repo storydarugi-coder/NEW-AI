@@ -66,34 +66,39 @@ async function getDbState(): Promise<DbState> {
  * 3. 세션 있으면 → 사이드바/헤더 + 콘텐츠
  */
 export async function AuthGate({ children }: { children: React.ReactNode }) {
-  // ── 1단계: DB 상태 확인 (캐시됨) ──
-  const dbState = await getDbState();
+  try {
+    // ── 1단계: DB 상태 확인 (캐시됨) ──
+    const dbState = await getDbState();
 
-  if (dbState.status === "no-connection") {
-    return <SetupPage reason="connection" detail={dbState.error} />;
-  }
-  if (dbState.status === "no-tables") {
-    return <SetupPage reason="no-tables" />;
-  }
-  if (dbState.status === "no-data") {
-    return <SetupPage reason="no-data" />;
-  }
+    if (dbState.status === "no-connection") {
+      return <SetupPage reason="connection" detail={dbState.error} />;
+    }
+    if (dbState.status === "no-tables") {
+      return <SetupPage reason="no-tables" />;
+    }
+    if (dbState.status === "no-data") {
+      return <SetupPage reason="no-data" />;
+    }
 
-  // ── 2단계: 인증 확인 (항상 실행 — 세션은 캐시 불가) ──
-  const cookieStore = await cookies();
-  const session = verifySession(cookieStore.get("session")?.value);
+    // ── 2단계: 인증 확인 (항상 실행 — 세션은 캐시 불가) ──
+    const cookieStore = await cookies();
+    const session = verifySession(cookieStore.get("session")?.value);
 
-  if (!session) {
-    return <LoginPage />;
+    if (!session) {
+      return <LoginPage />;
+    }
+
+    return (
+      <AuthProvider user={session}>
+        <Sidebar userRole={session.role} productArea={session.productArea} />
+        <div className="md:ml-64 min-h-screen flex flex-col">
+          <Header userName={session.name} userRole={session.role} />
+          <main className="flex-1 p-4 md:p-6">{children}</main>
+        </div>
+      </AuthProvider>
+    );
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return <SetupPage reason="connection" detail={message} />;
   }
-
-  return (
-    <AuthProvider user={session}>
-      <Sidebar userRole={session.role} productArea={session.productArea} />
-      <div className="md:ml-64 min-h-screen flex flex-col">
-        <Header userName={session.name} userRole={session.role} />
-        <main className="flex-1 p-4 md:p-6">{children}</main>
-      </div>
-    </AuthProvider>
-  );
 }
