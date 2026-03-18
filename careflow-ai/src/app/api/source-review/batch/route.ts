@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { getTenantScope } from "@/lib/tenant";
 
 /**
  * 묶음 검토 API
@@ -33,6 +34,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "action이 필요합니다." }, { status: 400 });
     }
 
+    // tenant 스코핑
+    const scope = getTenantScope(session);
+    const tenantFilter = scope.tenantId ? { patient: { tenantId: scope.tenantId } } : {};
+
     // 대상 Visit 조회
     let targetVisits;
     if (visitIds && visitIds.length > 0) {
@@ -40,7 +45,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "최대 500건까지 일괄 처리 가능합니다." }, { status: 400 });
       }
       targetVisits = await prisma.visit.findMany({
-        where: { id: { in: visitIds } },
+        where: { id: { in: visitIds }, ...tenantFilter },
         select: {
           id: true, sourceRaw: true,
           normalizedSource: true, sourceCategory: true, ctaCandidate: true,
@@ -53,6 +58,7 @@ export async function POST(request: NextRequest) {
         where: {
           sourceRaw,
           sourceReviewStatus: { in: ["unreviewed"] },
+          ...tenantFilter,
         },
         select: {
           id: true, sourceRaw: true,

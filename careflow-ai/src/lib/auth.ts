@@ -89,7 +89,7 @@ export const ROLE_NAV_ACCESS: Record<string, string[]> = {
     "/internal/sync",
     "/about",
   ],
-  COUNSELOR: ["/", "/hospital/dashboard", "/hospital/workflow", "/hospital/patients", "/hospital/messages", "/internal/cpa", "/about"],
+  COUNSELOR: ["/", "/hospital/dashboard", "/hospital/workflow", "/hospital/patients", "/hospital/messages", "/about"],
   VIEWER: ["/", "/hospital/dashboard", "/hospital/patients", "/about"],
   MARKETING: ["/", "/internal/cpa", "/internal/source-review", "/hospital/reports", "/about"],
 };
@@ -169,7 +169,6 @@ export const ROLE_CAPABILITIES: Record<string, string[]> = {
     "review_workflow",
     "send_message",
     "view_patients",
-    "review_cpa",
   ],
   VIEWER: ["view_patients"],
   MARKETING: ["view_patients", "review_cpa", "review_source", "export_data", "view_reports"],

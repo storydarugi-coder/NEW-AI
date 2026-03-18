@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { normalizeSource, dbRuleToDefinition } from "@/lib/attribution/normalizer";
 import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { getTenantScope } from "@/lib/tenant";
+import { maskSourceRaw, maskName } from "@/lib/privacy";
 
 /**
  * 방문경로 검토 API
@@ -30,10 +32,15 @@ export async function GET(request: NextRequest) {
     });
     const rules = dbRules.length > 0 ? dbRules.map(dbRuleToDefinition) : undefined;
 
-    // 방문 기록 조회 (sourceRaw가 있는 것만)
+    // 방문 기록 조회 (sourceRaw가 있는 것만 + tenant 스코핑)
+    const scope = getTenantScope(session);
     const where: Record<string, unknown> = {
       sourceRaw: { not: null },
     };
+    // tenant 스코핑: Visit에 tenantId가 없으므로 patient.tenantId로 필터링
+    if (scope.tenantId) {
+      where.patient = { tenantId: scope.tenantId };
+    }
     if (reviewStatus && reviewStatus !== "all") {
       where.sourceReviewStatus = reviewStatus;
     }
@@ -61,10 +68,10 @@ export async function GET(request: NextRequest) {
       return {
         visitId: v.id,
         patientId: v.patientId,
-        patientName: v.patient.identity?.name || v.patient.chartNumber,
+        patientName: maskName(v.patient.identity?.name || v.patient.chartNumber),
         chartNumber: v.patient.chartNumber,
         visitDate: v.visitDate.toISOString(),
-        sourceRaw: v.sourceRaw,
+        sourceRaw: maskSourceRaw(v.sourceRaw),
         channel: v.channel,
         isCta: v.isCta,
         // 시스템 추천
@@ -149,12 +156,17 @@ export async function POST() {
     });
     const rules = dbRules.length > 0 ? dbRules.map(dbRuleToDefinition) : undefined;
 
-    // 추천이 없는 방문만 대상
+    // 추천이 없는 방문만 대상 (tenant 스코핑)
+    const scope = getTenantScope(session);
+    const postWhere: Record<string, unknown> = {
+      sourceRaw: { not: null },
+      normalizedSource: null,
+    };
+    if (scope.tenantId) {
+      postWhere.patient = { tenantId: scope.tenantId };
+    }
     const visits = await prisma.visit.findMany({
-      where: {
-        sourceRaw: { not: null },
-        normalizedSource: null,
-      },
+      where: postWhere,
     });
 
     let updated = 0;
@@ -229,9 +241,17 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "visitId가 필요합니다." }, { status: 400 });
     }
 
-    const visit = await prisma.visit.findUnique({ where: { id: visitId } });
+    const visit = await prisma.visit.findUnique({
+      where: { id: visitId },
+      include: { patient: { select: { tenantId: true } } },
+    });
     if (!visit) {
       return NextResponse.json({ error: "방문 기록을 찾을 수 없습니다." }, { status: 404 });
+    }
+    // tenant 접근 검증
+    const scope = getTenantScope(session);
+    if (scope.tenantId && visit.patient.tenantId && visit.patient.tenantId !== scope.tenantId) {
+      return NextResponse.json({ error: "접근 권한이 없습니다." }, { status: 403 });
     }
 
     const data: Record<string, unknown> = {

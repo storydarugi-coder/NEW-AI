@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { getTenantScope } from "@/lib/tenant";
+import { maskSourceRaw, maskName } from "@/lib/privacy";
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,7 +16,14 @@ export async function GET(request: NextRequest) {
     const treatmentFilter = searchParams.get("treatment"); // started | not_started | all
     const settlementFilter = searchParams.get("settlement"); // eligible | ineligible | all
 
+    // tenant 스코핑: visit → patient → tenantId 기준 필터링
+    const scope = getTenantScope(session);
+    const tenantFilter = scope.tenantId
+      ? { visit: { patient: { tenantId: scope.tenantId } } }
+      : {};
+
     const attributions = await prisma.leadAttribution.findMany({
+      where: tenantFilter,
       include: {
         visit: {
           include: {
@@ -47,9 +56,13 @@ export async function GET(request: NextRequest) {
       filtered = filtered.filter((a) => !a.settlementEligible);
     }
 
-    // 캠페인별 통계
+    // 캠페인별 통계 (tenant 스코핑된 attribution 기반)
     const campaigns = await prisma.campaign.findMany({
-      include: { leadAttributions: true },
+      include: {
+        leadAttributions: scope.tenantId
+          ? { where: { visit: { patient: { tenantId: scope.tenantId } } } }
+          : true,
+      },
     });
 
     const campaignStats = campaigns.map((c) => {
@@ -105,10 +118,10 @@ export async function GET(request: NextRequest) {
       id: a.id,
       visitId: a.visitId,
       patientId: a.visit.patientId,
-      patientName: a.visit.patient.identity?.name || a.visit.patient.chartNumber,
+      patientName: maskName(a.visit.patient.identity?.name || a.visit.patient.chartNumber),
       chartNumber: a.visit.patient.chartNumber,
       visitDate: a.visit.visitDate.toISOString(),
-      sourceRaw: a.visit.sourceRaw,
+      sourceRaw: maskSourceRaw(a.visit.sourceRaw),
       channel: a.visit.channel,
       campaignId: a.campaignId,
       campaignName: a.campaign.name,

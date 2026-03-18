@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { maskName } from "@/lib/privacy";
+import { maskName, maskSourceRaw } from "@/lib/privacy";
 import { CHANNEL_LABELS, REVIEW_STATUS_LABELS } from "@/types";
 import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { getTenantScope } from "@/lib/tenant";
 
 /**
  * CTA 정산 대상 CSV 내보내기
@@ -17,8 +18,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const month = searchParams.get("month"); // YYYY-MM 또는 "all"
 
+    // tenant 스코핑
+    const scope = getTenantScope(session);
+    const where: Record<string, unknown> = {};
+    if (month && month !== "all") where.settlementMonth = month;
+    if (scope.tenantId) where.visit = { patient: { tenantId: scope.tenantId } };
+
     const attributions = await prisma.leadAttribution.findMany({
-      where: month && month !== "all" ? { settlementMonth: month } : undefined,
+      where: Object.keys(where).length > 0 ? where : undefined,
       include: {
         visit: {
           include: {
@@ -64,7 +71,7 @@ export async function GET(request: NextRequest) {
         patient.chartNumber,
         identity ? maskName(identity.name) : patient.chartNumber,
         a.visit.visitDate.toISOString().split("T")[0],
-        escCsv(a.visit.sourceRaw || ""),
+        escCsv(maskSourceRaw(a.visit.sourceRaw) || ""),
         escCsv(a.visit.normalizedSource || ""),
         escCsv(a.visit.reviewedSource || a.visit.normalizedSource || ""),
         escCsv(a.visit.reviewedCategory || a.visit.sourceCategory || ""),

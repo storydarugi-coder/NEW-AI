@@ -1337,9 +1337,9 @@ async function main() {
     { username: "admin", password: "admin123", name: "관리자 홍길동", role: "ADMIN" },
     { username: "desk01", password: "desk123", name: "데스크 김소연", role: "DESK" },
     { username: "desk02", password: "desk123", name: "데스크 이지은", role: "DESK" },
-    { username: "counsel01", password: "counsel123", name: "상담실장 박미영", role: "COUNSELOR" },
-    { username: "viewer01", password: "view123", name: "원장 최진수", role: "VIEWER" },
-    { username: "mkt01", password: "mkt123", name: "마케팅 정하늘", role: "MARKETING" },
+    { username: "counsel01", password: "counsel123", name: "상담실장 박미영", role: "COUNSELOR", productArea: "hospital" },
+    { username: "viewer01", password: "view123", name: "원장 최진수", role: "VIEWER", productArea: "hospital" },
+    { username: "mkt01", password: "mkt123", name: "마케팅 정하늘", role: "MARKETING", productArea: "internal" },
   ];
   for (const u of demoUsers) {
     await prisma.user.upsert({

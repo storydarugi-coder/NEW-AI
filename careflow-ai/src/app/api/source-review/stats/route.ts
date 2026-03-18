@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { getTenantScope } from "@/lib/tenant";
 
 /**
  * 방문경로 검토 통계 (대시보드 위젯용)
@@ -14,6 +15,10 @@ export async function GET() {
     if (error) return error;
     const areaError = requireProductArea(session, "internal");
     if (areaError) return areaError;
+    // tenant 스코핑
+    const scope = getTenantScope(session);
+    const tenantFilter = scope.tenantId ? { patient: { tenantId: scope.tenantId } } : {};
+
     const [
       totalWithSource,
       unreviewedCount,
@@ -21,10 +26,10 @@ export async function GET() {
       unclassifiedCount,
       recentImport,
     ] = await Promise.all([
-      prisma.visit.count({ where: { sourceRaw: { not: null } } }),
-      prisma.visit.count({ where: { sourceRaw: { not: null }, sourceReviewStatus: "unreviewed" } }),
-      prisma.visit.count({ where: { sourceRaw: { not: null }, matchConfidence: "LOW" } }),
-      prisma.visit.count({ where: { normalizedSource: "Unknown" } }),
+      prisma.visit.count({ where: { sourceRaw: { not: null }, ...tenantFilter } }),
+      prisma.visit.count({ where: { sourceRaw: { not: null }, sourceReviewStatus: "unreviewed", ...tenantFilter } }),
+      prisma.visit.count({ where: { sourceRaw: { not: null }, matchConfidence: "LOW", ...tenantFilter } }),
+      prisma.visit.count({ where: { normalizedSource: "Unknown", ...tenantFilter } }),
       prisma.importBatch.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true, fileName: true, successCount: true } }),
     ]);
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { evaluateSettlementEligibility } from "@/lib/cta/classify";
 import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { getTenantScope } from "@/lib/tenant";
 
 /**
  * CTA 유입 귀속 정보 업데이트
@@ -31,12 +32,22 @@ export async function PATCH(request: NextRequest) {
 
     const current = await prisma.leadAttribution.findUnique({
       where: { id: attributionId },
+      include: { visit: { include: { patient: { select: { tenantId: true } } } } },
     });
 
     if (!current) {
       return NextResponse.json(
         { error: "해당 귀속 정보를 찾을 수 없습니다." },
         { status: 404 }
+      );
+    }
+
+    // tenant 접근 검증
+    const scope = getTenantScope(session);
+    if (scope.tenantId && current.visit.patient.tenantId && current.visit.patient.tenantId !== scope.tenantId) {
+      return NextResponse.json(
+        { error: "접근 권한이 없습니다." },
+        { status: 403 }
       );
     }
 

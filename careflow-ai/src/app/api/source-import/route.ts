@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { startSyncJob, completeSyncJob, failSyncJob } from "@/lib/sync/pipeline";
 import { onDashboardDataChanged } from "@/lib/cache/dashboard-engine";
 import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { getTenantScope } from "@/lib/tenant";
 
 /**
  * CSV Import API
@@ -142,12 +143,16 @@ export async function POST(request: NextRequest) {
     });
     const rules = dbRules.length > 0 ? dbRules.map(dbRuleToDefinition) : undefined;
 
+    // tenant 스코핑: 현재 세션의 테넌트에 속한 환자만 매핑
+    const scope = getTenantScope(session);
+    const tenantPatientFilter = scope.tenantId ? { tenantId: scope.tenantId } : {};
+
     // 차트번호 → 환자 매핑
     const chartNumbers = rows.map((r) => r.chartNumber).filter(Boolean) as string[];
     const patientsMap = new Map<string, string>();
     if (chartNumbers.length > 0) {
       const patients = await prisma.patient.findMany({
-        where: { chartNumber: { in: chartNumbers } },
+        where: { chartNumber: { in: chartNumbers }, ...tenantPatientFilter },
         select: { id: true, chartNumber: true },
       });
       for (const p of patients) {
@@ -155,10 +160,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 기존 환자가 없는 경우 첫 번째 환자를 기본값으로 사용
+    // 기존 환자가 없는 경우 같은 테넌트의 첫 번째 환자를 기본값으로 사용
     let defaultPatientId: string | null = null;
     if (patientsMap.size === 0) {
-      const firstPatient = await prisma.patient.findFirst({ select: { id: true } });
+      const firstPatient = await prisma.patient.findFirst({
+        where: tenantPatientFilter,
+        select: { id: true },
+      });
       defaultPatientId = firstPatient?.id || null;
     }
 

@@ -37,6 +37,28 @@ export function maskChartNumber(chartNumber: string): string {
 }
 
 /**
+ * sourceRaw 내 PII 마스킹
+ * "친구 김민수 소개" 등 자유 텍스트에서 한국어 이름 패턴과 전화번호를 마스킹
+ * 일반 단어(광고, 검색 등)는 마스킹하지 않음
+ */
+export function maskSourceRaw(raw: string | null): string | null {
+  if (!raw) return null;
+  let masked = raw;
+  // 한국어 이름 패턴: 공백/시작/구두점 뒤 성씨 + 이름 1~2글자
+  // "김민수" 잡지만 "네이버" 같은 일반 단어는 잡지 않음 (lookbehind 사용)
+  masked = masked.replace(
+    /(?<=^|[\s,.\-/()·])(김|이|박|최|정|강|조|윤|장|임|한|오|서|신|권|황|안|송|류|홍|전|문|배|백|허|남|심|유|노|하|곽|성|차|주|우|구|라|진)([\uAC00-\uD7A3]{1,2})(?=\s|$|[,.\-을를이가의에게님씨])/g,
+    (match, surname, givenName) => surname + "*".repeat(givenName.length)
+  );
+  // 전화번호 패턴
+  masked = masked.replace(
+    /(\d{2,3})[-.\s]?(\d{3,4})[-.\s]?(\d{4})/g,
+    "$1-****-$3"
+  );
+  return masked;
+}
+
+/**
  * 마스킹 해제 권한 확인
  * 현재 데모에서는 항상 true 반환
  * 향후: 세션/역할 기반 권한 체크

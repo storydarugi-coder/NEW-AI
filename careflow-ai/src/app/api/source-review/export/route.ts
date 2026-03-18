@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { getTenantScope } from "@/lib/tenant";
+import { maskSourceRaw } from "@/lib/privacy";
 
 /**
  * 유입 경로 검토 CSV Export
@@ -17,9 +19,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const filter = searchParams.get("filter") || "all";
 
+    // tenant 스코핑
+    const scope = getTenantScope(session);
     const where: Record<string, unknown> = {
       sourceRaw: { not: null },
     };
+    if (scope.tenantId) {
+      where.patient = { tenantId: scope.tenantId };
+    }
 
     if (filter === "unreviewed") {
       where.sourceReviewStatus = "unreviewed";
@@ -62,7 +69,7 @@ export async function GET(request: NextRequest) {
       const row = [
         v.patient.chartNumber,
         v.visitDate.toISOString().split("T")[0],
-        `"${(v.sourceRaw || "").replace(/"/g, '""')}"`,
+        `"${(maskSourceRaw(v.sourceRaw) || "").replace(/"/g, '""')}"`,
         v.normalizedSource || "",
         v.sourceCategory || "",
         v.ctaCandidate ? "Y" : "N",
