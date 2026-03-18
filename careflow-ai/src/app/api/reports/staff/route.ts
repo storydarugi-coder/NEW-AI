@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parsePeriod } from "@/lib/reports/period";
 import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { getTenantScope } from "@/lib/tenant";
 
 /**
  * GET /api/reports/staff
@@ -21,9 +22,10 @@ export async function GET(req: NextRequest) {
 
     const dateFilter = { gte: from, lte: to };
 
-    // 전체 담당자 목록
+    // tenant 스코핑: 해당 테넌트 담당자만 조회
+    const scope = getTenantScope(session);
     const staffList = await prisma.staff.findMany({
-      where: { isActive: true },
+      where: { isActive: true, ...scope },
       select: { id: true, name: true, role: true },
     });
 

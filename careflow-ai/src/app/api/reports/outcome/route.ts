@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { collectOutcomeMetrics } from "@/lib/ai/outcome";
 import { parsePeriod } from "@/lib/reports/period";
-import { requireSession } from "@/lib/api-auth";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
 
 /**
  * GET /api/reports/outcome
  * 메시지 발송 → 재내원 전환 성과 메트릭
  */
-// shared: 병원(재내원 성과)과 내부(운영 분석) 양쪽에서 사용하므로 productArea 제한 없음
+// hospital: 메시지→재내원 전환은 병원 SaaS 핵심 성과 지표
 export async function GET(req: NextRequest) {
   try {
-    const { error } = await requireSession();
+    const { session, error } = await requireSession();
     if (error) return error;
+    const areaError = requireProductArea(session, "hospital");
+    if (areaError) return areaError;
 
     const sp = req.nextUrl.searchParams;
     const { from, to } = parsePeriod(sp.get("period"), sp.get("from"), sp.get("to"));

@@ -1,27 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parsePeriod } from "@/lib/reports/period";
-import { requireSession } from "@/lib/api-auth";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { getTenantScope } from "@/lib/tenant";
 
 /**
  * GET /api/reports/sources
  * 방문경로/채널 리포트: 상위 소스, 카테고리별, CTA 후보 vs 확정, 미분류
  */
-// shared: 병원(재내원 성과)과 내부(운영 분석) 양쪽에서 사용하므로 productArea 제한 없음
+// internal: 유입경로 분석은 내부 운영 도메인
 export async function GET(req: NextRequest) {
   try {
-    const { error } = await requireSession();
+    const { session, error } = await requireSession();
     if (error) return error;
+    const areaError = requireProductArea(session, "internal");
+    if (areaError) return areaError;
 
     const sp = req.nextUrl.searchParams;
     const { from, to } = parsePeriod(sp.get("period"), sp.get("from"), sp.get("to"));
 
     const dateFilter = { gte: from, lte: to };
 
+    // tenant 스코핑
+    const scope = getTenantScope(session);
+    const tenantFilter = scope.tenantId ? { patient: { tenantId: scope.tenantId } } : {};
+
     // 정규화 소스별 방문수 (상위 15)
     const bySource = await prisma.visit.groupBy({
       by: ["normalizedSource"],
-      where: { visitDate: dateFilter, sourceRaw: { not: null } },
+      where: { visitDate: dateFilter, sourceRaw: { not: null }, ...tenantFilter },
       _count: { id: true },
       orderBy: { _count: { id: "desc" } },
       take: 15,
@@ -30,33 +37,33 @@ export async function GET(req: NextRequest) {
     // 카테고리별 방문수
     const byCategory = await prisma.visit.groupBy({
       by: ["sourceCategory"],
-      where: { visitDate: dateFilter, sourceRaw: { not: null } },
+      where: { visitDate: dateFilter, sourceRaw: { not: null }, ...tenantFilter },
       _count: { id: true },
       orderBy: { _count: { id: "desc" } },
     });
 
     // CTA 후보 vs 확정
     const [ctaCandidateCount, ctaConfirmedCount] = await Promise.all([
-      prisma.visit.count({ where: { ctaCandidate: true, visitDate: dateFilter } }),
-      prisma.visit.count({ where: { sourceReviewStatus: { in: ["auto_confirmed", "manually_confirmed"] }, ctaCandidate: true, visitDate: dateFilter } }),
+      prisma.visit.count({ where: { ctaCandidate: true, visitDate: dateFilter, ...tenantFilter } }),
+      prisma.visit.count({ where: { sourceReviewStatus: { in: ["auto_confirmed", "manually_confirmed"] }, ctaCandidate: true, visitDate: dateFilter, ...tenantFilter } }),
     ]);
 
     // 미분류
     const unclassifiedCount = await prisma.visit.count({
-      where: { normalizedSource: "Unknown", visitDate: dateFilter },
+      where: { normalizedSource: "Unknown", visitDate: dateFilter, ...tenantFilter },
     });
 
     // 검토 상태별
     const byReviewStatus = await prisma.visit.groupBy({
       by: ["sourceReviewStatus"],
-      where: { visitDate: dateFilter, sourceRaw: { not: null } },
+      where: { visitDate: dateFilter, sourceRaw: { not: null }, ...tenantFilter },
       _count: { id: true },
     });
 
     // 신뢰도별
     const byConfidence = await prisma.visit.groupBy({
       by: ["matchConfidence"],
-      where: { visitDate: dateFilter, sourceRaw: { not: null } },
+      where: { visitDate: dateFilter, sourceRaw: { not: null }, ...tenantFilter },
       _count: { id: true },
     });
 

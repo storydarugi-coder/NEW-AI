@@ -3,21 +3,31 @@ import { prisma } from "@/lib/prisma";
 import { parsePeriod } from "@/lib/reports/period";
 import { collectOutcomeMetrics } from "@/lib/ai/outcome";
 import { requireSession } from "@/lib/api-auth";
+import { getTenantScope } from "@/lib/tenant";
+import { maskName, maskSourceRaw } from "@/lib/privacy";
 
 /**
  * GET /api/reports/export?type=cta_settlement|message_status|unclassified|outcome|period_summary
  * CSV 내보내기
  */
-// shared: 병원(재내원 성과)과 내부(운영 분석) 양쪽에서 사용하므로 productArea 제한 없음
+// shared: 양쪽 도메인에서 내보내기 가능 (tenant 스코핑 + PII 마스킹 적용)
 export async function GET(req: NextRequest) {
   try {
-    const { error } = await requireSession();
+    const { session, error } = await requireSession();
     if (error) return error;
 
     const sp = req.nextUrl.searchParams;
     const exportType = sp.get("type") || "period_summary";
     const { from, to } = parsePeriod(sp.get("period"), sp.get("from"), sp.get("to"));
     const dateFilter = { gte: from, lte: to };
+
+    // tenant 스코핑
+    const scope = getTenantScope(session);
+    const leadTenant = scope.tenantId ? { visit: { patient: { tenantId: scope.tenantId } } } : {};
+    const msgTenant = scope.tenantId ? { patient: { tenantId: scope.tenantId } } : {};
+    const visitTenant = scope.tenantId ? { patient: { tenantId: scope.tenantId } } : {};
+    const patientTenant = scope.tenantId ? { tenantId: scope.tenantId } : {};
+    const taskTenant = scope.tenantId ? { patient: { tenantId: scope.tenantId } } : {};
 
     let csvContent = "";
     let fileName = "";
@@ -26,7 +36,7 @@ export async function GET(req: NextRequest) {
       case "cta_settlement": {
         fileName = "cta_settlement_report.csv";
         const attributions = await prisma.leadAttribution.findMany({
-          where: { createdAt: dateFilter },
+          where: { createdAt: dateFilter, ...leadTenant },
           include: {
             visit: { include: { patient: { include: { identity: true } } } },
             campaign: true,
@@ -34,10 +44,10 @@ export async function GET(req: NextRequest) {
           orderBy: { createdAt: "desc" },
         });
 
-        csvContent = "방문일,차트번호,환자명,캠페인,플랫폼,검토상태,진료개시,정산대상,정산월,미인정사유\n";
+        csvContent = "방문일,차트번호,환자명(마스킹),캠페인,플랫폼,검토상태,진료개시,정산대상,정산월,미인정사유\n";
         for (const a of attributions) {
           const p = a.visit.patient;
-          const name = p.identity?.name || p.chartNumber;
+          const name = maskName(p.identity?.name || p.chartNumber);
           csvContent += [
             a.visit.visitDate.toISOString().split("T")[0],
             p.chartNumber,
@@ -57,14 +67,14 @@ export async function GET(req: NextRequest) {
       case "message_status": {
         fileName = "message_status_report.csv";
         const messages = await prisma.outboundMessage.findMany({
-          where: { createdAt: dateFilter },
+          where: { createdAt: dateFilter, ...msgTenant },
           include: { patient: { include: { identity: true } } },
           orderBy: { createdAt: "desc" },
         });
 
-        csvContent = "생성일,차트번호,환자명,메시지유형,채널,승인상태,발송상태,차단여부,차단사유\n";
+        csvContent = "생성일,차트번호,환자명(마스킹),메시지유형,채널,승인상태,발송상태,차단여부,차단사유\n";
         for (const m of messages) {
-          const name = m.patient.identity?.name || m.patient.chartNumber;
+          const name = maskName(m.patient.identity?.name || m.patient.chartNumber);
           let blockReason = "";
           if (m.doNotContactBlocked) blockReason = "수신거부";
           else if (m.duplicateBlocked) blockReason = `중복(${m.duplicateReason || ""})`;
@@ -88,7 +98,7 @@ export async function GET(req: NextRequest) {
         fileName = "unclassified_sources.csv";
         const visits = await prisma.visit.findMany({
           where: {
-            visitDate: dateFilter,
+            visitDate: dateFilter, ...visitTenant,
             OR: [
               { normalizedSource: "Unknown" },
               { matchConfidence: "LOW" },
@@ -105,7 +115,7 @@ export async function GET(req: NextRequest) {
           csvContent += [
             v.visitDate.toISOString().split("T")[0],
             v.patient.chartNumber,
-            `"${(v.sourceRaw || "").replace(/"/g, '""')}"`,
+            `"${(maskSourceRaw(v.sourceRaw) || "").replace(/"/g, '""')}"`,
             v.normalizedSource || "미분류",
             v.sourceCategory || "",
             v.matchConfidence || "",
@@ -148,14 +158,14 @@ export async function GET(req: NextRequest) {
         fileName = "period_summary_report.csv";
 
         const [visitCount, patientCount, ctaCount, ctaConfirmed, msgSent, msgFailed, tasksCompleted, tasksCreated] = await Promise.all([
-          prisma.visit.count({ where: { visitDate: dateFilter } }),
-          prisma.patient.count({ where: { createdAt: dateFilter } }),
-          prisma.leadAttribution.count({ where: { createdAt: dateFilter } }),
-          prisma.leadAttribution.count({ where: { reviewStatus: "confirmed", createdAt: dateFilter } }),
-          prisma.outboundMessage.count({ where: { sendStatus: "SENT", createdAt: dateFilter } }),
-          prisma.outboundMessage.count({ where: { sendStatus: { in: ["FAILED", "RETRY_NEEDED"] }, createdAt: dateFilter } }),
-          prisma.workflowTask.count({ where: { completedAt: dateFilter } }),
-          prisma.workflowTask.count({ where: { createdAt: dateFilter } }),
+          prisma.visit.count({ where: { visitDate: dateFilter, ...visitTenant } }),
+          prisma.patient.count({ where: { createdAt: dateFilter, ...patientTenant } }),
+          prisma.leadAttribution.count({ where: { createdAt: dateFilter, ...leadTenant } }),
+          prisma.leadAttribution.count({ where: { reviewStatus: "confirmed", createdAt: dateFilter, ...leadTenant } }),
+          prisma.outboundMessage.count({ where: { sendStatus: "SENT", createdAt: dateFilter, ...msgTenant } }),
+          prisma.outboundMessage.count({ where: { sendStatus: { in: ["FAILED", "RETRY_NEEDED"] }, createdAt: dateFilter, ...msgTenant } }),
+          prisma.workflowTask.count({ where: { completedAt: dateFilter, ...taskTenant } }),
+          prisma.workflowTask.count({ where: { createdAt: dateFilter, ...taskTenant } }),
         ]);
 
         csvContent = "지표,값\n";

@@ -91,7 +91,7 @@ export const ROLE_NAV_ACCESS: Record<string, string[]> = {
   ],
   COUNSELOR: ["/", "/hospital/dashboard", "/hospital/workflow", "/hospital/patients", "/hospital/messages", "/about"],
   VIEWER: ["/", "/hospital/dashboard", "/hospital/patients", "/about"],
-  MARKETING: ["/", "/internal/cpa", "/internal/source-review", "/hospital/reports", "/about"],
+  MARKETING: ["/", "/internal/cpa", "/internal/source-review", "/about"],
 };
 
 /**
@@ -100,7 +100,7 @@ export const ROLE_NAV_ACCESS: Record<string, string[]> = {
  */
 export const PRODUCT_AREA_PATHS: Record<ProductArea, string[]> = {
   hospital: ["/", "/hospital/dashboard", "/hospital/workflow", "/hospital/patients", "/hospital/messages", "/hospital/reports", "/hospital/settings", "/about"],
-  internal: ["/internal/cpa", "/internal/source-review", "/internal/source-rules", "/internal/sync", "/internal/import", "/hospital/reports", "/about"],
+  internal: ["/internal/cpa", "/internal/source-review", "/internal/source-rules", "/internal/sync", "/internal/import", "/about"],
   all: ["*"],
 };
 // /hospital/reports, /about 은 양쪽 모두에 포함 — 의도적 공유 항목

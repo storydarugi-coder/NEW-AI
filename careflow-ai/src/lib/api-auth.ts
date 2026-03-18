@@ -186,6 +186,8 @@ const API_AREA_MAP: Array<{ prefix: string; area: ProductArea }> = [
   { prefix: "/api/sync", area: "internal" },
   { prefix: "/api/reports/sync", area: "internal" },
   { prefix: "/api/reports/ai-metrics", area: "internal" },
+  { prefix: "/api/reports/sources", area: "internal" },
+  { prefix: "/api/reports/funnel", area: "internal" },
   // hospital 전용
   { prefix: "/api/dashboard", area: "hospital" },
   { prefix: "/api/workflow", area: "hospital" },
@@ -193,6 +195,8 @@ const API_AREA_MAP: Array<{ prefix: string; area: ProductArea }> = [
   { prefix: "/api/outbound", area: "hospital" },
   { prefix: "/api/patients", area: "hospital" },
   { prefix: "/api/reports/staff", area: "hospital" },
+  { prefix: "/api/reports/outcome", area: "hospital" },
+  { prefix: "/api/reports/messages", area: "hospital" },
 ];
 
 export function getApiProductArea(pathname: string): ProductArea | null {

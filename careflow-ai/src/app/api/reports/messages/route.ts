@@ -1,60 +1,67 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parsePeriod } from "@/lib/reports/period";
-import { requireSession } from "@/lib/api-auth";
+import { requireSession, requireProductArea } from "@/lib/api-auth";
+import { getTenantScope } from "@/lib/tenant";
 
 /**
  * GET /api/reports/messages
  * 메시지 재내원 성과: 유형별, 승인 대기, 스케줄, 실패/재시도, 차단 사유 분포
  */
-// shared: 병원(재내원 성과)과 내부(운영 분석) 양쪽에서 사용하므로 productArea 제한 없음
+// hospital: 메시지 발송/승인/차단은 병원 SaaS 도메인
 export async function GET(req: NextRequest) {
   try {
-    const { error } = await requireSession();
+    const { session, error } = await requireSession();
     if (error) return error;
+    const areaError = requireProductArea(session, "hospital");
+    if (areaError) return areaError;
 
     const sp = req.nextUrl.searchParams;
     const { from, to } = parsePeriod(sp.get("period"), sp.get("from"), sp.get("to"));
 
     const dateFilter = { gte: from, lte: to };
 
+    // tenant 스코핑: OutboundMessage → patient.tenantId
+    const scope = getTenantScope(session);
+    const tenantFilter = scope.tenantId ? { patient: { tenantId: scope.tenantId } } : {};
+
     // 유형별 발송 통계
     const byType = await prisma.outboundMessage.groupBy({
       by: ["messageType"],
-      where: { createdAt: dateFilter },
+      where: { createdAt: dateFilter, ...tenantFilter },
       _count: { id: true },
     });
 
     // 승인 상태별 통계
     const byApproval = await prisma.outboundMessage.groupBy({
       by: ["approvalStatus"],
-      where: { createdAt: dateFilter },
+      where: { createdAt: dateFilter, ...tenantFilter },
       _count: { id: true },
     });
 
     // 발송 상태별 통계
     const bySendStatus = await prisma.outboundMessage.groupBy({
       by: ["sendStatus"],
-      where: { createdAt: dateFilter },
+      where: { createdAt: dateFilter, ...tenantFilter },
       _count: { id: true },
     });
 
     // 차단 사유 분포
     const [doNotContactCount, duplicateCount] = await Promise.all([
-      prisma.outboundMessage.count({ where: { doNotContactBlocked: true, createdAt: dateFilter } }),
-      prisma.outboundMessage.count({ where: { duplicateBlocked: true, createdAt: dateFilter } }),
+      prisma.outboundMessage.count({ where: { doNotContactBlocked: true, createdAt: dateFilter, ...tenantFilter } }),
+      prisma.outboundMessage.count({ where: { duplicateBlocked: true, createdAt: dateFilter, ...tenantFilter } }),
     ]);
 
     // 채널별 통계
     const byChannel = await prisma.outboundMessage.groupBy({
       by: ["channel"],
-      where: { createdAt: dateFilter },
+      where: { createdAt: dateFilter, ...tenantFilter },
       _count: { id: true },
     });
 
     // 스케줄 대기
     const scheduledCount = await prisma.outboundMessage.count({
-      where: { sendStatus: "SCHEDULED", scheduledAt: { gte: new Date() } },
+      where: { sendStatus: "SCHEDULED", scheduledAt: { gte: new Date() }, ...tenantFilter },
     });
 
     const typeLabels: Record<string, string> = {

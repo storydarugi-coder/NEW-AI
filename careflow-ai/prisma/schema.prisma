@@ -420,7 +420,7 @@ model User {
   passwordHash   String
   name           String
   role           String      @default("DESK") // ADMIN, DESK, COUNSELOR, VIEWER, MARKETING
-  productArea    ProductArea @default(all)
+  productArea    ProductArea @default(hospital)
   sessionVersion Int         @default(1) // 관리자 변경 시 증가 → 기존 세션 무효화
   isActive       Boolean     @default(true)
   createdAt      DateTime    @default(now())
